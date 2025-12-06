@@ -166,46 +166,20 @@ class _SearchOverlayState extends State<_SearchOverlay> {
     super.dispose();
   }
 
-  void _onQueryChanged(String value) {
-    _debounce?.cancel();
-    if (value.trim().isEmpty) {
-      setState(() {
-        _predictions.clear();
-      });
-      return;
-    }
-    _debounce = Timer(const Duration(milliseconds: 320), () async {
-      setState(() => _isLoading = true);
-      final components = [Component('country', 'in')];
-      final response = await widget.googlePlace.autocomplete.get(
-        value,
-        types: 'geocode',
-        components: components,
-        location: _tamilNaduBiasPoint,
-        radius: _tamilNaduRadiusMeters,
-        strictbounds: true,
-      );
-      setState(() {
-        _predictions
-          ..clear()
-          ..addAll(response?.predictions ?? []);
-        _isLoading = false;
-      });
-    });
-  }
-
   Future<void> _loadRecentPlaces() async {
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getStringList(_recentPlacesStorageKey) ?? [];
-    final places = stored
+    final parsed = stored
         .map(_RecentPlace.fromJsonString)
         .whereType<_RecentPlace>()
         .toList();
     if (!mounted) return;
-    setState(() => _recentPlaces = places);
+    setState(() {
+      _recentPlaces = parsed;
+    });
   }
 
-  Future<void> _persistRecentPlaces() async {
+  Future<void> _saveRecentPlaces() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(
       _recentPlacesStorageKey,
@@ -213,55 +187,112 @@ class _SearchOverlayState extends State<_SearchOverlay> {
     );
   }
 
-  void _upsertRecentPlace(_RecentPlace place) {
+  Future<void> _clearRecentPlaces() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_recentPlacesStorageKey);
+    if (!mounted) return;
     setState(() {
-      final updated = [
-        place,
-        ..._recentPlaces.where((existing) => existing.placeId != place.placeId),
-      ];
-      _recentPlaces =
-          updated.length > 5 ? updated.sublist(0, 5) : List.from(updated);
+      _recentPlaces = [];
     });
-    unawaited(_persistRecentPlaces());
   }
 
-  Future<void> _clearRecentPlaces() async {
-    setState(() => _recentPlaces = []);
-    await _persistRecentPlaces();
+  Future<void> _upsertRecentPlace(_RecentPlace place) async {
+    if (!mounted) return;
+    setState(() {
+      _recentPlaces
+          .removeWhere((existing) => existing.placeId == place.placeId);
+      _recentPlaces.insert(0, place);
+      if (_recentPlaces.length > 5) {
+        _recentPlaces = _recentPlaces.sublist(0, 5);
+      }
+    });
+    await _saveRecentPlaces();
   }
 
   Future<void> _handleRecentTap(_RecentPlace place) async {
     final success = await _selectPlace(place.placeId, place.displayLabel);
     if (success) {
-      _upsertRecentPlace(place);
+      await _upsertRecentPlace(place);
     }
   }
 
-  Future<bool> _selectPlace(String placeId, String fallbackLabel) async {
-    setState(() => _isLoading = true);
-    final details = await widget.googlePlace.details.get(
-      placeId,
-      fields: 'name,formatted_address,geometry/location',
-    );
-    if (!mounted) {
-      return false;
+  void _onQueryChanged(String value) {
+    _debounce?.cancel();
+    final query = value.trim();
+    if (query.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _predictions.clear();
+        _isLoading = false;
+      });
+      return;
     }
-    setState(() => _isLoading = false);
 
-    final location = details?.result?.geometry?.location;
-    if (location == null) return false;
-
-    final label = details?.result?.name ?? fallbackLabel;
-    final latLng = LatLng(location.lat ?? 0, location.lng ?? 0);
-
-    widget.onPlaceSelected(latLng, label);
-    if (!mounted) return true;
-    setState(() {
-      _controller.text = label;
-      _predictions.clear();
+    _debounce = Timer(const Duration(milliseconds: 250), () async {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = true;
+      });
+      try {
+        final response = await widget.googlePlace.autocomplete.get(
+          query,
+          language: 'en',
+          location: _tamilNaduBiasPoint,
+          radius: _tamilNaduRadiusMeters,
+          strictbounds: true,
+          components: [Component('country', 'in')],
+        );
+        if (!mounted) return;
+        setState(() {
+          _predictions
+            ..clear()
+            ..addAll(response?.predictions ?? []);
+        });
+      } catch (e) {
+        debugPrint('Autocomplete error: $e');
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     });
-    FocusScope.of(context).unfocus();
-    return true;
+  }
+
+  Future<bool> _selectPlace(String placeId, String fallbackLabel) async {
+    if (!mounted) return false;
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final details = await widget.googlePlace.details.get(placeId);
+      final location = details?.result?.geometry?.location;
+      if (location == null) {
+        return false;
+      }
+
+      final label = details?.result?.name ?? fallbackLabel;
+      final latLng = LatLng(location.lat ?? 0, location.lng ?? 0);
+
+      widget.onPlaceSelected(latLng, label);
+      if (!mounted) return true;
+      setState(() {
+        _controller.text = label;
+        _predictions.clear();
+      });
+      FocusScope.of(context).unfocus();
+      return true;
+    } catch (e) {
+      debugPrint('Error selecting place: $e');
+      return false;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _handlePredictionTap(AutocompletePrediction prediction) async {
@@ -278,17 +309,210 @@ class _SearchOverlayState extends State<_SearchOverlay> {
         title: mainText ?? fallbackLabel,
         subtitle: prediction.structuredFormatting?.secondaryText ?? '',
       );
-      _upsertRecentPlace(recent);
+      await _upsertRecentPlace(recent);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final bool hasQuery = _controller.text.trim().isNotEmpty;
+    final bool showBrandHeader = !hasQuery;
+
+    final Widget searchCard = Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Icon(Icons.search, color: Colors.grey, size: 22),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: 'Search for places...',
+                  ),
+                  onChanged: _onQueryChanged,
+                ),
+              ),
+              if (_controller.text.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.grey),
+                  onPressed: () {
+                    _controller.clear();
+                    _onQueryChanged('');
+                  },
+                ),
+              IconButton(
+                icon: const Icon(Icons.tune, color: Color(0xFF0FAD97)),
+                onPressed: () {},
+              ),
+            ],
+          ),
+          if (_isLoading) const LinearProgressIndicator(minHeight: 2),
+          if (_shouldShowRecents)
+            Column(
+              children: [
+                const Divider(
+                    height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'RECENT',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF94A3B8),
+                        ),
+                      ),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: () {
+                          _clearRecentPlaces();
+                        },
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(48, 24),
+                        ),
+                        child: const Text(
+                          'CLEAR',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0FAD97),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 0),
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _recentPlaces.length,
+                  separatorBuilder: (_, __) =>
+                      const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                  itemBuilder: (context, index) {
+                    final place = _recentPlaces[index];
+                    return ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.location_on,
+                          color: Color(0xFF0FAD97)),
+                      title: RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                            fontSize: 15,
+                            height: 1.3,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: place.title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            if (place.subtitle.isNotEmpty)
+                              TextSpan(
+                                text: ' ${place.subtitle}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w400,
+                                  color: Color(0xFF475467),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      onTap: () => _handleRecentTap(place),
+                    );
+                  },
+                ),
+              ],
+            )
+          else if (_predictions.isNotEmpty) ...[
+            const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 260),
+              child: ListView.separated(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: _predictions.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                itemBuilder: (context, index) {
+                  final prediction = _predictions[index];
+                  final mainText = prediction.structuredFormatting?.mainText ??
+                      prediction.description ??
+                      '';
+                  final secondaryText =
+                      prediction.structuredFormatting?.secondaryText;
+
+                  return ListTile(
+                    dense: true,
+                    leading:
+                        const Icon(Icons.location_on, color: Color(0xFF0FAD97)),
+                    title: RichText(
+                      text: TextSpan(
+                        style: const TextStyle(
+                          fontSize: 15,
+                          height: 1.3,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: mainText,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          if (secondaryText != null && secondaryText.isNotEmpty)
+                            TextSpan(
+                              text: ' $secondaryText',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w400,
+                                color: Color(0xFF475467),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    onTap: () => _handlePredictionTap(prediction),
+                  );
+                },
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    if (!showBrandHeader) {
+      return searchCard;
+    }
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: const [
           BoxShadow(
             color: Colors.black12,
@@ -320,8 +544,8 @@ class _SearchOverlayState extends State<_SearchOverlay> {
                       ],
                     ),
                     borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(6),
-                      bottomLeft: Radius.circular(6),
+                      topLeft: Radius.circular(12),
+                      bottomLeft: Radius.circular(12),
                     ),
                   ),
                   child: const Text(
@@ -339,13 +563,13 @@ class _SearchOverlayState extends State<_SearchOverlay> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(6),
-                      bottomRight: Radius.circular(6),
+                      topRight: Radius.circular(12),
+                      bottomRight: Radius.circular(12),
                     ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.08),
-                        blurRadius: 6,
+                        blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
                     ],
@@ -363,194 +587,7 @@ class _SearchOverlayState extends State<_SearchOverlay> {
             ),
           ),
           const SizedBox(height: 18),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 10,
-                  offset: Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Icon(Icons.search, color: Colors.grey, size: 22),
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        focusNode: _focusNode,
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          hintText: 'Search for places...',
-                        ),
-                        onChanged: _onQueryChanged,
-                      ),
-                    ),
-                    if (_controller.text.isNotEmpty)
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.grey),
-                        onPressed: () {
-                          _controller.clear();
-                          _onQueryChanged('');
-                        },
-                      ),
-                    IconButton(
-                      icon: const Icon(Icons.tune, color: Color(0xFF0FAD97)),
-                      onPressed: () {},
-                    ),
-                  ],
-                ),
-                if (_isLoading) const LinearProgressIndicator(minHeight: 2),
-                if (_shouldShowRecents)
-                  Column(
-                    children: [
-                      const Divider(
-                          height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 0),
-                        child: Row(
-                          children: [
-                            const Text(
-                              'RECENT',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF94A3B8),
-                              ),
-                            ),
-                            const Spacer(),
-                            TextButton(
-                              onPressed: () {
-                                _clearRecentPlaces();
-                              },
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: const Size(48, 24),
-                              ),
-                              child: const Text(
-                                'CLEAR',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF0FAD97),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 0),
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _recentPlaces.length,
-                        separatorBuilder: (_, __) =>
-                            const Divider(height: 1, color: Color(0xFFE2E8F0)),
-                        itemBuilder: (context, index) {
-                          final place = _recentPlaces[index];
-                          return ListTile(
-                            dense: true,
-                            leading: const Icon(Icons.location_on,
-                                color: Color(0xFF0FAD97)),
-                            title: RichText(
-                              text: TextSpan(
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  height: 1.3,
-                                ),
-                                children: [
-                                  TextSpan(
-                                    text: place.title,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF0F172A),
-                                    ),
-                                  ),
-                                  if (place.subtitle.isNotEmpty)
-                                    TextSpan(
-                                      text: ' ${place.subtitle}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w400,
-                                        color: Color(0xFF475467),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            onTap: () => _handleRecentTap(place),
-                          );
-                        },
-                      ),
-                    ],
-                  )
-                else if (_predictions.isNotEmpty) ...[
-                  const Divider(
-                      height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 260),
-                    child: ListView.separated(
-                      padding: EdgeInsets.zero,
-                      shrinkWrap: true,
-                      itemCount: _predictions.length,
-                      separatorBuilder: (_, __) =>
-                          const Divider(height: 1, color: Color(0xFFE2E8F0)),
-                      itemBuilder: (context, index) {
-                        final prediction = _predictions[index];
-                        final mainText =
-                            prediction.structuredFormatting?.mainText ??
-                                prediction.description ??
-                                '';
-                        final secondaryText =
-                            prediction.structuredFormatting?.secondaryText;
-
-                        return ListTile(
-                          dense: true,
-                          leading: const Icon(Icons.location_on,
-                              color: Color(0xFF0FAD97)),
-                          title: RichText(
-                            text: TextSpan(
-                              style: const TextStyle(
-                                fontSize: 15,
-                                height: 1.3,
-                              ),
-                              children: [
-                                TextSpan(
-                                  text: mainText,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF0F172A),
-                                  ),
-                                ),
-                                if (secondaryText != null &&
-                                    secondaryText.isNotEmpty)
-                                  TextSpan(
-                                    text: ' $secondaryText',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w400,
-                                      color: Color(0xFF475467),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          onTap: () => _handlePredictionTap(prediction),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
+          searchCard,
         ],
       ),
     );
