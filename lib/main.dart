@@ -222,7 +222,7 @@ class _SearchOverlayState extends State<_SearchOverlay> {
               children: [
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
@@ -242,14 +242,14 @@ class _SearchOverlayState extends State<_SearchOverlay> {
                     'R',
                     style: TextStyle(
                       color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 24,
                     ),
                   ),
                 ),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.only(
+                      left: 4, right: 16, top: 8, bottom: 8),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: const BorderRadius.only(
@@ -265,11 +265,11 @@ class _SearchOverlayState extends State<_SearchOverlay> {
                     ],
                   ),
                   child: const Text(
-                    'Real Estate Map',
+                    'eal Estate Map',
                     style: TextStyle(
-                      color: Color(0xFF0F172A),
+                      color: Color(0xFF00796B),
                       fontWeight: FontWeight.w700,
-                      fontSize: 18,
+                      fontSize: 24,
                     ),
                   ),
                 ),
