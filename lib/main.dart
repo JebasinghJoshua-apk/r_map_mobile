@@ -31,8 +31,9 @@ class HomeMapScreen extends StatefulWidget {
 class _HomeMapScreenState extends State<HomeMapScreen> {
   GoogleMapController? _mapController;
 
-  static final CameraPosition _initialCameraPosition = CameraPosition(
-    target: const LatLng(37.4221, -122.0841), // Google HQ coordinates as a default view.
+  static final CameraPosition _initialCameraPosition = const CameraPosition(
+    target:
+        LatLng(37.4221, -122.0841), // Google HQ coordinates as a default view.
     zoom: 14,
   );
 
