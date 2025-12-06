@@ -1,13 +1,20 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_place/google_place.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const String _googlePlacesApiKey = String.fromEnvironment(
   'GOOGLE_PLACES_API_KEY',
   defaultValue: 'AIzaSyCY-mEvaGFsjSCLSNruAE2jNtfEKOYmgTU',
 );
+
+const LatLon _tamilNaduBiasPoint = LatLon(11.1271, 78.6569);
+const int _tamilNaduRadiusMeters =
+    400000; // Covers Tamil Nadu while keeping results regional
+const String _recentPlacesStorageKey = 'rmap_recent_places_v1';
 
 void main() {
   runApp(const RMapApp());
@@ -40,7 +47,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   GoogleMapController? _mapController;
   GooglePlace? _googlePlace;
 
-  static final CameraPosition _initialCameraPosition = const CameraPosition(
+  static const CameraPosition _initialCameraPosition = CameraPosition(
     target:
         LatLng(37.4221, -122.0841), // Google HQ coordinates as a default view.
     zoom: 14,
@@ -138,8 +145,18 @@ class _SearchOverlayState extends State<_SearchOverlay> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   final List<AutocompletePrediction> _predictions = [];
+  List<_RecentPlace> _recentPlaces = [];
   Timer? _debounce;
   bool _isLoading = false;
+
+  bool get _shouldShowRecents =>
+      _controller.text.isEmpty && _recentPlaces.isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentPlaces();
+  }
 
   @override
   void dispose() {
@@ -159,9 +176,14 @@ class _SearchOverlayState extends State<_SearchOverlay> {
     }
     _debounce = Timer(const Duration(milliseconds: 320), () async {
       setState(() => _isLoading = true);
+      final components = [Component('country', 'in')];
       final response = await widget.googlePlace.autocomplete.get(
         value,
-        types: 'establishment',
+        types: 'geocode',
+        components: components,
+        location: _tamilNaduBiasPoint,
+        radius: _tamilNaduRadiusMeters,
+        strictbounds: true,
       );
       setState(() {
         _predictions
@@ -172,28 +194,92 @@ class _SearchOverlayState extends State<_SearchOverlay> {
     });
   }
 
-  Future<void> _handlePredictionTap(AutocompletePrediction prediction) async {
-    final placeId = prediction.placeId;
-    if (placeId == null) return;
+  Future<void> _loadRecentPlaces() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getStringList(_recentPlacesStorageKey) ?? [];
+    final places = stored
+        .map(_RecentPlace.fromJsonString)
+        .whereType<_RecentPlace>()
+        .toList();
+    if (!mounted) return;
+    setState(() => _recentPlaces = places);
+  }
+
+  Future<void> _persistRecentPlaces() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _recentPlacesStorageKey,
+      _recentPlaces.map((place) => place.toJsonString()).toList(),
+    );
+  }
+
+  void _upsertRecentPlace(_RecentPlace place) {
+    setState(() {
+      final updated = [
+        place,
+        ..._recentPlaces.where((existing) => existing.placeId != place.placeId),
+      ];
+      _recentPlaces =
+          updated.length > 5 ? updated.sublist(0, 5) : List.from(updated);
+    });
+    unawaited(_persistRecentPlaces());
+  }
+
+  Future<void> _clearRecentPlaces() async {
+    setState(() => _recentPlaces = []);
+    await _persistRecentPlaces();
+  }
+
+  Future<void> _handleRecentTap(_RecentPlace place) async {
+    final success = await _selectPlace(place.placeId, place.displayLabel);
+    if (success) {
+      _upsertRecentPlace(place);
+    }
+  }
+
+  Future<bool> _selectPlace(String placeId, String fallbackLabel) async {
     setState(() => _isLoading = true);
     final details = await widget.googlePlace.details.get(
       placeId,
       fields: 'name,formatted_address,geometry/location',
     );
+    if (!mounted) {
+      return false;
+    }
     setState(() => _isLoading = false);
 
     final location = details?.result?.geometry?.location;
-    if (location == null) return;
+    if (location == null) return false;
 
-    final label = details?.result?.name ?? prediction.description ?? 'Selected';
+    final label = details?.result?.name ?? fallbackLabel;
     final latLng = LatLng(location.lat ?? 0, location.lng ?? 0);
 
     widget.onPlaceSelected(latLng, label);
+    if (!mounted) return true;
     setState(() {
       _controller.text = label;
       _predictions.clear();
     });
     FocusScope.of(context).unfocus();
+    return true;
+  }
+
+  Future<void> _handlePredictionTap(AutocompletePrediction prediction) async {
+    final placeId = prediction.placeId;
+    if (placeId == null) return;
+
+    final mainText =
+        prediction.structuredFormatting?.mainText ?? prediction.description;
+    final fallbackLabel = prediction.description ?? mainText ?? 'Selected';
+    final success = await _selectPlace(placeId, fallbackLabel);
+    if (success) {
+      final recent = _RecentPlace(
+        placeId: placeId,
+        title: mainText ?? fallbackLabel,
+        subtitle: prediction.structuredFormatting?.secondaryText ?? '',
+      );
+      _upsertRecentPlace(recent);
+    }
   }
 
   @override
@@ -202,7 +288,7 @@ class _SearchOverlayState extends State<_SearchOverlay> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: const [
           BoxShadow(
             color: Colors.black12,
@@ -234,8 +320,8 @@ class _SearchOverlayState extends State<_SearchOverlay> {
                       ],
                     ),
                     borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(12),
-                      bottomLeft: Radius.circular(12),
+                      topLeft: Radius.circular(6),
+                      bottomLeft: Radius.circular(6),
                     ),
                   ),
                   child: const Text(
@@ -253,13 +339,13 @@ class _SearchOverlayState extends State<_SearchOverlay> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(12),
-                      bottomRight: Radius.circular(12),
+                      topRight: Radius.circular(6),
+                      bottomRight: Radius.circular(6),
                     ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.08),
-                        blurRadius: 12,
+                        blurRadius: 6,
                         offset: const Offset(0, 4),
                       ),
                     ],
@@ -280,11 +366,11 @@ class _SearchOverlayState extends State<_SearchOverlay> {
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(10),
               boxShadow: const [
                 BoxShadow(
                   color: Colors.black12,
-                  blurRadius: 16,
+                  blurRadius: 10,
                   offset: Offset(0, 6),
                 ),
               ],
@@ -323,10 +409,92 @@ class _SearchOverlayState extends State<_SearchOverlay> {
                   ],
                 ),
                 if (_isLoading) const LinearProgressIndicator(minHeight: 2),
-                if (_predictions.isNotEmpty)
+                if (_shouldShowRecents)
+                  Column(
+                    children: [
+                      const Divider(
+                          height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 0),
+                        child: Row(
+                          children: [
+                            const Text(
+                              'RECENT',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF94A3B8),
+                              ),
+                            ),
+                            const Spacer(),
+                            TextButton(
+                              onPressed: () {
+                                _clearRecentPlaces();
+                              },
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size(48, 24),
+                              ),
+                              child: const Text(
+                                'CLEAR',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF0FAD97),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: 0),
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _recentPlaces.length,
+                        separatorBuilder: (_, __) =>
+                            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                        itemBuilder: (context, index) {
+                          final place = _recentPlaces[index];
+                          return ListTile(
+                            dense: true,
+                            leading: const Icon(Icons.location_on,
+                                color: Color(0xFF0FAD97)),
+                            title: RichText(
+                              text: TextSpan(
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  height: 1.3,
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: place.title,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                  if (place.subtitle.isNotEmpty)
+                                    TextSpan(
+                                      text: ' ${place.subtitle}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w400,
+                                        color: Color(0xFF475467),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            onTap: () => _handleRecentTap(place),
+                          );
+                        },
+                      ),
+                    ],
+                  )
+                else if (_predictions.isNotEmpty) ...[
                   const Divider(
                       height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
-                if (_predictions.isNotEmpty)
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxHeight: 260),
                     child: ListView.separated(
@@ -337,42 +505,93 @@ class _SearchOverlayState extends State<_SearchOverlay> {
                           const Divider(height: 1, color: Color(0xFFE2E8F0)),
                       itemBuilder: (context, index) {
                         final prediction = _predictions[index];
+                        final mainText =
+                            prediction.structuredFormatting?.mainText ??
+                                prediction.description ??
+                                '';
+                        final secondaryText =
+                            prediction.structuredFormatting?.secondaryText;
+
                         return ListTile(
                           dense: true,
                           leading: const Icon(Icons.location_on,
                               color: Color(0xFF0FAD97)),
-                          title: Text(
-                            prediction.structuredFormatting?.mainText ??
-                                prediction.description ??
-                                '',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF0F172A),
+                          title: RichText(
+                            text: TextSpan(
+                              style: const TextStyle(
+                                fontSize: 15,
+                                height: 1.3,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: mainText,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
+                                if (secondaryText != null &&
+                                    secondaryText.isNotEmpty)
+                                  TextSpan(
+                                    text: ' $secondaryText',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w400,
+                                      color: Color(0xFF475467),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
-                          subtitle:
-                              prediction.structuredFormatting?.secondaryText !=
-                                      null
-                                  ? Text(
-                                      prediction.structuredFormatting
-                                              ?.secondaryText ??
-                                          '',
-                                      style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF475467)),
-                                    )
-                                  : null,
                           onTap: () => _handlePredictionTap(prediction),
                         );
                       },
                     ),
                   ),
+                ],
               ],
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+class _RecentPlace {
+  final String placeId;
+  final String title;
+  final String subtitle;
+
+  const _RecentPlace({
+    required this.placeId,
+    required this.title,
+    required this.subtitle,
+  });
+
+  String get displayLabel => subtitle.isNotEmpty ? '$title $subtitle' : title;
+
+  String toJsonString() => jsonEncode({
+        'placeId': placeId,
+        'title': title,
+        'subtitle': subtitle,
+      });
+
+  static _RecentPlace? fromJsonString(String value) {
+    try {
+      final map = jsonDecode(value) as Map<String, dynamic>;
+      final placeId = map['placeId'] as String?;
+      final title = map['title'] as String?;
+      if (placeId == null || title == null) {
+        return null;
+      }
+      return _RecentPlace(
+        placeId: placeId,
+        title: title,
+        subtitle: map['subtitle'] as String? ?? '',
+      );
+    } catch (_) {
+      return null;
+    }
   }
 }
 
