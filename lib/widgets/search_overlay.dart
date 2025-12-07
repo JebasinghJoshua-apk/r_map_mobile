@@ -1,0 +1,514 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_place/google_place.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../constants/search_constants.dart';
+import '../models/recent_place.dart';
+
+class SearchOverlay extends StatefulWidget {
+  final GooglePlace googlePlace;
+  final void Function(LatLng position, String label) onPlaceSelected;
+
+  const SearchOverlay({
+    super.key,
+    required this.googlePlace,
+    required this.onPlaceSelected,
+  });
+
+  @override
+  State<SearchOverlay> createState() => _SearchOverlayState();
+}
+
+class _SearchOverlayState extends State<SearchOverlay> {
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  final List<AutocompletePrediction> _predictions = [];
+  List<RecentPlace> _recentPlaces = [];
+  Timer? _debounce;
+  bool _isLoading = false;
+  bool _isCompactMode = false;
+
+  bool get _shouldShowRecents =>
+      _controller.text.isEmpty && _recentPlaces.isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentPlaces();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _focusSearchField(forceKeyboard: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _focusSearchField({bool forceKeyboard = false}) {
+    if (!mounted) return;
+    FocusScope.of(context).requestFocus(_focusNode);
+    _controller.selection = TextSelection.fromPosition(
+      TextPosition(offset: _controller.text.length),
+    );
+    if (forceKeyboard) {
+      Future.delayed(const Duration(milliseconds: 30), () {
+        if (mounted) {
+          SystemChannels.textInput.invokeMethod('TextInput.show');
+        }
+      });
+    }
+  }
+
+  void _enterExpandedMode() {
+    final bool wasCompact = _isCompactMode;
+    if (wasCompact) {
+      setState(() {
+        _isCompactMode = false;
+      });
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _focusSearchField(forceKeyboard: true);
+    });
+  }
+
+  Future<void> _loadRecentPlaces() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getStringList(recentPlacesStorageKey) ?? [];
+    final parsed = stored
+        .map(RecentPlace.fromJsonString)
+        .whereType<RecentPlace>()
+        .toList();
+    if (!mounted) return;
+    setState(() {
+      _recentPlaces = parsed;
+    });
+  }
+
+  Future<void> _saveRecentPlaces() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      recentPlacesStorageKey,
+      _recentPlaces.map((place) => place.toJsonString()).toList(),
+    );
+  }
+
+  Future<void> _clearRecentPlaces() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(recentPlacesStorageKey);
+    if (!mounted) return;
+    setState(() {
+      _recentPlaces = [];
+    });
+  }
+
+  Future<void> _upsertRecentPlace(RecentPlace place) async {
+    if (!mounted) return;
+    setState(() {
+      _recentPlaces
+          .removeWhere((existing) => existing.placeId == place.placeId);
+      _recentPlaces.insert(0, place);
+      if (_recentPlaces.length > 5) {
+        _recentPlaces = _recentPlaces.sublist(0, 5);
+      }
+    });
+    await _saveRecentPlaces();
+  }
+
+  Future<void> _handleRecentTap(RecentPlace place) async {
+    final success = await _selectPlace(place.placeId, place.displayLabel);
+    if (success) {
+      await _upsertRecentPlace(place);
+    }
+  }
+
+  void _onQueryChanged(String value) {
+    _debounce?.cancel();
+    final query = value.trim();
+    if (query.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _predictions.clear();
+        _isLoading = false;
+      });
+      _enterExpandedMode();
+      return;
+    }
+
+    _debounce = Timer(const Duration(milliseconds: 250), () async {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = true;
+      });
+      try {
+        final response = await widget.googlePlace.autocomplete.get(
+          query,
+          language: 'en',
+          location: tamilNaduBiasPoint,
+          radius: tamilNaduRadiusMeters,
+          strictbounds: true,
+          components: [Component('country', 'in')],
+        );
+        if (!mounted) return;
+        setState(() {
+          _predictions
+            ..clear()
+            ..addAll(response?.predictions ?? []);
+        });
+      } catch (e) {
+        debugPrint('Autocomplete error: $e');
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    });
+  }
+
+  Future<bool> _selectPlace(String placeId, String fallbackLabel) async {
+    if (!mounted) return false;
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final details = await widget.googlePlace.details.get(placeId);
+      final location = details?.result?.geometry?.location;
+      if (location == null) {
+        return false;
+      }
+
+      final label = details?.result?.name ?? fallbackLabel;
+      final latLng = LatLng(location.lat ?? 0, location.lng ?? 0);
+
+      widget.onPlaceSelected(latLng, label);
+      if (!mounted) return true;
+      setState(() {
+        _controller.text = label;
+        _predictions.clear();
+        _isCompactMode = true;
+      });
+      FocusScope.of(context).unfocus();
+      return true;
+    } catch (e) {
+      debugPrint('Error selecting place: $e');
+      return false;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handlePredictionTap(AutocompletePrediction prediction) async {
+    final placeId = prediction.placeId;
+    if (placeId == null) return;
+
+    final mainText =
+        prediction.structuredFormatting?.mainText ?? prediction.description;
+    final fallbackLabel = prediction.description ?? mainText ?? 'Selected';
+    final success = await _selectPlace(placeId, fallbackLabel);
+    if (success) {
+      final recent = RecentPlace(
+        placeId: placeId,
+        title: mainText ?? fallbackLabel,
+        subtitle: prediction.structuredFormatting?.secondaryText ?? '',
+      );
+      await _upsertRecentPlace(recent);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool showBrandHeader = !_isCompactMode;
+
+    final Widget searchCard = Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Icon(Icons.search, color: Colors.grey, size: 22),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: 'Search for places...',
+                  ),
+                  onChanged: _onQueryChanged,
+                  onTap: _enterExpandedMode,
+                ),
+              ),
+              if (_controller.text.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.grey),
+                  onPressed: () {
+                    setState(() {
+                      _controller.clear();
+                    });
+                    _enterExpandedMode();
+                    _onQueryChanged('');
+                  },
+                ),
+              IconButton(
+                icon: const Icon(Icons.tune, color: Color(0xFF0FAD97)),
+                onPressed: () {},
+              ),
+            ],
+          ),
+          if (_isLoading) const LinearProgressIndicator(minHeight: 2),
+          if (_shouldShowRecents)
+            Column(
+              children: [
+                const Divider(
+                    height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'RECENT',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF94A3B8),
+                        ),
+                      ),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: _clearRecentPlaces,
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(48, 24),
+                        ),
+                        child: const Text(
+                          'CLEAR',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0FAD97),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 0),
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _recentPlaces.length,
+                  separatorBuilder: (_, __) =>
+                      const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                  itemBuilder: (context, index) {
+                    final place = _recentPlaces[index];
+                    return ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.location_on,
+                          color: Color(0xFF0FAD97)),
+                      title: RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                            fontSize: 15,
+                            height: 1.3,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: place.title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            if (place.subtitle.isNotEmpty)
+                              TextSpan(
+                                text: ' ${place.subtitle}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w400,
+                                  color: Color(0xFF475467),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      onTap: () => _handleRecentTap(place),
+                    );
+                  },
+                ),
+              ],
+            )
+          else if (_predictions.isNotEmpty) ...[
+            const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 260),
+              child: ListView.separated(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: _predictions.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                itemBuilder: (context, index) {
+                  final prediction = _predictions[index];
+                  final mainText = prediction.structuredFormatting?.mainText ??
+                      prediction.description ??
+                      '';
+                  final secondaryText =
+                      prediction.structuredFormatting?.secondaryText;
+
+                  return ListTile(
+                    dense: true,
+                    leading:
+                        const Icon(Icons.location_on, color: Color(0xFF0FAD97)),
+                    title: RichText(
+                      text: TextSpan(
+                        style: const TextStyle(
+                          fontSize: 15,
+                          height: 1.3,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: mainText,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          if (secondaryText != null && secondaryText.isNotEmpty)
+                            TextSpan(
+                              text: ' $secondaryText',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w400,
+                                color: Color(0xFF475467),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    onTap: () => _handlePredictionTap(prediction),
+                  );
+                },
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    if (!showBrandHeader) {
+      return searchCard;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 20,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF14B8A6),
+                        Color(0xFF0D9488),
+                        Color(0xFF0F766E),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(8),
+                      bottomLeft: Radius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    'R',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 24,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.only(
+                      left: 4, right: 16, top: 8, bottom: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.only(
+                      topRight: Radius.circular(8),
+                      bottomRight: Radius.circular(8),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Text(
+                    'eal Estate Map',
+                    style: TextStyle(
+                      color: Color(0xFF00796B),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 24,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          searchCard,
+        ],
+      ),
+    );
+  }
+}
