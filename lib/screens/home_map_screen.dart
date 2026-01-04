@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_place/google_place.dart';
 
@@ -17,7 +16,6 @@ class HomeMapScreen extends StatefulWidget {
 class _HomeMapScreenState extends State<HomeMapScreen> {
   GoogleMapController? _mapController;
   GooglePlace? _googlePlace;
-  String? _dayMapStyle;
 
   static const CameraPosition _initialCameraPosition = CameraPosition(
     target: LatLng(37.4221, -122.0841),
@@ -35,7 +33,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   @override
   void initState() {
     super.initState();
-    _loadDayMapStyle();
     if (googlePlacesApiKey != 'YOUR_GOOGLE_PLACES_API_KEY') {
       _googlePlace = GooglePlace(googlePlacesApiKey);
     }
@@ -45,18 +42,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   void dispose() {
     _mapController?.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadDayMapStyle() async {
-    try {
-      final style = await rootBundle.loadString('assets/map_day.json');
-      if (!mounted) return;
-      setState(() {
-        _dayMapStyle = style;
-      });
-    } catch (e) {
-      debugPrint('Failed to load map style: $e');
-    }
   }
 
   Future<void> _moveCameraTo(LatLng target, String label) async {
@@ -91,7 +76,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           GoogleMap(
             initialCameraPosition: _initialCameraPosition,
             onMapCreated: _onMapCreated,
-            style: _dayMapStyle,
             markers: _markers,
             rotateGesturesEnabled: false,
             tiltGesturesEnabled: false,
