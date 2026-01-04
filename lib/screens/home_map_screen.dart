@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_place/google_place.dart';
 
@@ -16,6 +17,10 @@ class HomeMapScreen extends StatefulWidget {
 class _HomeMapScreenState extends State<HomeMapScreen> {
   GoogleMapController? _mapController;
   GooglePlace? _googlePlace;
+  String? _lightMapStyle;
+
+  static const String _lightMapStyleAssetPath =
+      'assets/map_light_nobroker.json';
 
   static const CameraPosition _initialCameraPosition = CameraPosition(
     target: LatLng(37.4221, -122.0841),
@@ -33,8 +38,21 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   @override
   void initState() {
     super.initState();
+    _loadLightMapStyle();
     if (googlePlacesApiKey != 'YOUR_GOOGLE_PLACES_API_KEY') {
       _googlePlace = GooglePlace(googlePlacesApiKey);
+    }
+  }
+
+  Future<void> _loadLightMapStyle() async {
+    try {
+      final style = await rootBundle.loadString(_lightMapStyleAssetPath);
+      if (!mounted) return;
+      setState(() {
+        _lightMapStyle = style;
+      });
+    } catch (e) {
+      debugPrint('Failed to load map style: $e');
     }
   }
 
@@ -76,6 +94,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           GoogleMap(
             initialCameraPosition: _initialCameraPosition,
             onMapCreated: _onMapCreated,
+            style: _lightMapStyle,
             markers: _markers,
             rotateGesturesEnabled: false,
             tiltGesturesEnabled: false,
