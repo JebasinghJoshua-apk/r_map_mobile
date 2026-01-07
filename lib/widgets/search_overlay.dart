@@ -234,11 +234,13 @@ class _SearchOverlayState extends State<SearchOverlay> {
   @override
   Widget build(BuildContext context) {
     final bool showBrandHeader = !_isCompactMode;
+    final bool showCompactRLogoInSearchBar = _isCompactMode;
+    final double searchCardRadius = _isCompactMode ? 6 : 10;
 
     final Widget searchCard = Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(searchCardRadius),
         boxShadow: const [
           BoxShadow(
             color: Colors.black12,
@@ -251,10 +253,20 @@ class _SearchOverlayState extends State<SearchOverlay> {
         children: [
           Row(
             children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Icon(Icons.search, color: Colors.grey, size: 22),
-              ),
+              if (showCompactRLogoInSearchBar)
+                const Padding(
+                  padding: EdgeInsets.only(left: 6, right: 8),
+                  child: _RLogoTile(),
+                )
+              else
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Icon(Icons.search, color: Colors.grey, size: 22),
+                ),
+              if (showCompactRLogoInSearchBar) ...[
+                const _VerticalSeparator(),
+                const SizedBox(width: 10),
+              ],
               Expanded(
                 child: TextField(
                   controller: _controller,
@@ -424,7 +436,13 @@ class _SearchOverlayState extends State<SearchOverlay> {
     );
 
     if (!showBrandHeader) {
-      return searchCard;
+      return Row(
+        children: [
+          Expanded(child: searchCard),
+          const SizedBox(width: 6),
+          const _CompactProfileButton(),
+        ],
+      );
     }
 
     return Container(
@@ -508,6 +526,92 @@ class _SearchOverlayState extends State<SearchOverlay> {
           const SizedBox(height: 18),
           searchCard,
         ],
+      ),
+    );
+  }
+}
+
+class _RLogoTile extends StatelessWidget {
+  const _RLogoTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF14B8A6),
+              Color(0xFF0D9488),
+              Color(0xFF0F766E),
+            ],
+          ),
+          borderRadius: BorderRadius.all(Radius.circular(6)),
+        ),
+        child: const Center(
+          child: Text(
+            'R',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: 18,
+              height: 1,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _VerticalSeparator extends StatelessWidget {
+  const _VerticalSeparator();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 22,
+      child: VerticalDivider(
+        width: 1,
+        thickness: 1,
+        color: Color(0xFFE2E8F0),
+      ),
+    );
+  }
+}
+
+class _CompactProfileButton extends StatelessWidget {
+  const _CompactProfileButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(6),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 10,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
+        child: IconButton(
+          onPressed: () {},
+          icon: const Icon(
+            Icons.person_outline,
+            color: Color(0xFF0FAD97),
+          ),
+          tooltip: 'Profile',
+        ),
       ),
     );
   }
