@@ -282,6 +282,12 @@ class _SearchOverlayState extends State<SearchOverlay> {
               if (_controller.text.isNotEmpty)
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.grey),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 28,
+                    height: 40,
+                  ),
+                  visualDensity: VisualDensity.compact,
                   onPressed: () {
                     setState(() {
                       _controller.clear();
@@ -292,6 +298,12 @@ class _SearchOverlayState extends State<SearchOverlay> {
                 ),
               IconButton(
                 icon: const Icon(Icons.tune, color: Color(0xFF0FAD97)),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 42,
+                  height: 40,
+                ),
+                visualDensity: VisualDensity.compact,
                 onPressed: () {},
               ),
             ],
@@ -439,7 +451,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
       return Row(
         children: [
           Expanded(child: searchCard),
-          const SizedBox(width: 6),
+          const SizedBox(width: 7),
           const _CompactProfileButton(),
         ],
       );
