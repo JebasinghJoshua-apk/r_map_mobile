@@ -61,7 +61,7 @@ flutter:
 
   assets:
     - assets/map_day.json
-    - assets/map_light_nobroker.json
+    - assets/map_light.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

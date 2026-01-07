@@ -20,7 +20,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   String? _lightMapStyle;
 
   static const String _lightMapStyleAssetPath =
-      'assets/map_light_nobroker.json';
+      'assets/map_light.json';
 
   static const CameraPosition _initialCameraPosition = CameraPosition(
     target: LatLng(37.4221, -122.0841),

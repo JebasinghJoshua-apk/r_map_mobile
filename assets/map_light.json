@@ -32,27 +32,67 @@
   {
     "featureType": "poi.park",
     "elementType": "geometry.fill",
-    "stylers": [{ "color": "#d9f0d3" }]
+    "stylers": [{ "color": "#C2F0D4" }]
+  },
+  {
+    "featureType": "landscape.natural",
+    "elementType": "geometry.fill",
+    "stylers": [{ "color": "#D3F7E1" }]
+  },
+  {
+    "featureType": "landscape.natural.landcover",
+    "elementType": "geometry.fill",
+    "stylers": [{ "color": "#D3F7E1" }]
+  },
+  {
+    "featureType": "landscape.natural.terrain",
+    "elementType": "geometry.fill",
+    "stylers": [{ "color": "#C2F0D4" }]
+  },
+  {
+    "featureType": "landscape.natural.terrain",
+    "elementType": "geometry",
+    "stylers": [{ "color": "#C2F0D4" }]
   },
   {
     "featureType": "road",
     "elementType": "geometry",
-    "stylers": [{ "color": "#ffffff" }]
+    "stylers": [{ "color": "#cbd5e1" }]
   },
   {
     "featureType": "road",
     "elementType": "geometry.stroke",
-    "stylers": [{ "color": "#d8d8d8" }]
+    "stylers": [{ "color": "#94a3b8" }]
   },
   {
     "featureType": "road.highway",
     "elementType": "geometry",
-    "stylers": [{ "color": "#e9e9e9" }]
+    "stylers": [{ "color": "#b6c2d1" }]
   },
   {
     "featureType": "road.highway",
     "elementType": "geometry.stroke",
-    "stylers": [{ "color": "#cfcfcf" }]
+    "stylers": [{ "color": "#7b8aa0" }]
+  },
+  {
+    "featureType": "road.arterial",
+    "elementType": "geometry",
+    "stylers": [{ "color": "#c2cddd" }]
+  },
+  {
+    "featureType": "road.arterial",
+    "elementType": "geometry.stroke",
+    "stylers": [{ "color": "#8797ad" }]
+  },
+  {
+    "featureType": "road.local",
+    "elementType": "geometry",
+    "stylers": [{ "color": "#d3dbe7" }]
+  },
+  {
+    "featureType": "road.local",
+    "elementType": "geometry.stroke",
+    "stylers": [{ "color": "#a1afc2" }]
   },
   {
     "featureType": "transit",
@@ -62,7 +102,7 @@
   {
     "featureType": "water",
     "elementType": "geometry.fill",
-    "stylers": [{ "color": "#bfe6ff" }]
+    "stylers": [{ "color": "#90D9ED" }]
   },
   {
     "featureType": "water",
