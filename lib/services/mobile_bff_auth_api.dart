@@ -1,0 +1,164 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:http/http.dart' as http;
+
+import '../constants/api_constants.dart';
+import '../models/auth_session.dart';
+
+class MobileBffAuthApi {
+  MobileBffAuthApi({http.Client? client}) : _client = client ?? http.Client();
+
+  final http.Client _client;
+
+  static const Duration _timeout = Duration(seconds: 12);
+
+  Uri _uri(String path) {
+    final normalizedBase = ApiConstants.mobileBffBaseUrl.endsWith('/')
+        ? ApiConstants.mobileBffBaseUrl
+            .substring(0, ApiConstants.mobileBffBaseUrl.length - 1)
+        : ApiConstants.mobileBffBaseUrl;
+    final normalizedPath = path.startsWith('/') ? path : '/$path';
+    return Uri.parse('$normalizedBase$normalizedPath');
+  }
+
+  Future<AuthSession> login({
+    required String phoneOrEmail,
+    required String password,
+  }) async {
+    http.Response response;
+    try {
+      response = await _client
+          .post(
+            _uri('/mobile/auth/login'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'phoneOrEmail': phoneOrEmail,
+              'password': password,
+            }),
+          )
+          .timeout(_timeout);
+    } on SocketException {
+      throw AuthApiException(_networkHelpMessage());
+    } on HttpException {
+      throw AuthApiException(_networkHelpMessage());
+    } on FormatException {
+      throw const AuthApiException('Unexpected response from server');
+    } on TimeoutException {
+      throw AuthApiException(
+        'Request timed out contacting ${ApiConstants.mobileBffBaseUrl}. '
+        'Confirm you started the app with MOBILE_BFF_BASE_URL=http://192.168.1.38:5150.',
+      );
+    }
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return _parseSession(json);
+    }
+
+    if (response.statusCode == 401) {
+      throw const AuthApiException('Invalid phone number/email or password');
+    }
+
+    throw AuthApiException(
+        _tryMessage(response.body) ?? 'Login failed (${response.statusCode})');
+  }
+
+  Future<AuthSession> register({
+    required String firstName,
+    required String lastName,
+    required String phoneNumber,
+    required String password,
+  }) async {
+    http.Response response;
+    try {
+      response = await _client
+          .post(
+            _uri('/mobile/auth/register'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'firstName': firstName,
+              'lastName': lastName,
+              'phoneNumber': phoneNumber,
+              'password': password,
+            }),
+          )
+          .timeout(_timeout);
+    } on SocketException {
+      throw AuthApiException(_networkHelpMessage());
+    } on HttpException {
+      throw AuthApiException(_networkHelpMessage());
+    } on FormatException {
+      throw const AuthApiException('Unexpected response from server');
+    } on TimeoutException {
+      throw AuthApiException(
+        'Request timed out contacting ${ApiConstants.mobileBffBaseUrl}. '
+        'Confirm you started the app with MOBILE_BFF_BASE_URL=http://192.168.1.38:5150.',
+      );
+    }
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return _parseSession(json);
+    }
+
+    if (response.statusCode == 400) {
+      throw AuthApiException(
+          _tryMessage(response.body) ?? 'Invalid registration details');
+    }
+
+    throw AuthApiException(_tryMessage(response.body) ??
+        'Registration failed (${response.statusCode})');
+  }
+
+  AuthSession _parseSession(Map<String, dynamic> json) {
+    final token = (json['token'] as String?) ?? '';
+    final userJson =
+        (json['user'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+
+    return AuthSession(
+      token: token,
+      user: AuthUser(
+        id: (userJson['id'] as String?) ?? '',
+        firstName: (userJson['firstName'] as String?) ?? '',
+        lastName: (userJson['lastName'] as String?) ?? '',
+        email: userJson['email'] as String?,
+        phoneNumber: (userJson['phoneNumber'] as String?) ?? '',
+        role: (userJson['role'] as String?) ?? '',
+      ),
+    );
+  }
+
+  String? _tryMessage(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map && decoded['detail'] is String) {
+        return decoded['detail'] as String;
+      }
+      if (decoded is String) {
+        return decoded;
+      }
+    } catch (_) {
+      // ignore
+    }
+    return body.isEmpty ? null : body;
+  }
+
+  String _networkHelpMessage() {
+    const base = ApiConstants.mobileBffBaseUrl;
+    return 'Cannot reach Mobile BFF at $base. '
+        'If using a real phone, set MOBILE_BFF_BASE_URL to your PC LAN IP (e.g. http://192.168.x.x:5150). '
+        'If using an Android emulator, use http://10.0.2.2:5150. '
+        'Also ensure MobileBff is running and Windows Firewall allows port 5150.';
+  }
+}
+
+class AuthApiException implements Exception {
+  const AuthApiException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}

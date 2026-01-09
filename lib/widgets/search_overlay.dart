@@ -8,8 +8,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/search_constants.dart';
 import '../models/recent_place.dart';
+import '../state/auth_scope.dart';
+import 'auth_dialog.dart';
 
 enum _ProfileMenuAction {
+  login,
   myProperties,
   logout,
 }
@@ -606,6 +609,9 @@ class _CompactProfileButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final auth = AuthScope.of(context);
+    final session = auth.session;
+
     return SizedBox(
       width: 48,
       height: 48,
@@ -632,36 +638,57 @@ class _CompactProfileButton extends StatelessWidget {
           ),
           onSelected: (value) {
             switch (value) {
+              case _ProfileMenuAction.login:
+                AuthDialog.showLogin(context);
+                break;
               case _ProfileMenuAction.myProperties:
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('My Properties: TODO')),
                 );
                 break;
               case _ProfileMenuAction.logout:
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Logout: TODO')),
-                );
+                auth.logout();
                 break;
             }
           },
           itemBuilder: (context) {
-            return const <PopupMenuEntry<_ProfileMenuAction>>[
+            if (session == null) {
+              return const <PopupMenuEntry<_ProfileMenuAction>>[
+                PopupMenuItem<_ProfileMenuAction>(
+                  value: _ProfileMenuAction.login,
+                  child: Row(
+                    children: [
+                      Icon(Icons.login, size: 18),
+                      SizedBox(width: 10),
+                      Text('Login'),
+                    ],
+                  ),
+                ),
+              ];
+            }
+
+            final fullName =
+                '${session.user.firstName} ${session.user.lastName}'.trim();
+            final displayName =
+                fullName.isEmpty ? session.user.phoneNumber : fullName;
+
+            return <PopupMenuEntry<_ProfileMenuAction>>[
               PopupMenuItem<_ProfileMenuAction>(
                 enabled: false,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Hi, Jebasingh Joshua',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                      'Hi, $displayName',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    SizedBox(height: 2),
-                    Text('9841439865'),
+                    const SizedBox(height: 2),
+                    Text(session.user.phoneNumber),
                   ],
                 ),
               ),
-              PopupMenuDivider(),
-              PopupMenuItem<_ProfileMenuAction>(
+              const PopupMenuDivider(),
+              const PopupMenuItem<_ProfileMenuAction>(
                 value: _ProfileMenuAction.myProperties,
                 child: Row(
                   children: [
@@ -671,7 +698,7 @@ class _CompactProfileButton extends StatelessWidget {
                   ],
                 ),
               ),
-              PopupMenuItem<_ProfileMenuAction>(
+              const PopupMenuItem<_ProfileMenuAction>(
                 value: _ProfileMenuAction.logout,
                 child: Row(
                   children: [
