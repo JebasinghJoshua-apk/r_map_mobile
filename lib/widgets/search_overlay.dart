@@ -548,11 +548,11 @@ class _RLogoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return const SizedBox(
       width: 36,
       height: 36,
       child: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -564,7 +564,7 @@ class _RLogoTile extends StatelessWidget {
           ),
           borderRadius: BorderRadius.all(Radius.circular(6)),
         ),
-        child: const Center(
+        child: Center(
           child: Text(
             'R',
             style: TextStyle(
@@ -585,7 +585,7 @@ class _VerticalSeparator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return const SizedBox(
       height: 22,
       child: VerticalDivider(
         width: 1,

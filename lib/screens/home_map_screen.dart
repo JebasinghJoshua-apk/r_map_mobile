@@ -18,6 +18,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   GoogleMapController? _mapController;
   GooglePlace? _googlePlace;
   String? _lightMapStyle;
+  MapType _mapType = MapType.normal;
+  final ValueNotifier<double> _zoomNotifier =
+      ValueNotifier(_initialCameraPosition.zoom);
+
+  static const double _hybridZoomEnter = 19.0;
+  static const double _hybridZoomExit = 18.7;
 
   static const String _lightMapStyleAssetPath = 'assets/map_light.json';
 
@@ -58,6 +64,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   @override
   void dispose() {
     _mapController?.dispose();
+    _zoomNotifier.dispose();
     super.dispose();
   }
 
@@ -85,6 +92,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     _mapController = controller;
   }
 
+  void _toggleSatelliteMode() {
+    setState(() {
+      _mapType = _mapType == MapType.hybrid ? MapType.normal : MapType.hybrid;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -93,7 +106,23 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           GoogleMap(
             initialCameraPosition: _initialCameraPosition,
             onMapCreated: _onMapCreated,
-            style: _lightMapStyle,
+            onCameraMove: (position) {
+              _zoomNotifier.value = position.zoom;
+
+              final shouldBeHybrid = _mapType == MapType.hybrid
+                  ? position.zoom >= _hybridZoomExit
+                  : position.zoom >= _hybridZoomEnter;
+
+              final nextMapType =
+                  shouldBeHybrid ? MapType.hybrid : MapType.normal;
+              if (nextMapType != _mapType) {
+                setState(() {
+                  _mapType = nextMapType;
+                });
+              }
+            },
+            mapType: _mapType,
+            style: _mapType == MapType.normal ? _lightMapStyle : null,
             markers: _markers,
             rotateGesturesEnabled: false,
             tiltGesturesEnabled: false,
@@ -111,6 +140,51 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                     googlePlace: _googlePlace!,
                     onPlaceSelected: _moveCameraTo,
                   ),
+          ),
+          Positioned(
+            left: 16,
+            bottom: 24,
+            child: FloatingActionButton.small(
+              heroTag: 'satellite-toggle',
+              onPressed: _toggleSatelliteMode,
+              tooltip: _mapType == MapType.hybrid
+                  ? 'Switch to map view'
+                  : 'Switch to satellite view',
+              child: Icon(
+                _mapType == MapType.hybrid
+                    ? Icons.map_outlined
+                    : Icons.satellite_alt_outlined,
+              ),
+            ),
+          ),
+          Positioned(
+            right: 16,
+            bottom: 24,
+            child: ValueListenableBuilder<double>(
+              valueListenable: _zoomNotifier,
+              builder: (context, zoom, _) {
+                return DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    child: Text(
+                      'Zoom: ${zoom.toStringAsFixed(1)}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
