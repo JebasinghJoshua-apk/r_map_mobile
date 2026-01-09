@@ -1,0 +1,14 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Generate splash branding PNG",
+			"type": "shell",
+			"command": "C:/RMap/.venv/Scripts/python.exe",
+			"args": [
+				"tool/generate_splash_branding.py"
+			],
+			"isBackground": false
+		}
+	]
+}
