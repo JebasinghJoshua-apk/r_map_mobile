@@ -9,6 +9,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/search_constants.dart';
 import '../models/recent_place.dart';
 
+enum _ProfileMenuAction {
+  myProperties,
+  logout,
+}
+
 class SearchOverlay extends StatefulWidget {
   final GooglePlace googlePlace;
   final void Function(LatLng position, String label) onPlaceSelected;
@@ -616,13 +621,68 @@ class _CompactProfileButton extends StatelessWidget {
             ),
           ],
         ),
-        child: IconButton(
-          onPressed: () {},
+        child: PopupMenuButton<_ProfileMenuAction>(
+          tooltip: 'Profile',
+          position: PopupMenuPosition.under,
+          padding: EdgeInsets.zero,
+          offset: const Offset(0, 10),
           icon: const Icon(
             Icons.person_outline,
             color: Color(0xFF0FAD97),
           ),
-          tooltip: 'Profile',
+          onSelected: (value) {
+            switch (value) {
+              case _ProfileMenuAction.myProperties:
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('My Properties: TODO')),
+                );
+                break;
+              case _ProfileMenuAction.logout:
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Logout: TODO')),
+                );
+                break;
+            }
+          },
+          itemBuilder: (context) {
+            return const <PopupMenuEntry<_ProfileMenuAction>>[
+              PopupMenuItem<_ProfileMenuAction>(
+                enabled: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Hi, Jebasingh Joshua',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    SizedBox(height: 2),
+                    Text('9841439865'),
+                  ],
+                ),
+              ),
+              PopupMenuDivider(),
+              PopupMenuItem<_ProfileMenuAction>(
+                value: _ProfileMenuAction.myProperties,
+                child: Row(
+                  children: [
+                    Icon(Icons.business_outlined, size: 18),
+                    SizedBox(width: 10),
+                    Text('My Properties'),
+                  ],
+                ),
+              ),
+              PopupMenuItem<_ProfileMenuAction>(
+                value: _ProfileMenuAction.logout,
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, size: 18),
+                    SizedBox(width: 10),
+                    Text('Logout'),
+                  ],
+                ),
+              ),
+            ];
+          },
         ),
       ),
     );
