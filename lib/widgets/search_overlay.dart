@@ -37,6 +37,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
   final List<AutocompletePrediction> _predictions = [];
   List<RecentPlace> _recentPlaces = [];
   Timer? _debounce;
+  Timer? _keyboardShowTimer;
   bool _isLoading = false;
   bool _isCompactMode = false;
 
@@ -59,6 +60,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
     _controller.dispose();
     _focusNode.dispose();
     _debounce?.cancel();
+    _keyboardShowTimer?.cancel();
     super.dispose();
   }
 
@@ -69,7 +71,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
       TextPosition(offset: _controller.text.length),
     );
     if (forceKeyboard) {
-      Future.delayed(const Duration(milliseconds: 30), () {
+      _keyboardShowTimer?.cancel();
+      _keyboardShowTimer = Timer(const Duration(milliseconds: 30), () {
         if (mounted) {
           SystemChannels.textInput.invokeMethod('TextInput.show');
         }
@@ -208,6 +211,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
         _isCompactMode = true;
       });
       FocusScope.of(context).unfocus();
+      _keyboardShowTimer?.cancel();
+      SystemChannels.textInput.invokeMethod('TextInput.hide');
       return true;
     } catch (e) {
       debugPrint('Error selecting place: $e');
@@ -627,89 +632,102 @@ class _CompactProfileButton extends StatelessWidget {
             ),
           ],
         ),
-        child: PopupMenuButton<_ProfileMenuAction>(
-          tooltip: 'Profile',
-          position: PopupMenuPosition.under,
-          padding: EdgeInsets.zero,
-          offset: const Offset(0, 10),
-          icon: const Icon(
-            Icons.person_outline,
-            color: Color(0xFF0FAD97),
-          ),
-          onSelected: (value) {
-            switch (value) {
-              case _ProfileMenuAction.login:
-                AuthDialog.showLogin(context);
-                break;
-              case _ProfileMenuAction.myProperties:
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('My Properties: TODO')),
-                );
-                break;
-              case _ProfileMenuAction.logout:
-                auth.logout();
-                break;
-            }
+        child: Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: (_) {
+            FocusManager.instance.primaryFocus?.unfocus();
+            SystemChannels.textInput.invokeMethod('TextInput.hide');
           },
-          itemBuilder: (context) {
-            if (session == null) {
-              return const <PopupMenuEntry<_ProfileMenuAction>>[
+          child: PopupMenuButton<_ProfileMenuAction>(
+            tooltip: 'Profile',
+            position: PopupMenuPosition.under,
+            padding: EdgeInsets.zero,
+            offset: const Offset(0, 10),
+            child: const SizedBox.expand(
+              child: Center(
+                child: Icon(
+                  Icons.person_outline,
+                  color: Color(0xFF0FAD97),
+                ),
+              ),
+            ),
+            onSelected: (value) {
+              switch (value) {
+                case _ProfileMenuAction.login:
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  SystemChannels.textInput.invokeMethod('TextInput.hide');
+                  AuthDialog.showLogin(context);
+                  break;
+                case _ProfileMenuAction.myProperties:
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('My Properties: TODO')),
+                  );
+                  break;
+                case _ProfileMenuAction.logout:
+                  auth.logout();
+                  break;
+              }
+            },
+            itemBuilder: (context) {
+              if (session == null) {
+                return const <PopupMenuEntry<_ProfileMenuAction>>[
+                  PopupMenuItem<_ProfileMenuAction>(
+                    value: _ProfileMenuAction.login,
+                    child: Row(
+                      children: [
+                        Icon(Icons.login, size: 18),
+                        SizedBox(width: 10),
+                        Text('Login'),
+                      ],
+                    ),
+                  ),
+                ];
+              }
+
+              final fullName =
+                  '${session.user.firstName} ${session.user.lastName}'.trim();
+              final displayName =
+                  fullName.isEmpty ? session.user.phoneNumber : fullName;
+
+              return <PopupMenuEntry<_ProfileMenuAction>>[
                 PopupMenuItem<_ProfileMenuAction>(
-                  value: _ProfileMenuAction.login,
+                  enabled: false,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Hi, $displayName',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(session.user.phoneNumber),
+                    ],
+                  ),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem<_ProfileMenuAction>(
+                  value: _ProfileMenuAction.myProperties,
                   child: Row(
                     children: [
-                      Icon(Icons.login, size: 18),
+                      Icon(Icons.business_outlined, size: 18),
                       SizedBox(width: 10),
-                      Text('Login'),
+                      Text('My Properties'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem<_ProfileMenuAction>(
+                  value: _ProfileMenuAction.logout,
+                  child: Row(
+                    children: [
+                      Icon(Icons.logout, size: 18),
+                      SizedBox(width: 10),
+                      Text('Logout'),
                     ],
                   ),
                 ),
               ];
-            }
-
-            final fullName =
-                '${session.user.firstName} ${session.user.lastName}'.trim();
-            final displayName =
-                fullName.isEmpty ? session.user.phoneNumber : fullName;
-
-            return <PopupMenuEntry<_ProfileMenuAction>>[
-              PopupMenuItem<_ProfileMenuAction>(
-                enabled: false,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Hi, $displayName',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(session.user.phoneNumber),
-                  ],
-                ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem<_ProfileMenuAction>(
-                value: _ProfileMenuAction.myProperties,
-                child: Row(
-                  children: [
-                    Icon(Icons.business_outlined, size: 18),
-                    SizedBox(width: 10),
-                    Text('My Properties'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<_ProfileMenuAction>(
-                value: _ProfileMenuAction.logout,
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, size: 18),
-                    SizedBox(width: 10),
-                    Text('Logout'),
-                  ],
-                ),
-              ),
-            ];
-          },
+            },
+          ),
         ),
       ),
     );

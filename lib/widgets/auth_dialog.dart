@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../services/mobile_bff_auth_api.dart';
 import '../state/auth_scope.dart';
@@ -52,10 +53,24 @@ class _AuthDialogState extends State<AuthDialog> {
   final TextEditingController _confirmPasswordController =
       TextEditingController();
 
+  final FocusNode _firstNameFocusNode = FocusNode();
+  final FocusNode _phoneFocusNode = FocusNode();
+
   @override
   void initState() {
     super.initState();
     _mode = widget._mode;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final focusNode =
+          _mode == AuthMode.register ? _firstNameFocusNode : _phoneFocusNode;
+      FocusScope.of(context).requestFocus(focusNode);
+      Future.delayed(const Duration(milliseconds: 10), () {
+        if (mounted) {
+          SystemChannels.textInput.invokeMethod('TextInput.show');
+        }
+      });
+    });
   }
 
   @override
@@ -65,6 +80,8 @@ class _AuthDialogState extends State<AuthDialog> {
     _firstNameController.dispose();
     _lastNameController.dispose();
     _confirmPasswordController.dispose();
+    _firstNameFocusNode.dispose();
+    _phoneFocusNode.dispose();
     super.dispose();
   }
 
@@ -111,6 +128,13 @@ class _AuthDialogState extends State<AuthDialog> {
     setState(() {
       _error = null;
       _mode = _mode == AuthMode.login ? AuthMode.register : AuthMode.login;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final focusNode =
+          _mode == AuthMode.register ? _firstNameFocusNode : _phoneFocusNode;
+      FocusScope.of(context).requestFocus(focusNode);
     });
   }
 
@@ -169,6 +193,7 @@ class _AuthDialogState extends State<AuthDialog> {
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _firstNameController,
+                      focusNode: _firstNameFocusNode,
                       textInputAction: TextInputAction.next,
                       decoration: const InputDecoration(
                         hintText: 'Enter your first name',
@@ -202,6 +227,7 @@ class _AuthDialogState extends State<AuthDialog> {
                   const SizedBox(height: 6),
                   TextFormField(
                     controller: _phoneController,
+                    focusNode: _phoneFocusNode,
                     keyboardType: TextInputType.phone,
                     textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(
