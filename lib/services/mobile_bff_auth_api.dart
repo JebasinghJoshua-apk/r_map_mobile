@@ -46,7 +46,7 @@ class MobileBffAuthApi {
     } on FormatException {
       throw const AuthApiException('Unexpected response from server');
     } on TimeoutException {
-      throw AuthApiException(
+      throw const AuthApiException(
         'Request timed out contacting ${ApiConstants.mobileBffBaseUrl}. '
         'Confirm you started the app with MOBILE_BFF_BASE_URL=http://192.168.1.38:5150.',
       );
@@ -92,7 +92,7 @@ class MobileBffAuthApi {
     } on FormatException {
       throw const AuthApiException('Unexpected response from server');
     } on TimeoutException {
-      throw AuthApiException(
+      throw const AuthApiException(
         'Request timed out contacting ${ApiConstants.mobileBffBaseUrl}. '
         'Confirm you started the app with MOBILE_BFF_BASE_URL=http://192.168.1.38:5150.',
       );

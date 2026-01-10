@@ -14,13 +14,19 @@ class AuthDialog extends StatefulWidget {
 
   final AuthMode _mode;
 
+  static const double _cornerRadius = 10;
+
   static Future<void> showLogin(BuildContext context) {
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Dialog(
-        insetPadding: EdgeInsets.symmetric(horizontal: 18, vertical: 24),
-        child: AuthDialog(initialMode: AuthMode.login),
+      builder: (_) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_cornerRadius),
+        ),
+        child: const AuthDialog(initialMode: AuthMode.login),
       ),
     );
   }
@@ -113,7 +119,7 @@ class _AuthDialogState extends State<AuthDialog> {
     final title = _mode == AuthMode.login ? 'Login' : 'Register';
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(AuthDialog._cornerRadius),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
