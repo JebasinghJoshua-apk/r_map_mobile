@@ -10,6 +10,7 @@ import '../constants/search_constants.dart';
 import '../models/recent_place.dart';
 import '../state/auth_scope.dart';
 import 'auth_dialog.dart';
+import 'toast_message.dart';
 
 enum _ProfileMenuAction {
   login,
@@ -659,12 +660,18 @@ class _CompactProfileButton extends StatelessWidget {
                   AuthDialog.showLogin(context);
                   break;
                 case _ProfileMenuAction.myProperties:
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('My Properties: TODO')),
-                  );
+                  ToastMessage.show(context, 'My Properties: TODO');
                   break;
                 case _ProfileMenuAction.logout:
-                  auth.logout();
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  SystemChannels.textInput.invokeMethod('TextInput.hide');
+                  auth.logout().then((_) {
+                    if (!context.mounted) return;
+                    ToastMessage.show(context, 'Logged out');
+                  }).catchError((_) {
+                    if (!context.mounted) return;
+                    ToastMessage.show(context, 'Logout failed');
+                  });
                   break;
               }
             },

@@ -21,14 +21,23 @@ class AuthDialog extends StatefulWidget {
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(_cornerRadius),
-        ),
-        child: const AuthDialog(initialMode: AuthMode.login),
-      ),
+      builder: (_) {
+        final viewInsets = MediaQuery.viewInsetsOf(context);
+        return AnimatedPadding(
+          padding: viewInsets,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          child: Dialog(
+            insetPadding:
+                const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(_cornerRadius),
+            ),
+            child: const AuthDialog(initialMode: AuthMode.login),
+          ),
+        );
+      },
     );
   }
 
@@ -48,12 +57,11 @@ class _AuthDialogState extends State<AuthDialog> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  final TextEditingController _firstNameController = TextEditingController();
-  final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
 
-  final FocusNode _firstNameFocusNode = FocusNode();
+  final FocusNode _nameFocusNode = FocusNode();
   final FocusNode _phoneFocusNode = FocusNode();
 
   @override
@@ -63,7 +71,7 @@ class _AuthDialogState extends State<AuthDialog> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final focusNode =
-          _mode == AuthMode.register ? _firstNameFocusNode : _phoneFocusNode;
+          _mode == AuthMode.register ? _nameFocusNode : _phoneFocusNode;
       FocusScope.of(context).requestFocus(focusNode);
       Future.delayed(const Duration(milliseconds: 10), () {
         if (mounted) {
@@ -77,12 +85,22 @@ class _AuthDialogState extends State<AuthDialog> {
   void dispose() {
     _phoneController.dispose();
     _passwordController.dispose();
-    _firstNameController.dispose();
-    _lastNameController.dispose();
+    _nameController.dispose();
     _confirmPasswordController.dispose();
-    _firstNameFocusNode.dispose();
+    _nameFocusNode.dispose();
     _phoneFocusNode.dispose();
     super.dispose();
+  }
+
+  ({String firstName, String lastName}) _splitName(String raw) {
+    final normalized = raw.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (normalized.isEmpty) return (firstName: '', lastName: '');
+    final parts = normalized.split(' ');
+    if (parts.length == 1) return (firstName: parts.first, lastName: '');
+    return (
+      firstName: parts.first,
+      lastName: parts.sublist(1).join(' '),
+    );
   }
 
   Future<void> _submit() async {
@@ -103,9 +121,10 @@ class _AuthDialogState extends State<AuthDialog> {
           password: _passwordController.text,
         );
       } else {
+        final nameParts = _splitName(_nameController.text);
         await auth.register(
-          firstName: _firstNameController.text.trim(),
-          lastName: _lastNameController.text.trim(),
+          firstName: nameParts.firstName,
+          lastName: nameParts.lastName,
           phoneNumber: _phoneController.text.trim(),
           password: _passwordController.text,
         );
@@ -133,7 +152,7 @@ class _AuthDialogState extends State<AuthDialog> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final focusNode =
-          _mode == AuthMode.register ? _firstNameFocusNode : _phoneFocusNode;
+          _mode == AuthMode.register ? _nameFocusNode : _phoneFocusNode;
       FocusScope.of(context).requestFocus(focusNode);
     });
   }
@@ -142,211 +161,227 @@ class _AuthDialogState extends State<AuthDialog> {
   Widget build(BuildContext context) {
     final title = _mode == AuthMode.login ? 'Login' : 'Register';
 
+    final viewInsets = MediaQuery.viewInsetsOf(context);
+    final maxDialogHeight = MediaQuery.sizeOf(context).height * 0.85;
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(AuthDialog._cornerRadius),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            height: 52,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            color: const Color(0xFF0B6B63),
-            child: Row(
-              children: [
-                const Icon(Icons.person_outline, color: Colors.white),
-                const SizedBox(width: 10),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
-                ),
-                const Spacer(),
-                IconButton(
-                  onPressed:
-                      _isSubmitting ? null : () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  tooltip: 'Close',
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxDialogHeight),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              height: 60,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              color: const Color(0xFF0B6B63),
+              child: Row(
                 children: [
-                  if (_error != null) ...[
-                    Text(
-                      _error!,
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                  if (_mode == AuthMode.register) ...[
-                    const Text('First Name'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _firstNameController,
-                      focusNode: _firstNameFocusNode,
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        hintText: 'Enter your first name',
-                        prefixIcon: Icon(Icons.person_outline),
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'First name is required';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    const Text('Last Name'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _lastNameController,
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        hintText: 'Enter your last name',
-                        prefixIcon: Icon(Icons.person_outline),
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  const Text('Phone Number'),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: _phoneController,
-                    focusNode: _phoneFocusNode,
-                    keyboardType: TextInputType.phone,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      hintText: 'e.g., +1234567890 or 1234567890',
-                      prefixIcon: Icon(Icons.call_outlined),
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) {
-                        return 'Phone number is required';
-                      }
-                      return null;
-                    },
+                  const Icon(
+                    Icons.person_outline,
+                    color: Colors.white,
+                    size: 24,
                   ),
-                  const SizedBox(height: 12),
-                  const Text('Password'),
-                  const SizedBox(height: 6),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: _hidePassword,
-                    textInputAction: _mode == AuthMode.login
-                        ? TextInputAction.done
-                        : TextInputAction.next,
-                    decoration: InputDecoration(
-                      hintText: 'Enter password',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      border: const OutlineInputBorder(),
-                      isDense: true,
-                      suffixIcon: IconButton(
-                        onPressed: () =>
-                            setState(() => _hidePassword = !_hidePassword),
-                        icon: Icon(_hidePassword
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined),
-                        tooltip:
-                            _hidePassword ? 'Show password' : 'Hide password',
-                      ),
-                    ),
-                    validator: (v) {
-                      if (v == null || v.isEmpty) return 'Password is required';
-                      if (_mode == AuthMode.register && v.length < 6) {
-                        return 'Password must be at least 6 characters';
-                      }
-                      return null;
-                    },
-                  ),
-                  if (_mode == AuthMode.register) ...[
-                    const SizedBox(height: 12),
-                    const Text('Confirm Password'),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _confirmPasswordController,
-                      obscureText: _hideConfirmPassword,
-                      textInputAction: TextInputAction.done,
-                      decoration: InputDecoration(
-                        hintText: 'Confirm password',
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                        suffixIcon: IconButton(
-                          onPressed: () => setState(() =>
-                              _hideConfirmPassword = !_hideConfirmPassword),
-                          icon: Icon(_hideConfirmPassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined),
-                          tooltip: _hideConfirmPassword
-                              ? 'Show password'
-                              : 'Hide password',
-                        ),
-                      ),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) {
-                          return 'Confirm your password';
-                        }
-                        if (v != _passwordController.text) {
-                          return 'Passwords do not match';
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    height: 44,
-                    child: ElevatedButton(
-                      onPressed: _isSubmitting ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0B6B63),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: _isSubmitting
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
-                            )
-                          : Text(
-                              _mode == AuthMode.login ? 'Login' : 'Register'),
+                  const SizedBox(width: 12),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 18,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: _isSubmitting ? null : _toggleMode,
-                    child: Text(
-                      _mode == AuthMode.login
-                          ? "Don't have an account?  Register"
-                          : 'Already have an account?  Login',
-                    ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: _isSubmitting
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                    icon:
+                        const Icon(Icons.close, color: Colors.white, size: 22),
+                    tooltip: 'Close',
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+            Flexible(
+              fit: FlexFit.loose,
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  14,
+                  16,
+                  16 + viewInsets.bottom,
+                ),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (_error != null) ...[
+                        Text(
+                          _error!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                      if (_mode == AuthMode.register) ...[
+                        const Text('Name'),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _nameController,
+                          focusNode: _nameFocusNode,
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(
+                            hintText: 'Enter your name',
+                            prefixIcon: Icon(Icons.person_outline),
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) {
+                              return 'Name is required';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      const Text('Phone Number'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _phoneController,
+                        focusNode: _phoneFocusNode,
+                        keyboardType: TextInputType.phone,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          hintText: 'e.g., +1234567890 or 1234567890',
+                          prefixIcon: Icon(Icons.call_outlined),
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Phone number is required';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      const Text('Password'),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _hidePassword,
+                        textInputAction: _mode == AuthMode.login
+                            ? TextInputAction.done
+                            : TextInputAction.next,
+                        decoration: InputDecoration(
+                          hintText: 'Enter password',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          border: const OutlineInputBorder(),
+                          isDense: true,
+                          suffixIcon: IconButton(
+                            onPressed: () =>
+                                setState(() => _hidePassword = !_hidePassword),
+                            icon: Icon(_hidePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined),
+                            tooltip: _hidePassword
+                                ? 'Show password'
+                                : 'Hide password',
+                          ),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.isEmpty)
+                            return 'Password is required';
+                          if (_mode == AuthMode.register && v.length < 6) {
+                            return 'Password must be at least 6 characters';
+                          }
+                          return null;
+                        },
+                      ),
+                      if (_mode == AuthMode.register) ...[
+                        const SizedBox(height: 12),
+                        const Text('Confirm Password'),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _confirmPasswordController,
+                          obscureText: _hideConfirmPassword,
+                          textInputAction: TextInputAction.done,
+                          decoration: InputDecoration(
+                            hintText: 'Confirm password',
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            border: const OutlineInputBorder(),
+                            isDense: true,
+                            suffixIcon: IconButton(
+                              onPressed: () => setState(() =>
+                                  _hideConfirmPassword = !_hideConfirmPassword),
+                              icon: Icon(_hideConfirmPassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined),
+                              tooltip: _hideConfirmPassword
+                                  ? 'Show password'
+                                  : 'Hide password',
+                            ),
+                          ),
+                          validator: (v) {
+                            if (v == null || v.isEmpty) {
+                              return 'Confirm your password';
+                            }
+                            if (v != _passwordController.text) {
+                              return 'Passwords do not match';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        height: 44,
+                        child: ElevatedButton(
+                          onPressed: _isSubmitting ? null : _submit,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0B6B63),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: _isSubmitting
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white),
+                                )
+                              : Text(_mode == AuthMode.login
+                                  ? 'Login'
+                                  : 'Register'),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: _isSubmitting ? null : _toggleMode,
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        child: Text(
+                          _mode == AuthMode.login
+                              ? "Don't have an account?  Register"
+                              : 'Already have an account?  Login',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
