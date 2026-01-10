@@ -64,20 +64,41 @@ class _AuthDialogState extends State<AuthDialog> {
   final FocusNode _nameFocusNode = FocusNode();
   final FocusNode _phoneFocusNode = FocusNode();
 
+  Future<void> _focusField(FocusNode focusNode) async {
+    if (!mounted) return;
+
+    // Fully reset the input connection; some Android keyboards otherwise keep
+    // the previous layout (e.g. phone keypad) even after focus changes.
+    FocusManager.instance.primaryFocus?.unfocus();
+    await SystemChannels.textInput.invokeMethod('TextInput.hide');
+    await SystemChannels.textInput.invokeMethod('TextInput.clearClient');
+
+    await Future.delayed(const Duration(milliseconds: 60));
+    if (!mounted) return;
+    FocusScope.of(context).requestFocus(focusNode);
+
+    // Wait until the new field truly owns focus before showing the keyboard.
+    for (var i = 0; i < 10; i++) {
+      if (!mounted) return;
+      if (focusNode.hasFocus) break;
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+
+    if (!mounted) return;
+    if (!focusNode.hasFocus) return;
+    await SystemChannels.textInput.invokeMethod('TextInput.show');
+  }
+
   @override
   void initState() {
     super.initState();
     _mode = widget._mode;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final focusNode =
           _mode == AuthMode.register ? _nameFocusNode : _phoneFocusNode;
-      FocusScope.of(context).requestFocus(focusNode);
-      Future.delayed(const Duration(milliseconds: 10), () {
-        if (mounted) {
-          SystemChannels.textInput.invokeMethod('TextInput.show');
-        }
-      });
+      _focusField(focusNode);
     });
   }
 
@@ -153,7 +174,7 @@ class _AuthDialogState extends State<AuthDialog> {
       if (!mounted) return;
       final focusNode =
           _mode == AuthMode.register ? _nameFocusNode : _phoneFocusNode;
-      FocusScope.of(context).requestFocus(focusNode);
+      _focusField(focusNode);
     });
   }
 
@@ -229,13 +250,20 @@ class _AuthDialogState extends State<AuthDialog> {
                         const Text('Name'),
                         const SizedBox(height: 6),
                         TextFormField(
+                          key: const ValueKey('auth_name_field'),
                           controller: _nameController,
                           focusNode: _nameFocusNode,
+                          keyboardType: TextInputType.text,
+                          textCapitalization: TextCapitalization.words,
                           textInputAction: TextInputAction.next,
                           decoration: const InputDecoration(
                             hintText: 'Enter your name',
+                            hintStyle: TextStyle(color: Colors.black45),
                             prefixIcon: Icon(Icons.person_outline),
-                            border: OutlineInputBorder(),
+                            border: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(10)),
+                            ),
                             isDense: true,
                           ),
                           validator: (v) {
@@ -250,14 +278,18 @@ class _AuthDialogState extends State<AuthDialog> {
                       const Text('Phone Number'),
                       const SizedBox(height: 6),
                       TextFormField(
+                        key: const ValueKey('auth_phone_field'),
                         controller: _phoneController,
                         focusNode: _phoneFocusNode,
                         keyboardType: TextInputType.phone,
                         textInputAction: TextInputAction.next,
                         decoration: const InputDecoration(
-                          hintText: 'e.g., +1234567890 or 1234567890',
+                          hintText: 'Enter Phone Number',
+                          hintStyle: TextStyle(color: Colors.black45),
                           prefixIcon: Icon(Icons.call_outlined),
-                          border: OutlineInputBorder(),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(10)),
+                          ),
                           isDense: true,
                         ),
                         validator: (v) {
@@ -271,6 +303,7 @@ class _AuthDialogState extends State<AuthDialog> {
                       const Text('Password'),
                       const SizedBox(height: 6),
                       TextFormField(
+                        key: const ValueKey('auth_password_field'),
                         controller: _passwordController,
                         obscureText: _hidePassword,
                         textInputAction: _mode == AuthMode.login
@@ -278,8 +311,11 @@ class _AuthDialogState extends State<AuthDialog> {
                             : TextInputAction.next,
                         decoration: InputDecoration(
                           hintText: 'Enter password',
+                          hintStyle: const TextStyle(color: Colors.black45),
                           prefixIcon: const Icon(Icons.lock_outline),
-                          border: const OutlineInputBorder(),
+                          border: const OutlineInputBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(10)),
+                          ),
                           isDense: true,
                           suffixIcon: IconButton(
                             onPressed: () =>
@@ -306,13 +342,18 @@ class _AuthDialogState extends State<AuthDialog> {
                         const Text('Confirm Password'),
                         const SizedBox(height: 6),
                         TextFormField(
+                          key: const ValueKey('auth_confirm_password_field'),
                           controller: _confirmPasswordController,
                           obscureText: _hideConfirmPassword,
                           textInputAction: TextInputAction.done,
                           decoration: InputDecoration(
                             hintText: 'Confirm password',
+                            hintStyle: const TextStyle(color: Colors.black45),
                             prefixIcon: const Icon(Icons.lock_outline),
-                            border: const OutlineInputBorder(),
+                            border: const OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(10)),
+                            ),
                             isDense: true,
                             suffixIcon: IconButton(
                               onPressed: () => setState(() =>

@@ -214,6 +214,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
       FocusScope.of(context).unfocus();
       _keyboardShowTimer?.cancel();
       SystemChannels.textInput.invokeMethod('TextInput.hide');
+
+      ToastMessage.show(context, label);
       return true;
     } catch (e) {
       debugPrint('Error selecting place: $e');
