@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -49,8 +50,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   static const double _styleZoomMinDelta = 0.25;
   static const double _overlayRetentionMultiplier = 1.75;
 
-  static const double _hybridZoomEnter = 19.0;
-  static const double _hybridZoomExit = 18.7;
+  static const double _hybridZoomEnter = 17.5;
+  static const double _hybridZoomExit = 17.2;
 
   static const String _lightMapStyleAssetPath = 'assets/map_light.json';
 
@@ -62,6 +63,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   Set<Marker> _viewportMarkers = <Marker>{};
   Marker? _selectedPlaceMarker;
 
+  Set<Marker> _plotLabelMarkers = <Marker>{};
+  Set<Marker> _roadLabelMarkers = <Marker>{};
+
+  Set<Polygon> _layoutPolygons = <Polygon>{};
   Set<Polygon> _plotPolygons = <Polygon>{};
   Set<Polygon> _amenityPolygons = <Polygon>{};
   Set<Polygon> _roadPolygons = <Polygon>{};
@@ -69,6 +74,91 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
   static const double _minPlotPolygonZoom = 16.2;
   static const double _minRoadOverlayZoom = 16.0;
+
+  // Keep label behavior aligned with the web app.
+  // Source: r-map-ui/src/components/Map/MapViewportLayer/constants.ts
+  static const double _minPlotLabelZoom = 17.0;
+  static const double _minRoadLabelZoom = 17.0;
+
+  static const int _maxLabelMarkers = 550;
+
+  final Map<String, BitmapDescriptor> _labelIconCache =
+      <String, BitmapDescriptor>{};
+
+  // Keep map overlay styling aligned with the web app.
+  // Source of truth: r-map-ui/src/constants/drawingStyles.ts
+  // and r-map-ui/src/components/Map/utils/overlayStyles.ts
+  static const double _layoutFillHideZoom = 17.0;
+
+  static const Color _layoutBoundaryStroke = Color(0xFF1D4ED8);
+  static const Color _layoutBoundaryFill = Color(0xFF2563EB);
+  static const double _layoutBoundaryStrokeOpacity = 1.0;
+  static const double _layoutBoundaryFillOpacity = 0.12;
+  static const int _layoutBoundaryStrokeWidth = 2;
+
+  static const Color _plotStroke = Color(0xFF0F766E);
+  static const Color _plotFill = Color(0xFF16A34A);
+  static const double _plotStrokeOpacity = 0.95;
+  static const double _plotFillOpacity = 0.30;
+  static const int _plotStrokeWidth = 2;
+
+  static const Color _soldPlotStroke = Color(0xFF4B5563);
+  static const Color _soldPlotFill = Color(0xFFDC2626);
+  static const double _soldPlotStrokeOpacity = 0.70;
+  static const double _soldPlotFillOpacity = 0.55;
+
+  static const Color _amenityStroke = Color(0xFF0F766E);
+  static const Color _amenityFill = Color(0xFF65A30D);
+  static const double _amenityStrokeOpacity = 0.95;
+  static const double _amenityFillOpacity = 0.30;
+  static const int _amenityStrokeWidth = 1;
+
+  static const Color _roadStroke = Color(0xFF374151);
+  static const Color _roadFill = Color(0xFF2B3139);
+  static const double _roadStrokeOpacity = 0.95;
+  static const double _roadFillOpacity = 0.80;
+  static const int _roadStrokeWidth = 2;
+
+  static const Color _roadLineStroke = Color(0xFF4B5563);
+  static const double _roadLineStrokeOpacity = 0.70;
+  static const int _roadLineStrokeWidth = 2;
+
+  static bool _isSoldPlot(MapPlotFeature plot) {
+    final meta = plot.metadata;
+    final rawStatus = (meta['plotStatus'] ??
+            meta['plot_status'] ??
+            meta['status'] ??
+            meta['availability'])
+        ?.trim()
+        .toLowerCase();
+    if (rawStatus == '2' || rawStatus == 'sold') return true;
+
+    final rawSold = (meta['sold'] ?? meta['isSold'] ?? meta['is_sold'])
+        ?.trim()
+        .toLowerCase();
+    return rawSold == 'true' || rawSold == '1' || rawSold == 'yes';
+  }
+
+  static String _plotElementKind(MapPlotFeature plot) {
+    final meta = plot.metadata;
+    final candidates = <String?>[
+      meta['elementType'],
+      meta['element_type'],
+      meta['type'],
+      meta['category'],
+      meta['kind'],
+    ]
+        .map((v) => v?.trim().toLowerCase())
+        .where((v) => v != null && v.isNotEmpty)
+        .cast<String>()
+        .toList(growable: false);
+
+    final isRoad = candidates.any((v) => v.contains('road')) ||
+        (meta['roadName']?.trim().isNotEmpty ?? false);
+    if (isRoad) return 'road';
+    if (candidates.any((v) => v.contains('boundary'))) return 'boundary';
+    return 'plot';
+  }
 
   @override
   void initState() {
@@ -201,6 +291,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     if (cached != null) {
       setState(() {
         _viewportMarkers = cached.markers;
+        _plotLabelMarkers = cached.plotLabelMarkers;
+        _roadLabelMarkers = cached.roadLabelMarkers;
+        _layoutPolygons = cached.layoutPolygons;
         _plotPolygons = cached.plotPolygons;
         _amenityPolygons = cached.amenityPolygons;
         _roadPolygons = cached.roadPolygons;
@@ -230,14 +323,31 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         response: response,
         zoom: _lastCameraPosition.zoom,
       );
-      _putCachedViewport(signature, rendered);
+      final labels = await _buildLabelMarkers(
+        response: response,
+        zoom: _lastCameraPosition.zoom,
+      );
+
+      if (!mounted || requestId != _viewportRequestSeq) {
+        _setViewportLoading(false);
+        return;
+      }
+
+      final merged = rendered.copyWith(
+        plotLabelMarkers: labels.plotLabelMarkers,
+        roadLabelMarkers: labels.roadLabelMarkers,
+      );
+      _putCachedViewport(signature, merged);
 
       setState(() {
-        _viewportMarkers = rendered.markers;
-        _plotPolygons = rendered.plotPolygons;
-        _amenityPolygons = rendered.amenityPolygons;
-        _roadPolygons = rendered.roadPolygons;
-        _roadPolylines = rendered.roadPolylines;
+        _viewportMarkers = merged.markers;
+        _plotLabelMarkers = merged.plotLabelMarkers;
+        _roadLabelMarkers = merged.roadLabelMarkers;
+        _layoutPolygons = merged.layoutPolygons;
+        _plotPolygons = merged.plotPolygons;
+        _amenityPolygons = merged.amenityPolygons;
+        _roadPolygons = merged.roadPolygons;
+        _roadPolylines = merged.roadPolylines;
       });
       _setViewportLoading(false);
     } catch (e) {
@@ -261,6 +371,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     required double zoom,
   }) {
     final nextMarkers = <Marker>{};
+    final nextLayoutPolygons = <Polygon>{};
+    var layoutFeatureCount = 0;
+    var layoutPolygonCount = 0;
     for (final feature in response.properties) {
       final center = feature.centerPoint;
       if (center == null) continue;
@@ -281,6 +394,31 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           ),
         ),
       );
+
+      final normalizedType = feature.propertyType.trim().toLowerCase();
+      final isLayout = normalizedType == 'layout';
+      if (isLayout) {
+        layoutFeatureCount++;
+        final fillOpacity =
+            zoom >= _layoutFillHideZoom ? 0.0 : _layoutBoundaryFillOpacity;
+        final polygons = GeoJson.tryParsePolygons(feature.boundaryGeoJson);
+        for (var i = 0; i < polygons.length; i++) {
+          final points = polygons[i];
+          if (points.length < 3) continue;
+          layoutPolygonCount++;
+          nextLayoutPolygons.add(
+            Polygon(
+              polygonId: PolygonId('layout:${feature.featureId}:$i'),
+              points: points,
+              strokeWidth: _layoutBoundaryStrokeWidth,
+              strokeColor: _layoutBoundaryStroke
+                  .withOpacity(_layoutBoundaryStrokeOpacity),
+              fillColor: _layoutBoundaryFill.withOpacity(fillOpacity),
+              consumeTapEvents: false,
+            ),
+          );
+        }
+      }
     }
 
     final shouldShowPolygons = zoom >= _minPlotPolygonZoom;
@@ -293,6 +431,42 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     if (shouldShowPolygons) {
       for (final plot in response.plots) {
         final polygons = GeoJson.tryParsePolygons(plot.boundaryGeoJson);
+        final kind = _plotElementKind(plot);
+        final isSold = plot.layoutId != null && _isSoldPlot(plot);
+
+        Color stroke;
+        Color fill;
+        int strokeWidth;
+        double strokeOpacity;
+        double fillOpacity;
+
+        if (kind == 'road') {
+          stroke = _roadStroke;
+          fill = _roadFill;
+          strokeWidth = _roadStrokeWidth;
+          strokeOpacity = _roadStrokeOpacity;
+          fillOpacity = _roadFillOpacity;
+        } else if (kind == 'boundary') {
+          stroke = _layoutBoundaryStroke;
+          fill = _layoutBoundaryFill;
+          strokeWidth = _layoutBoundaryStrokeWidth;
+          strokeOpacity = _layoutBoundaryStrokeOpacity;
+          fillOpacity =
+              zoom >= _layoutFillHideZoom ? 0.0 : _layoutBoundaryFillOpacity;
+        } else if (isSold) {
+          stroke = _soldPlotStroke;
+          fill = _soldPlotFill;
+          strokeWidth = _plotStrokeWidth;
+          strokeOpacity = _soldPlotStrokeOpacity;
+          fillOpacity = _soldPlotFillOpacity;
+        } else {
+          stroke = _plotStroke;
+          fill = _plotFill;
+          strokeWidth = _plotStrokeWidth;
+          strokeOpacity = _plotStrokeOpacity;
+          fillOpacity = _plotFillOpacity;
+        }
+
         for (var i = 0; i < polygons.length; i++) {
           final points = polygons[i];
           if (points.length < 3) continue;
@@ -300,9 +474,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             Polygon(
               polygonId: PolygonId('plot:${plot.plotId}:$i'),
               points: points,
-              strokeWidth: 2,
-              strokeColor: const Color(0xFF0B5FA5),
-              fillColor: const Color(0x550B5FA5),
+              strokeWidth: strokeWidth,
+              strokeColor: stroke.withOpacity(strokeOpacity),
+              fillColor: fill.withOpacity(fillOpacity),
               consumeTapEvents: false,
             ),
           );
@@ -318,9 +492,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             Polygon(
               polygonId: PolygonId('amenity:${amenity.amenityId}:$i'),
               points: points,
-              strokeWidth: 2,
-              strokeColor: const Color(0xFF6A1B9A),
-              fillColor: const Color(0x556A1B9A),
+              strokeWidth: _amenityStrokeWidth,
+              strokeColor: _amenityStroke.withOpacity(_amenityStrokeOpacity),
+              fillColor: _amenityFill.withOpacity(_amenityFillOpacity),
               consumeTapEvents: false,
             ),
           );
@@ -338,13 +512,15 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             if (points.length < 2) continue;
 
             // Rough width scaling: keep readable at common zooms.
-            final width = (road.widthInFeet ?? 12) >= 20 ? 5 : 3;
+            final width = (road.widthInFeet ?? 12) >= 20
+                ? _roadLineStrokeWidth + 2
+                : _roadLineStrokeWidth;
             nextRoadPolylines.add(
               Polyline(
                 polylineId: PolylineId('road:${road.roadId}:$i'),
                 points: points,
                 width: width,
-                color: const Color(0xFF4A4A4A),
+                color: _roadLineStroke.withOpacity(_roadLineStrokeOpacity),
                 geodesic: true,
               ),
             );
@@ -361,9 +537,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             Polygon(
               polygonId: PolygonId('roadpoly:${road.roadId}:$i'),
               points: points,
-              strokeWidth: 1,
-              strokeColor: const Color(0xFF4A4A4A),
-              fillColor: const Color(0x554A4A4A),
+              strokeWidth: _roadStrokeWidth,
+              strokeColor: _roadStroke.withOpacity(_roadStrokeOpacity),
+              fillColor: _roadFill.withOpacity(_roadFillOpacity),
               consumeTapEvents: false,
             ),
           );
@@ -371,13 +547,215 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       }
     }
 
+    assert(() {
+      if (layoutFeatureCount > 0 && layoutPolygonCount == 0) {
+        debugPrint(
+          'Viewport: found $layoutFeatureCount Layout properties but parsed 0 polygons. boundaryGeoJson may be empty/unsupported.',
+        );
+      }
+      return true;
+    }());
+
     return _ViewportRenderCacheEntry(
       markers: Set<Marker>.unmodifiable(nextMarkers),
+      plotLabelMarkers: const <Marker>{},
+      roadLabelMarkers: const <Marker>{},
+      layoutPolygons: Set<Polygon>.unmodifiable(nextLayoutPolygons),
       plotPolygons: Set<Polygon>.unmodifiable(nextPlotPolygons),
       amenityPolygons: Set<Polygon>.unmodifiable(nextAmenityPolygons),
       roadPolygons: Set<Polygon>.unmodifiable(nextRoadPolygons),
       roadPolylines: Set<Polyline>.unmodifiable(nextRoadPolylines),
     );
+  }
+
+  Future<_LabelMarkerResult> _buildLabelMarkers({
+    required MapViewportResponse response,
+    required double zoom,
+  }) async {
+    final shouldShowPlotLabels = zoom >= _minPlotLabelZoom;
+    final shouldShowRoadLabels = zoom >= _minRoadLabelZoom;
+    if (!shouldShowPlotLabels && !shouldShowRoadLabels) {
+      return const _LabelMarkerResult(
+        plotLabelMarkers: <Marker>{},
+        roadLabelMarkers: <Marker>{},
+      );
+    }
+
+    final pixelRatio = MediaQuery.of(context).devicePixelRatio;
+    final nextPlotLabels = <Marker>{};
+    final nextRoadLabels = <Marker>{};
+    var totalLabels = 0;
+
+    if (shouldShowPlotLabels) {
+      for (final plot in response.plots) {
+        if (totalLabels >= _maxLabelMarkers) break;
+        final label = plot.plotNumber.trim();
+        if (label.isEmpty) continue;
+        final pos = plot.centerPoint;
+        if (pos == null) continue;
+
+        final icon = await _getTextLabelIcon(
+          text: label,
+          pixelRatio: pixelRatio,
+          fontSize: 12,
+          textColor: Colors.white,
+          shadows: const <Shadow>[
+            Shadow(
+              color: Color(0xD0000000),
+              blurRadius: 3,
+              offset: Offset(0, 0),
+            ),
+          ],
+          backgroundColor: null,
+          padding: EdgeInsets.zero,
+          borderRadius: 0,
+        );
+
+        nextPlotLabels.add(
+          Marker(
+            markerId: MarkerId('plot-label:${plot.plotId}'),
+            position: pos,
+            icon: icon,
+            anchor: const Offset(0.5, 0.5),
+            zIndex: 120,
+            consumeTapEvents: false,
+          ),
+        );
+        totalLabels++;
+      }
+    }
+
+    if (shouldShowRoadLabels) {
+      for (final road in response.roads) {
+        if (totalLabels >= _maxLabelMarkers) break;
+        final name = road.name.trim();
+        if (name.isEmpty) continue;
+
+        final lines = GeoJson.tryParseLineStrings(road.roadGeoJson);
+        if (lines.isEmpty) continue;
+
+        final centroid = _polylineCentroid(lines.first);
+        if (centroid == null) continue;
+
+        final icon = await _getTextLabelIcon(
+          text: name,
+          pixelRatio: pixelRatio,
+          fontSize: 12,
+          textColor: Colors.white,
+          backgroundColor: const Color(0xAA000000),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          borderRadius: 8,
+        );
+
+        nextRoadLabels.add(
+          Marker(
+            markerId: MarkerId('road-label:${road.roadId}'),
+            position: centroid,
+            icon: icon,
+            anchor: const Offset(0.5, 0.5),
+            zIndex: 110,
+            consumeTapEvents: false,
+          ),
+        );
+        totalLabels++;
+      }
+    }
+
+    return _LabelMarkerResult(
+      plotLabelMarkers: Set<Marker>.unmodifiable(nextPlotLabels),
+      roadLabelMarkers: Set<Marker>.unmodifiable(nextRoadLabels),
+    );
+  }
+
+  LatLng? _polylineCentroid(List<LatLng> points) {
+    if (points.length < 2) return null;
+    var sumLat = 0.0;
+    var sumLng = 0.0;
+    for (final p in points) {
+      sumLat += p.latitude;
+      sumLng += p.longitude;
+    }
+    return LatLng(sumLat / points.length, sumLng / points.length);
+  }
+
+  Future<BitmapDescriptor> _getTextLabelIcon({
+    required String text,
+    required double pixelRatio,
+    required double fontSize,
+    required Color textColor,
+    Color? backgroundColor,
+    required EdgeInsets padding,
+    required double borderRadius,
+    List<Shadow>? shadows,
+  }) async {
+    final cacheKey = [
+      text,
+      fontSize.toStringAsFixed(1),
+      textColor.value.toRadixString(16),
+      backgroundColor?.value.toRadixString(16) ?? 'none',
+      padding.horizontal.toStringAsFixed(1),
+      padding.vertical.toStringAsFixed(1),
+      borderRadius.toStringAsFixed(1),
+      (shadows?.length ?? 0).toString(),
+      pixelRatio.toStringAsFixed(2),
+    ].join('|');
+
+    final cached = _labelIconCache[cacheKey];
+    if (cached != null) return cached;
+
+    final textPainter = TextPainter(
+      textDirection: TextDirection.ltr,
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: textColor,
+          fontSize: fontSize,
+          fontWeight: FontWeight.w600,
+          shadows: shadows,
+        ),
+      ),
+    )..layout();
+
+    final width =
+        (textPainter.width + padding.left + padding.right).ceil().toDouble();
+    final height =
+        (textPainter.height + padding.top + padding.bottom).ceil().toDouble();
+
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+    canvas.scale(pixelRatio);
+
+    if (backgroundColor != null) {
+      final rect = ui.Rect.fromLTWH(0, 0, width, height);
+      final rrect = ui.RRect.fromRectAndRadius(
+        rect,
+        ui.Radius.circular(borderRadius),
+      );
+      final bgPaint = ui.Paint()..color = backgroundColor;
+      canvas.drawRRect(rrect, bgPaint);
+    }
+
+    textPainter.paint(
+      canvas,
+      ui.Offset(padding.left, padding.top),
+    );
+
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(
+        (width * pixelRatio).ceil(), (height * pixelRatio).ceil());
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    final bytes = byteData?.buffer.asUint8List() ?? Uint8List(0);
+    final descriptor = BitmapDescriptor.bytes(
+      bytes,
+      imagePixelRatio: pixelRatio,
+    );
+
+    // Prevent unbounded growth.
+    if (_labelIconCache.length > 1200) {
+      _labelIconCache.remove(_labelIconCache.keys.first);
+    }
+    _labelIconCache[cacheKey] = descriptor;
+    return descriptor;
   }
 
   String _buildViewportSignature(
@@ -480,6 +858,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   Widget build(BuildContext context) {
     final markers = <Marker>{
       ..._viewportMarkers,
+      ..._plotLabelMarkers,
+      ..._roadLabelMarkers,
       if (_selectedPlaceMarker != null) _selectedPlaceMarker!,
     };
 
@@ -515,6 +895,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             style: _mapType == MapType.normal ? _lightMapStyle : null,
             markers: markers,
             polygons: {
+              ..._layoutPolygons,
               ..._plotPolygons,
               ..._amenityPolygons,
               ..._roadPolygons,
@@ -628,6 +1009,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 class _ViewportRenderCacheEntry {
   _ViewportRenderCacheEntry({
     required this.markers,
+    required this.plotLabelMarkers,
+    required this.roadLabelMarkers,
+    required this.layoutPolygons,
     required this.plotPolygons,
     required this.amenityPolygons,
     required this.roadPolygons,
@@ -636,9 +1020,39 @@ class _ViewportRenderCacheEntry {
   }) : createdAt = createdAt ?? DateTime.now();
 
   final Set<Marker> markers;
+  final Set<Marker> plotLabelMarkers;
+  final Set<Marker> roadLabelMarkers;
+  final Set<Polygon> layoutPolygons;
   final Set<Polygon> plotPolygons;
   final Set<Polygon> amenityPolygons;
   final Set<Polygon> roadPolygons;
   final Set<Polyline> roadPolylines;
   final DateTime createdAt;
+
+  _ViewportRenderCacheEntry copyWith({
+    Set<Marker>? plotLabelMarkers,
+    Set<Marker>? roadLabelMarkers,
+  }) {
+    return _ViewportRenderCacheEntry(
+      markers: markers,
+      plotLabelMarkers: plotLabelMarkers ?? this.plotLabelMarkers,
+      roadLabelMarkers: roadLabelMarkers ?? this.roadLabelMarkers,
+      layoutPolygons: layoutPolygons,
+      plotPolygons: plotPolygons,
+      amenityPolygons: amenityPolygons,
+      roadPolygons: roadPolygons,
+      roadPolylines: roadPolylines,
+      createdAt: createdAt,
+    );
+  }
+}
+
+class _LabelMarkerResult {
+  const _LabelMarkerResult({
+    required this.plotLabelMarkers,
+    required this.roadLabelMarkers,
+  });
+
+  final Set<Marker> plotLabelMarkers;
+  final Set<Marker> roadLabelMarkers;
 }
