@@ -53,7 +53,8 @@ class GeoJson {
       if (geometries.isEmpty) return null;
 
       final geometry = geometries.first;
-      final type = (geometry['type'] as String?) ?? (geometry['Type'] as String?);
+      final type =
+          (geometry['type'] as String?) ?? (geometry['Type'] as String?);
       if (type?.toLowerCase() != 'point') return null;
 
       final coords = geometry['coordinates'] ?? geometry['Coordinates'];
@@ -85,7 +86,8 @@ class GeoJson {
 
       final result = <List<LatLng>>[];
       for (final geometry in geometries) {
-        final type = (geometry['type'] as String?) ?? (geometry['Type'] as String?);
+        final type =
+            (geometry['type'] as String?) ?? (geometry['Type'] as String?);
         final t = type?.toLowerCase();
         final coords = geometry['coordinates'] ?? geometry['Coordinates'];
 
@@ -130,7 +132,8 @@ class GeoJson {
 
       final result = <List<LatLng>>[];
       for (final geometry in geometries) {
-        final type = (geometry['type'] as String?) ?? (geometry['Type'] as String?);
+        final type =
+            (geometry['type'] as String?) ?? (geometry['Type'] as String?);
         final t = type?.toLowerCase();
         final coords = geometry['coordinates'] ?? geometry['Coordinates'];
 
