@@ -52,7 +52,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   static const double _overlayRetentionMultiplier = 1.75;
 
   static const double _hybridZoomEnter = 17.5;
-  static const double _hybridZoomExit = 17.2;
+  static const double _hybridZoomExit = 17.5;
 
   static const String _lightMapStyleAssetPath = 'assets/map_light.json';
 
@@ -66,6 +66,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
   Set<Marker> _plotLabelMarkers = <Marker>{};
   Set<Marker> _roadLabelMarkers = <Marker>{};
+  Set<Marker> _amenityLabelMarkers = <Marker>{};
 
   Set<Polygon> _layoutPolygons = <Polygon>{};
   Set<Polygon> _plotPolygons = <Polygon>{};
@@ -78,8 +79,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
   // Keep label behavior aligned with the web app.
   // Source: r-map-ui/src/components/Map/MapViewportLayer/constants.ts
-  static const double _minPlotLabelZoom = 17.0;
+  static const double _minPlotLabelZoom = 17.5;
   static const double _minRoadLabelZoom = 17.0;
+  static const double _minAmenityLabelZoom = 17.0;
 
   static const int _maxLabelMarkers = 550;
 
@@ -295,6 +297,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         _viewportMarkers = cached.markers;
         _plotLabelMarkers = cached.plotLabelMarkers;
         _roadLabelMarkers = cached.roadLabelMarkers;
+        _amenityLabelMarkers = cached.amenityLabelMarkers;
         _layoutPolygons = cached.layoutPolygons;
         _plotPolygons = cached.plotPolygons;
         _amenityPolygons = cached.amenityPolygons;
@@ -338,6 +341,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       final merged = rendered.copyWith(
         plotLabelMarkers: labels.plotLabelMarkers,
         roadLabelMarkers: labels.roadLabelMarkers,
+        amenityLabelMarkers: labels.amenityLabelMarkers,
       );
       _putCachedViewport(signature, merged);
 
@@ -345,6 +349,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         _viewportMarkers = merged.markers;
         _plotLabelMarkers = merged.plotLabelMarkers;
         _roadLabelMarkers = merged.roadLabelMarkers;
+        _amenityLabelMarkers = merged.amenityLabelMarkers;
         _layoutPolygons = merged.layoutPolygons;
         _plotPolygons = merged.plotPolygons;
         _amenityPolygons = merged.amenityPolygons;
@@ -562,6 +567,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       markers: Set<Marker>.unmodifiable(nextMarkers),
       plotLabelMarkers: const <Marker>{},
       roadLabelMarkers: const <Marker>{},
+      amenityLabelMarkers: const <Marker>{},
       layoutPolygons: Set<Polygon>.unmodifiable(nextLayoutPolygons),
       plotPolygons: Set<Polygon>.unmodifiable(nextPlotPolygons),
       amenityPolygons: Set<Polygon>.unmodifiable(nextAmenityPolygons),
@@ -576,16 +582,21 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   }) async {
     final shouldShowPlotLabels = zoom >= _minPlotLabelZoom;
     final shouldShowRoadLabels = zoom >= _minRoadLabelZoom;
-    if (!shouldShowPlotLabels && !shouldShowRoadLabels) {
+    final shouldShowAmenityLabels = zoom >= _minAmenityLabelZoom;
+    if (!shouldShowPlotLabels &&
+        !shouldShowRoadLabels &&
+        !shouldShowAmenityLabels) {
       return const _LabelMarkerResult(
         plotLabelMarkers: <Marker>{},
         roadLabelMarkers: <Marker>{},
+        amenityLabelMarkers: <Marker>{},
       );
     }
 
     final pixelRatio = MediaQuery.of(context).devicePixelRatio;
     final nextPlotLabels = <Marker>{};
     final nextRoadLabels = <Marker>{};
+    final nextAmenityLabels = <Marker>{};
     var totalLabels = 0;
 
     if (shouldShowPlotLabels) {
@@ -683,10 +694,107 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       }
     }
 
+    if (shouldShowAmenityLabels) {
+      for (final amenity in response.amenities) {
+        if (totalLabels >= _maxLabelMarkers) break;
+
+        final label = _amenityLabelText(amenity);
+        if (label.isEmpty) continue;
+
+        final amenityFontSize = _amenityLabelFontSize(amenity, label, zoom);
+
+        final polygons = GeoJson.tryParsePolygons(amenity.boundaryGeoJson);
+        if (polygons.isEmpty) continue;
+
+        final pos = _centroid(polygons.first);
+        if (pos == null) continue;
+
+        final icon = await _getTextLabelIcon(
+          text: label,
+          pixelRatio: pixelRatio,
+          fontSize: amenityFontSize,
+          textColor: Colors.white,
+          shadows: const <Shadow>[
+            Shadow(
+              color: Color(0xD0000000),
+              blurRadius: 3,
+              offset: Offset(0, 0),
+            ),
+          ],
+          backgroundColor: null,
+          padding: EdgeInsets.zero,
+          borderRadius: 0,
+        );
+
+        nextAmenityLabels.add(
+          Marker(
+            markerId: MarkerId('amenity-label:${amenity.amenityId}'),
+            position: pos,
+            icon: icon,
+            anchor: const Offset(0.5, 0.5),
+            zIndex: 105,
+            consumeTapEvents: false,
+          ),
+        );
+        totalLabels++;
+      }
+    }
+
     return _LabelMarkerResult(
       plotLabelMarkers: Set<Marker>.unmodifiable(nextPlotLabels),
       roadLabelMarkers: Set<Marker>.unmodifiable(nextRoadLabels),
+      amenityLabelMarkers: Set<Marker>.unmodifiable(nextAmenityLabels),
     );
+  }
+
+  double _amenityLabelFontSize(
+    MapAmenityFeature amenity,
+    String label,
+    double zoom,
+  ) {
+    final rawName = amenity.name.trim();
+    final name = rawName.isNotEmpty ? rawName : label.trim();
+    final isPark = name.toLowerCase().startsWith('park');
+    if (!isPark) return _roadLabelFontSize(zoom);
+
+    // Park-only stepped scaling by zoom level.
+    // zoom < 18.5  -> 10
+    // zoom >= 18.5 -> 14
+    // zoom >= 19.0 -> 18
+    // zoom >= 19.4 -> 22
+    // zoom >= 19.8 -> 26
+    // zoom >= 20.0 -> 30
+    // zoom >= 20.2 -> 34
+    // zoom >= 20.5 -> 38
+    // zoom >= 20.7 -> 42
+    if (zoom >= 20.7) return 42;
+    if (zoom >= 20.5) return 38;
+    if (zoom >= 20.2) return 34;
+    if (zoom >= 20.0) return 30;
+    if (zoom >= 19.8) return 26;
+    if (zoom >= 19.4) return 22;
+    if (zoom >= 19.0) return 18;
+    if (zoom >= 18.5) return 14;
+    return 10;
+  }
+
+  String _amenityLabelText(MapAmenityFeature amenity) {
+    final name = amenity.name.trim();
+    if (name.isNotEmpty) return name;
+
+    final meta = amenity.metadata;
+    for (final key in const <String>[
+      'code',
+      'shortName',
+      'short_name',
+      'abbr',
+      'type',
+      'name',
+    ]) {
+      final v = meta[key]?.trim();
+      if (v != null && v.isNotEmpty) return v;
+    }
+    return '';
   }
 
   double _plotLabelFontSize(double zoom) {
@@ -1080,6 +1188,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       ..._viewportMarkers,
       ..._plotLabelMarkers,
       ..._roadLabelMarkers,
+      ..._amenityLabelMarkers,
       if (_selectedPlaceMarker != null) _selectedPlaceMarker!,
     };
 
@@ -1231,6 +1340,7 @@ class _ViewportRenderCacheEntry {
     required this.markers,
     required this.plotLabelMarkers,
     required this.roadLabelMarkers,
+    required this.amenityLabelMarkers,
     required this.layoutPolygons,
     required this.plotPolygons,
     required this.amenityPolygons,
@@ -1242,6 +1352,7 @@ class _ViewportRenderCacheEntry {
   final Set<Marker> markers;
   final Set<Marker> plotLabelMarkers;
   final Set<Marker> roadLabelMarkers;
+  final Set<Marker> amenityLabelMarkers;
   final Set<Polygon> layoutPolygons;
   final Set<Polygon> plotPolygons;
   final Set<Polygon> amenityPolygons;
@@ -1252,11 +1363,13 @@ class _ViewportRenderCacheEntry {
   _ViewportRenderCacheEntry copyWith({
     Set<Marker>? plotLabelMarkers,
     Set<Marker>? roadLabelMarkers,
+    Set<Marker>? amenityLabelMarkers,
   }) {
     return _ViewportRenderCacheEntry(
       markers: markers,
       plotLabelMarkers: plotLabelMarkers ?? this.plotLabelMarkers,
       roadLabelMarkers: roadLabelMarkers ?? this.roadLabelMarkers,
+      amenityLabelMarkers: amenityLabelMarkers ?? this.amenityLabelMarkers,
       layoutPolygons: layoutPolygons,
       plotPolygons: plotPolygons,
       amenityPolygons: amenityPolygons,
@@ -1271,10 +1384,12 @@ class _LabelMarkerResult {
   const _LabelMarkerResult({
     required this.plotLabelMarkers,
     required this.roadLabelMarkers,
+    required this.amenityLabelMarkers,
   });
 
   final Set<Marker> plotLabelMarkers;
   final Set<Marker> roadLabelMarkers;
+  final Set<Marker> amenityLabelMarkers;
 }
 
 class _LineLabelPlacement {
