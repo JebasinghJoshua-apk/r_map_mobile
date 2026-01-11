@@ -83,8 +83,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
   static const int _maxLabelMarkers = 550;
 
-  final Map<String, BitmapDescriptor> _labelIconCache =
-      <String, BitmapDescriptor>{};
+  static const int _labelIconCacheMaxEntries = 5000;
+  final LinkedHashMap<String, BitmapDescriptor> _labelIconCache =
+      LinkedHashMap<String, BitmapDescriptor>();
 
   // Keep map overlay styling aligned with the web app.
   // Source of truth: r-map-ui/src/constants/drawingStyles.ts
@@ -588,6 +589,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     var totalLabels = 0;
 
     if (shouldShowPlotLabels) {
+      final plotFontSize = _plotLabelFontSize(zoom);
       for (final plot in response.plots) {
         if (totalLabels >= _maxLabelMarkers) break;
         final label = plot.plotNumber.trim();
@@ -598,7 +600,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         final icon = await _getTextLabelIcon(
           text: label,
           pixelRatio: pixelRatio,
-          fontSize: 12,
+          fontSize: plotFontSize,
           textColor: Colors.white,
           shadows: const <Shadow>[
             Shadow(
@@ -627,6 +629,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     }
 
     if (shouldShowRoadLabels) {
+      final roadFontSize = _roadLabelFontSize(zoom);
       for (final road in response.roads) {
         if (totalLabels >= _maxLabelMarkers) break;
         final name = road.name.trim();
@@ -650,7 +653,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         final icon = await _getTextLabelIcon(
           text: name,
           pixelRatio: pixelRatio,
-          fontSize: 12,
+          fontSize: roadFontSize,
           textColor: Colors.white,
           shadows: const <Shadow>[
             Shadow(
@@ -684,6 +687,54 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       plotLabelMarkers: Set<Marker>.unmodifiable(nextPlotLabels),
       roadLabelMarkers: Set<Marker>.unmodifiable(nextRoadLabels),
     );
+  }
+
+  double _plotLabelFontSize(double zoom) {
+    // Plot-only stepped scaling by zoom level.
+    // zoom < 18.5  -> 8
+    // zoom >= 18.5 -> 9
+    // zoom >= 19.0 -> 10
+    // zoom >= 19.2 -> 13
+    // zoom >= 19.4 -> 15
+    // zoom >= 19.6 -> 18
+    // zoom >= 19.8 -> 20
+    // zoom >= 20.0 -> 22
+    // zoom >= 20.2 -> 25
+    // zoom >= 20.5 -> 28
+    // zoom >= 20.7 -> 30
+    if (zoom >= 20.7) return 30;
+    if (zoom >= 20.5) return 28;
+    if (zoom >= 20.2) return 25;
+    if (zoom >= 20.0) return 22;
+    if (zoom >= 19.8) return 20;
+    if (zoom >= 19.6) return 18;
+    if (zoom >= 19.4) return 15;
+    if (zoom >= 19.2) return 13;
+    if (zoom >= 19.0) return 10;
+    if (zoom >= 18.5) return 9;
+    return 8;
+  }
+
+  double _roadLabelFontSize(double zoom) {
+    // Stepped scaling by zoom level.
+    // 18.0  -> 8
+    // 18.5  -> 9
+    // 19.0  -> 10
+    // 19.4  -> 11
+    // 19.8  -> 12
+    // 20.0  -> 13
+    // 20.2  -> 14
+    // 20.5  -> 15
+    // 20.7  -> 16
+    if (zoom >= 20.7) return 16;
+    if (zoom >= 20.5) return 15;
+    if (zoom >= 20.2) return 14;
+    if (zoom >= 20.0) return 13;
+    if (zoom >= 19.8) return 12;
+    if (zoom >= 19.4) return 11;
+    if (zoom >= 19.0) return 10;
+    if (zoom >= 18.5) return 9;
+    return 8;
   }
 
   _LineLabelPlacement? _computeLineLabelPlacement(List<LatLng> points) {
@@ -855,8 +906,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       pixelRatio.toStringAsFixed(2),
     ].join('|');
 
-    final cached = _labelIconCache[cacheKey];
-    if (cached != null) return cached;
+    final cached = _labelIconCache.remove(cacheKey);
+    if (cached != null) {
+      // LRU: move to the end.
+      _labelIconCache[cacheKey] = cached;
+      return cached;
+    }
 
     final textPainter = TextPainter(
       textDirection: TextDirection.ltr,
@@ -906,7 +961,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     );
 
     // Prevent unbounded growth.
-    if (_labelIconCache.length > 1200) {
+    if (_labelIconCache.length >= _labelIconCacheMaxEntries) {
       _labelIconCache.remove(_labelIconCache.keys.first);
     }
     _labelIconCache[cacheKey] = descriptor;
