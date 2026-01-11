@@ -329,8 +329,9 @@ class _AuthDialogState extends State<AuthDialog> {
                           ),
                         ),
                         validator: (v) {
-                          if (v == null || v.isEmpty)
+                          if (v == null || v.isEmpty) {
                             return 'Password is required';
+                          }
                           if (_mode == AuthMode.register && v.length < 6) {
                             return 'Password must be at least 6 characters';
                           }

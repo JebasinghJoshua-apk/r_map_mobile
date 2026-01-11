@@ -21,7 +21,7 @@ class ToastMessage {
     messenger.clearSnackBars();
 
     final screenWidth = MediaQuery.maybeSizeOf(context)?.width ?? 400;
-    final textScaleFactor = MediaQuery.textScaleFactorOf(context);
+    final textScaler = MediaQuery.textScalerOf(context);
 
     const horizontalPadding = 12.0;
     const verticalPadding = 8.0;
@@ -37,7 +37,7 @@ class ToastMessage {
       text: TextSpan(text: message, style: textStyle),
       maxLines: 1,
       textDirection: textDirection,
-      textScaleFactor: textScaleFactor,
+      textScaler: textScaler,
     )..layout(maxWidth: screenWidth);
 
     // Approximate width: text + padding + a little safety.
