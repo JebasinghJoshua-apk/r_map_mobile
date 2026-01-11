@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -631,29 +632,47 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         final name = road.name.trim();
         if (name.isEmpty) continue;
 
-        final lines = GeoJson.tryParseLineStrings(road.roadGeoJson);
-        if (lines.isEmpty) continue;
+        _LineLabelPlacement? placement;
 
-        final centroid = _polylineCentroid(lines.first);
-        if (centroid == null) continue;
+        final lines = GeoJson.tryParseLineStrings(road.roadGeoJson);
+        if (lines.isNotEmpty) {
+          placement = _computeLineLabelPlacement(lines.first);
+        } else {
+          // Some backends may return road geometry as Polygon/MultiPolygon.
+          final polygons = GeoJson.tryParsePolygons(road.roadGeoJson);
+          if (polygons.isNotEmpty) {
+            placement = _computeLineLabelPlacement(polygons.first);
+          }
+        }
+
+        if (placement == null) continue;
 
         final icon = await _getTextLabelIcon(
           text: name,
           pixelRatio: pixelRatio,
           fontSize: 12,
           textColor: Colors.white,
-          backgroundColor: const Color(0xAA000000),
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-          borderRadius: 8,
+          shadows: const <Shadow>[
+            Shadow(
+              color: Color(0xD0000000),
+              blurRadius: 3,
+              offset: Offset(0, 0),
+            ),
+          ],
+          backgroundColor: null,
+          padding: EdgeInsets.zero,
+          borderRadius: 0,
         );
 
         nextRoadLabels.add(
           Marker(
             markerId: MarkerId('road-label:${road.roadId}'),
-            position: centroid,
+            position: placement.position,
             icon: icon,
             anchor: const Offset(0.5, 0.5),
             zIndex: 110,
+            rotation: placement.rotationDegrees,
+            flat: true,
             consumeTapEvents: false,
           ),
         );
@@ -667,8 +686,36 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     );
   }
 
-  LatLng? _polylineCentroid(List<LatLng> points) {
+  _LineLabelPlacement? _computeLineLabelPlacement(List<LatLng> points) {
     if (points.length < 2) return null;
+
+    // 1) Rotation: use a dominant direction (best-fit) over the whole geometry
+    // to avoid slight deviations on segmented/curved lines.
+    final dominantRotation = _dominantRotationDegrees(points);
+    if (dominantRotation == null) return null;
+
+    // 2) Position: use the half-length point along the line for polylines;
+    // for closed rings (polygons), use centroid to avoid placing on an edge.
+    final isClosedRing = _isClosedRing(points);
+    final pos = isClosedRing
+        ? _centroid(points)
+        : (_pointAtFraction(points, 0.5) ?? _centroid(points));
+    if (pos == null) return null;
+
+    return _LineLabelPlacement(
+        position: pos, rotationDegrees: dominantRotation);
+  }
+
+  bool _isClosedRing(List<LatLng> points) {
+    if (points.length < 4) return false;
+    final a = points.first;
+    final b = points.last;
+    return (a.latitude - b.latitude).abs() < 1e-9 &&
+        (a.longitude - b.longitude).abs() < 1e-9;
+  }
+
+  LatLng? _centroid(List<LatLng> points) {
+    if (points.isEmpty) return null;
     var sumLat = 0.0;
     var sumLng = 0.0;
     for (final p in points) {
@@ -677,6 +724,114 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     }
     return LatLng(sumLat / points.length, sumLng / points.length);
   }
+
+  LatLng? _pointAtFraction(List<LatLng> points, double fraction) {
+    if (points.length < 2) return null;
+    if (fraction <= 0) return points.first;
+    if (fraction >= 1) return points.last;
+
+    // Use a quick equirectangular distance approximation.
+    final lat0 = (points.first.latitude + points.last.latitude) / 2;
+    final cosLat0 = math.cos(_degToRad(lat0));
+
+    double dist(LatLng a, LatLng b) {
+      final dLat = (b.latitude - a.latitude);
+      final dLng = (b.longitude - a.longitude) * cosLat0;
+      return math.sqrt(dLat * dLat + dLng * dLng);
+    }
+
+    var total = 0.0;
+    for (var i = 0; i < points.length - 1; i++) {
+      total += dist(points[i], points[i + 1]);
+    }
+    if (total <= 0) return null;
+
+    final target = total * fraction;
+    var acc = 0.0;
+    for (var i = 0; i < points.length - 1; i++) {
+      final a = points[i];
+      final b = points[i + 1];
+      final seg = dist(a, b);
+      if (seg <= 0) continue;
+      if (acc + seg >= target) {
+        final t = (target - acc) / seg;
+        return LatLng(
+          a.latitude + (b.latitude - a.latitude) * t,
+          a.longitude + (b.longitude - a.longitude) * t,
+        );
+      }
+      acc += seg;
+    }
+    return points[points.length ~/ 2];
+  }
+
+  double? _dominantRotationDegrees(List<LatLng> points) {
+    if (points.length < 2) return null;
+
+    // Project to local-ish coordinates: x = lng*cos(lat0), y = lat.
+    final lat0 =
+        points.map((p) => p.latitude).reduce((a, b) => a + b) / points.length;
+    final cosLat0 = math.cos(_degToRad(lat0));
+
+    var meanX = 0.0;
+    var meanY = 0.0;
+    for (final p in points) {
+      meanX += p.longitude * cosLat0;
+      meanY += p.latitude;
+    }
+    meanX /= points.length;
+    meanY /= points.length;
+
+    var sxx = 0.0;
+    var syy = 0.0;
+    var sxy = 0.0;
+    for (final p in points) {
+      final x = p.longitude * cosLat0 - meanX;
+      final y = p.latitude - meanY;
+      sxx += x * x;
+      syy += y * y;
+      sxy += x * y;
+    }
+
+    // If variance is tiny, fallback to first/last bearing.
+    if ((sxx + syy) <= 1e-12) {
+      final a = points.first;
+      final b = points.last;
+      final bearingFromNorth = _bearingDegrees(a, b);
+      var rotation = (bearingFromNorth - 90 + 360) % 360;
+      if (rotation > 90 && rotation < 270) {
+        rotation = (rotation + 180) % 360;
+      }
+      return rotation;
+    }
+
+    // PCA angle of principal axis, radians from +x (east), CCW.
+    final angle = 0.5 * math.atan2(2 * sxy, sxx - syy);
+    final angleDeg = _radToDeg(angle);
+
+    // Convert to marker rotation: 0 means east/west text, positive clockwise.
+    var rotation = (-angleDeg + 360) % 360;
+    if (rotation > 90 && rotation < 270) {
+      rotation = (rotation + 180) % 360;
+    }
+    return rotation;
+  }
+
+  double _bearingDegrees(LatLng from, LatLng to) {
+    final lat1 = _degToRad(from.latitude);
+    final lat2 = _degToRad(to.latitude);
+    final dLon = _degToRad(to.longitude - from.longitude);
+
+    final y = math.sin(dLon) * math.cos(lat2);
+    final x = math.cos(lat1) * math.sin(lat2) -
+        math.sin(lat1) * math.cos(lat2) * math.cos(dLon);
+    final brng = math.atan2(y, x);
+    final deg = (_radToDeg(brng) + 360) % 360;
+    return deg;
+  }
+
+  double _degToRad(double deg) => deg * math.pi / 180.0;
+  double _radToDeg(double rad) => rad * 180.0 / math.pi;
 
   Future<BitmapDescriptor> _getTextLabelIcon({
     required String text,
@@ -696,7 +851,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       padding.horizontal.toStringAsFixed(1),
       padding.vertical.toStringAsFixed(1),
       borderRadius.toStringAsFixed(1),
-      (shadows?.length ?? 0).toString(),
+      _shadowsSignature(shadows),
       pixelRatio.toStringAsFixed(2),
     ].join('|');
 
@@ -756,6 +911,20 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     }
     _labelIconCache[cacheKey] = descriptor;
     return descriptor;
+  }
+
+  String _shadowsSignature(List<Shadow>? shadows) {
+    if (shadows == null || shadows.isEmpty) return 'none';
+    return shadows
+        .map(
+          (s) => [
+            s.color.value.toRadixString(16),
+            s.blurRadius.toStringAsFixed(2),
+            s.offset.dx.toStringAsFixed(2),
+            s.offset.dy.toStringAsFixed(2),
+          ].join(','),
+        )
+        .join(';');
   }
 
   String _buildViewportSignature(
@@ -1055,4 +1224,14 @@ class _LabelMarkerResult {
 
   final Set<Marker> plotLabelMarkers;
   final Set<Marker> roadLabelMarkers;
+}
+
+class _LineLabelPlacement {
+  const _LineLabelPlacement({
+    required this.position,
+    required this.rotationDegrees,
+  });
+
+  final LatLng position;
+  final double rotationDegrees;
 }
