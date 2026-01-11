@@ -100,8 +100,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
   static const Color _plotStroke = Color(0xFF0F766E);
   static const Color _plotFill = Color(0xFF16A34A);
-  static const double _plotStrokeOpacity = 0.95;
-  static const double _plotFillOpacity = 0.30;
+  static const double _plotStrokeOpacity = 1.0;
+  static const double _plotFillOpacity = 0.55;
   static const int _plotStrokeWidth = 2;
 
   static const Color _soldPlotStroke = Color(0xFF4B5563);
@@ -692,26 +692,22 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   double _plotLabelFontSize(double zoom) {
     // Plot-only stepped scaling by zoom level.
     // zoom < 18.5  -> 8
-    // zoom >= 18.5 -> 9
-    // zoom >= 19.0 -> 10
-    // zoom >= 19.2 -> 12
+    // zoom >= 18.5 -> 10
+    // zoom >= 19.0 -> 12
     // zoom >= 19.4 -> 13
-    // zoom >= 19.6 -> 14
-    // zoom >= 19.8 -> 15
-    // zoom >= 20.0 -> 16
-    // zoom >= 20.2 -> 17
-    // zoom >= 20.5 -> 18
-    // zoom >= 20.7 -> 19
-    if (zoom >= 20.7) return 19;
-    if (zoom >= 20.5) return 18;
-    if (zoom >= 20.2) return 17;
-    if (zoom >= 20.0) return 16;
-    if (zoom >= 19.8) return 15;
-    if (zoom >= 19.6) return 14;
+    // zoom >= 19.8 -> 14
+    // zoom >= 20.0 -> 15
+    // zoom >= 20.2 -> 16
+    // zoom >= 20.5 -> 17
+    // zoom >= 20.7 -> 18
+    if (zoom >= 20.7) return 18;
+    if (zoom >= 20.5) return 17;
+    if (zoom >= 20.2) return 16;
+    if (zoom >= 20.0) return 15;
+    if (zoom >= 19.8) return 14;
     if (zoom >= 19.4) return 13;
-    if (zoom >= 19.2) return 12;
-    if (zoom >= 19.0) return 10;
-    if (zoom >= 18.5) return 9;
+    if (zoom >= 19.0) return 12;
+    if (zoom >= 18.5) return 10;
     return 8;
   }
 
