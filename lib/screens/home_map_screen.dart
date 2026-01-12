@@ -97,40 +97,40 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   final LinkedHashMap<String, BitmapDescriptor> _labelIconCache =
       LinkedHashMap<String, BitmapDescriptor>();
 
-    static const int _badgeIconCacheMaxEntries = 2500;
-    final LinkedHashMap<String, BitmapDescriptor> _badgeIconCache =
+  static const int _badgeIconCacheMaxEntries = 2500;
+  final LinkedHashMap<String, BitmapDescriptor> _badgeIconCache =
       LinkedHashMap<String, BitmapDescriptor>();
 
-    // Keep badge marker styling aligned with the web app.
-    // Source of truth: r-map-ui/src/components/Map/utils/markerIcons.ts
-    static const double _layoutBadgeMaxZoom = 17.0;
+  // Keep badge marker styling aligned with the web app.
+  // Source of truth: r-map-ui/src/components/Map/utils/markerIcons.ts
+  static const double _layoutBadgeMaxZoom = 17.0;
 
-    static const Color _priceBadgeDefaultBackground = Color(0xFF0F766E);
-    static const Color _priceBadgeDefaultStroke = Color(0xFFFFFFFF);
-    static const Color _priceBadgeDefaultText = Color(0xFFF8FAFC);
+  static const Color _priceBadgeDefaultBackground = Color(0xFF0F766E);
+  static const Color _priceBadgeDefaultStroke = Color(0xFFFFFFFF);
+  static const Color _priceBadgeDefaultText = Color(0xFFF8FAFC);
 
-    static const Color _priceBadgeCommercialBackground = Color(0xFF6B21A8);
-    static const Color _priceBadgeCommercialStroke = Color(0xFFE9D5FF);
-    static const Color _priceBadgeCommercialText = Color(0xFFFDF4FF);
+  static const Color _priceBadgeCommercialBackground = Color(0xFF6B21A8);
+  static const Color _priceBadgeCommercialStroke = Color(0xFFE9D5FF);
+  static const Color _priceBadgeCommercialText = Color(0xFFFDF4FF);
 
-    static const Color _priceBadgeLandBackground = Color(0xFF3F6212);
-    static const Color _priceBadgeLandStroke = Color(0xFFD9F99D);
-    static const Color _priceBadgeLandText = Color(0xFFF7FEE7);
+  static const Color _priceBadgeLandBackground = Color(0xFF3F6212);
+  static const Color _priceBadgeLandStroke = Color(0xFFD9F99D);
+  static const Color _priceBadgeLandText = Color(0xFFF7FEE7);
 
-    static const Color _priceBadgeApartmentBackground = Color(0xFF155E75);
-    static const Color _priceBadgeApartmentStroke = Color(0xFFBAE6FD);
-    static const Color _priceBadgeApartmentText = Color(0xFFECFEFF);
+  static const Color _priceBadgeApartmentBackground = Color(0xFF155E75);
+  static const Color _priceBadgeApartmentStroke = Color(0xFFBAE6FD);
+  static const Color _priceBadgeApartmentText = Color(0xFFECFEFF);
 
-    static const Color _priceBadgePlotBackground = Color(0xFF22543D);
-    static const Color _priceBadgePlotStroke = Color(0xFFBAE6FD);
-    static const Color _priceBadgePlotText = Color(0xFFF8FAFC);
+  static const Color _priceBadgePlotBackground = Color(0xFF22543D);
+  static const Color _priceBadgePlotStroke = Color(0xFFBAE6FD);
+  static const Color _priceBadgePlotText = Color(0xFFF8FAFC);
 
-    static const Color _layoutBadgeBackground = Color(0xFF3730A3);
-    static const Color _layoutBadgeStroke = Color(0xFFEEF2FF);
-    static const Color _layoutBadgeTitle = Color(0xFFF8FAFC);
-    static const Color _layoutBadgeSubtitle = Color(0xFFC7D2FE);
+  static const Color _layoutBadgeBackground = Color(0xFF3730A3);
+  static const Color _layoutBadgeStroke = Color(0xFFEEF2FF);
+  static const Color _layoutBadgeTitle = Color(0xFFF8FAFC);
+  static const Color _layoutBadgeSubtitle = Color(0xFFC7D2FE);
 
-    static const Color _badgeShadowColor = Color(0x590F172A);
+  static const Color _badgeShadowColor = Color(0x590F172A);
 
   // Keep map overlay styling aligned with the web app.
   // Source of truth: r-map-ui/src/constants/drawingStyles.ts
@@ -807,8 +807,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         'IndividualPlots',
       ].contains(feature.propertyType.trim());
 
-      final priceBadgeLabel =
-          (isPriceEligible && rawPrice != null) ? _formatPriceBadgeLabel(rawPrice) : null;
+      final priceBadgeLabel = (isPriceEligible && rawPrice != null)
+          ? _formatPriceBadgeLabel(rawPrice)
+          : null;
 
       final shouldShowLayoutBadge = isLayout && zoom <= _layoutBadgeMaxZoom;
       final layoutLocation = shouldShowLayoutBadge
@@ -923,7 +924,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     if (match == null) return null;
 
     final numericText = match.group(1)?.replaceAll(',', '');
-    final numericValue = numericText == null ? null : double.tryParse(numericText);
+    final numericValue =
+        numericText == null ? null : double.tryParse(numericText);
     if (numericValue == null || !numericValue.isFinite) return null;
 
     final suffix = (match.group(2) ?? '').toLowerCase();
@@ -949,9 +951,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     } else {
       if (lower.contains('crore') || RegExp(r'\bcr\b').hasMatch(lower)) {
         multiplier = _rupeeCrore;
-      } else if (lower.contains('lakh') || lower.contains('lac') || RegExp(r'\bl\b').hasMatch(lower)) {
+      } else if (lower.contains('lakh') ||
+          lower.contains('lac') ||
+          RegExp(r'\bl\b').hasMatch(lower)) {
         multiplier = _rupeeLakh;
-      } else if (lower.contains('thousand') || RegExp(r'\bk\b').hasMatch(lower)) {
+      } else if (lower.contains('thousand') ||
+          RegExp(r'\bk\b').hasMatch(lower)) {
         multiplier = _rupeeThousand;
       }
     }
@@ -962,7 +967,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     String compact(double value) {
       if (value >= 10) return value.round().toString();
       final rounded = (value * 10).round() / 10;
-      return (rounded % 1 == 0) ? rounded.toStringAsFixed(0) : rounded.toStringAsFixed(1);
+      return (rounded % 1 == 0)
+          ? rounded.toStringAsFixed(0)
+          : rounded.toStringAsFixed(1);
     }
 
     if (amount >= _rupeeCrore) {
@@ -985,11 +992,16 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     required Color stroke,
     required Color text,
   }) async {
-    final fontSize = zoom >= 18.2 ? 14.0 : zoom >= 17.0 ? 12.0 : 10.0;
+    final fontSize = zoom >= 18.2
+        ? 14.0
+        : zoom >= 17.0
+            ? 12.0
+            : 10.0;
     final charWidth = fontSize * 0.52;
     final paddingX = math.max(8.0, fontSize * 0.6);
     final minWidth = (fontSize * 2.6).ceilToDouble();
-    final badgeWidth = math.max(minWidth, label.length * charWidth + paddingX * 2);
+    final badgeWidth =
+        math.max(minWidth, label.length * charWidth + paddingX * 2);
     final paddingY = math.max(4.0, fontSize * 0.35);
     final badgeHeight = (fontSize + paddingY * 2);
     const pointerHeight = 6.0;
@@ -1023,7 +1035,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       ..lineTo(badgeWidth - radius, 0)
       ..quadraticBezierTo(badgeWidth, 0, badgeWidth, radius)
       ..lineTo(badgeWidth, badgeHeight - radius)
-      ..quadraticBezierTo(badgeWidth, badgeHeight, badgeWidth - radius, badgeHeight)
+      ..quadraticBezierTo(
+          badgeWidth, badgeHeight, badgeWidth - radius, badgeHeight)
       ..lineTo(badgeWidth / 2 + triangleHalfWidth, badgeHeight)
       ..lineTo(badgeWidth / 2, totalHeight)
       ..lineTo(badgeWidth / 2 - triangleHalfWidth, badgeHeight)
@@ -1092,8 +1105,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     final safeSubtitle = (subtitle ?? '').trim();
     final hasSubtitle = safeSubtitle.isNotEmpty;
 
-    final titleFontSize = zoom >= 18.5 ? 15.0 : zoom >= 17.5 ? 14.0 : 12.0;
-    final subtitleFontSize = hasSubtitle ? math.max(11.0, (titleFontSize * 0.78).roundToDouble()) : 0.0;
+    final titleFontSize = zoom >= 18.5
+        ? 15.0
+        : zoom >= 17.5
+            ? 14.0
+            : 12.0;
+    final subtitleFontSize = hasSubtitle
+        ? math.max(11.0, (titleFontSize * 0.78).roundToDouble())
+        : 0.0;
     final titleCharWidth = titleFontSize * 0.55;
     final subtitleCharWidth = subtitleFontSize * 0.52;
     final paddingX = math.max(12.0, titleFontSize * 0.7);
@@ -1106,7 +1125,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     );
     final minWidth = (titleFontSize * 4.5).roundToDouble();
     final badgeWidth = math.max(minWidth, textWidth + paddingX * 2);
-    final textHeight = titleFontSize + (hasSubtitle ? lineGap + subtitleFontSize : 0.0);
+    final textHeight =
+        titleFontSize + (hasSubtitle ? lineGap + subtitleFontSize : 0.0);
     final badgeHeight = paddingY * 2 + textHeight;
     const pointerHeight = 8.0;
     final totalHeight = badgeHeight + pointerHeight;
@@ -1137,7 +1157,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       ..lineTo(badgeWidth - radius, 0)
       ..quadraticBezierTo(badgeWidth, 0, badgeWidth, radius)
       ..lineTo(badgeWidth, badgeHeight - radius)
-      ..quadraticBezierTo(badgeWidth, badgeHeight, badgeWidth - radius, badgeHeight)
+      ..quadraticBezierTo(
+          badgeWidth, badgeHeight, badgeWidth - radius, badgeHeight)
       ..lineTo(badgeWidth / 2 + triangleHalfWidth, badgeHeight)
       ..lineTo(badgeWidth / 2, totalHeight)
       ..lineTo(badgeWidth / 2 - triangleHalfWidth, badgeHeight)
