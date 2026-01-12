@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../constants/api_constants.dart';
@@ -40,15 +41,18 @@ class MobileBffAuthApi {
           )
           .timeout(_timeout);
     } on SocketException {
-      throw AuthApiException(_networkHelpMessage());
+      debugPrint(_networkHelpMessage());
+      throw const AuthApiException(
+        'No internet connection. Please check your network and try again.',
+      );
     } on HttpException {
-      throw AuthApiException(_networkHelpMessage());
+      debugPrint(_networkHelpMessage());
+      throw const AuthApiException('Network error. Please try again.');
     } on FormatException {
       throw const AuthApiException('Unexpected response from server');
     } on TimeoutException {
       throw const AuthApiException(
-        'Request timed out contacting ${ApiConstants.mobileBffBaseUrl}. '
-        'Confirm you started the app with MOBILE_BFF_BASE_URL=http://192.168.1.38:5150.',
+        'Request timed out. Please try again.',
       );
     }
 
@@ -86,15 +90,18 @@ class MobileBffAuthApi {
           )
           .timeout(_timeout);
     } on SocketException {
-      throw AuthApiException(_networkHelpMessage());
+      debugPrint(_networkHelpMessage());
+      throw const AuthApiException(
+        'No internet connection. Please check your network and try again.',
+      );
     } on HttpException {
-      throw AuthApiException(_networkHelpMessage());
+      debugPrint(_networkHelpMessage());
+      throw const AuthApiException('Network error. Please try again.');
     } on FormatException {
       throw const AuthApiException('Unexpected response from server');
     } on TimeoutException {
       throw const AuthApiException(
-        'Request timed out contacting ${ApiConstants.mobileBffBaseUrl}. '
-        'Confirm you started the app with MOBILE_BFF_BASE_URL=http://192.168.1.38:5150.',
+        'Request timed out. Please try again.',
       );
     }
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 
@@ -108,14 +109,18 @@ class MobileBffMapApi {
           .get(uri, headers: headers.isEmpty ? null : headers)
           .timeout(_timeout);
     } on SocketException {
-      throw MapApiException(_networkHelpMessage());
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException(
+        'No internet connection. Please check your network and try again.',
+      );
     } on HttpException {
-      throw MapApiException(_networkHelpMessage());
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException('Network error. Please try again.');
     } on FormatException {
       throw const MapApiException('Unexpected response from server');
     } on TimeoutException {
       throw const MapApiException(
-        'Request timed out contacting ${ApiConstants.mobileBffBaseUrl}.',
+        'Request timed out. Please try again.',
       );
     }
 

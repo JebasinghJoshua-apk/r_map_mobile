@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -13,6 +14,7 @@ import '../services/mobile_bff_map_api.dart';
 import '../state/auth_scope.dart';
 import '../utils/geojson.dart';
 import '../widgets/api_key_missing_banner.dart';
+import '../widgets/network_status_banner.dart';
 import '../widgets/search_overlay.dart';
 import '../widgets/toast_message.dart';
 import '../models/map_viewport_models.dart';
@@ -28,6 +30,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   GoogleMapController? _mapController;
   GooglePlace? _googlePlace;
   late final MobileBffMapApi _mapApi;
+
+  final Connectivity _connectivity = Connectivity();
+  StreamSubscription<ConnectivityResult>? _connectivitySubscription;
+  bool _isOffline = false;
+
   String? _lightMapStyle;
   MapType _mapType = MapType.normal;
   final ValueNotifier<double> _zoomNotifier =
@@ -69,6 +76,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   Set<Marker> _amenityLabelMarkers = <Marker>{};
 
   Set<Polygon> _layoutPolygons = <Polygon>{};
+  Set<Polygon> _propertyPolygons = <Polygon>{};
   Set<Polygon> _plotPolygons = <Polygon>{};
   Set<Polygon> _amenityPolygons = <Polygon>{};
   Set<Polygon> _roadPolygons = <Polygon>{};
@@ -127,6 +135,109 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   static const double _roadLineStrokeOpacity = 0.70;
   static const int _roadLineStrokeWidth = 2;
 
+  // Property polygon styles (non-layout). Keep aligned with web.
+  // Source of truth: r-map-ui/src/components/Map/utils/overlayStyles.ts
+  static const Color _propertyDefaultStroke = Color(0xFF005F5A);
+  static const Color _propertyDefaultFill = Color(0xFF60A5FA);
+
+  static const Color _propertyIndividualPlotsStroke = Color(0xFF166534);
+  static const Color _propertyIndividualPlotsFill = Color(0xFF48BB78);
+
+  static const Color _propertyLandStroke = Color(0xFF4D7C0F);
+  static const Color _propertyLandFill = Color(0xFF84CC16);
+
+  static const Color _propertyCommercialStroke = Color(0xFF7C3AED);
+  static const Color _propertyCommercialFill = Color(0xFFA855F7);
+
+  static const Color _propertyIndependentHouseStroke = Color(0xFF115E59);
+  static const Color _propertyIndependentHouseFill = Color(0xFF5EEAD4);
+
+  static const Color _propertyApartmentStroke = Color(0xFF0E7490);
+  static const Color _propertyApartmentFill = Color(0xFF22D3EE);
+
+  static const double _propertyStrokeOpacity = 0.9;
+  static const double _propertyBaseFillOpacity = 0.18;
+  static const int _propertyBaseStrokeWidth = 2;
+
+  static double _adjustFillOpacityForZoom(double zoom, double base) {
+    if (zoom >= 18) return math.min(base + 0.22, 0.6);
+    if (zoom >= 16) return math.min(base + 0.16, 0.5);
+    if (zoom >= 14) return math.min(base + 0.10, 0.42);
+    if (zoom >= 12) return math.min(base + 0.05, 0.35);
+    return base;
+  }
+
+  static int _adjustStrokeWidthForZoom(double zoom, int base) {
+    double value;
+    if (zoom >= 18) {
+      value = base + 2.2;
+    } else if (zoom >= 16) {
+      value = base + 1.6;
+    } else if (zoom >= 14) {
+      value = base + 0.8;
+    } else if (zoom >= 12) {
+      value = base + 0.3;
+    } else {
+      value = base.toDouble();
+    }
+    final rounded = value.round();
+    return rounded < 1 ? 1 : rounded;
+  }
+
+  static _PropertyPolygonStyle _propertyStyleForType(String propertyType) {
+    switch (propertyType.trim()) {
+      case 'IndividualPlots':
+        return const _PropertyPolygonStyle(
+          stroke: _propertyIndividualPlotsStroke,
+          fill: _propertyIndividualPlotsFill,
+          zIndex: 50,
+        );
+      case 'Land':
+        return const _PropertyPolygonStyle(
+          stroke: _propertyLandStroke,
+          fill: _propertyLandFill,
+          zIndex: 30,
+        );
+      case 'CommercialSpace':
+        return const _PropertyPolygonStyle(
+          stroke: _propertyCommercialStroke,
+          fill: _propertyCommercialFill,
+          zIndex: 55,
+        );
+      case 'IndependentHouse':
+        return const _PropertyPolygonStyle(
+          stroke: _propertyIndependentHouseStroke,
+          fill: _propertyIndependentHouseFill,
+          zIndex: 35,
+        );
+      case 'ApartmentFlat':
+        return const _PropertyPolygonStyle(
+          stroke: _propertyApartmentStroke,
+          fill: _propertyApartmentFill,
+          zIndex: 35,
+        );
+      case 'Layout':
+        return const _PropertyPolygonStyle(
+          stroke: _layoutBoundaryStroke,
+          fill: _layoutBoundaryFill,
+          zIndex: 40,
+        );
+      case 'Road':
+      case 'LayoutRoad':
+        return const _PropertyPolygonStyle(
+          stroke: _roadStroke,
+          fill: _roadFill,
+          zIndex: 38,
+        );
+      default:
+        return const _PropertyPolygonStyle(
+          stroke: _propertyDefaultStroke,
+          fill: _propertyDefaultFill,
+          zIndex: 25,
+        );
+    }
+  }
+
   static bool _isSoldPlot(MapPlotFeature plot) {
     final meta = plot.metadata;
     final rawStatus = (meta['plotStatus'] ??
@@ -168,10 +279,31 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   void initState() {
     super.initState();
     _mapApi = MobileBffMapApi();
+    _initConnectivity();
     _loadLightMapStyle();
     if (googlePlacesApiKey != 'YOUR_GOOGLE_PLACES_API_KEY') {
       _googlePlace = GooglePlace(googlePlacesApiKey);
     }
+  }
+
+  Future<void> _initConnectivity() async {
+    try {
+      final initial = await _connectivity.checkConnectivity();
+      _handleConnectivityChanged(initial);
+    } catch (_) {
+      // If the platform channel fails, just continue without offline banner.
+    }
+
+    _connectivitySubscription?.cancel();
+    _connectivitySubscription =
+        _connectivity.onConnectivityChanged.listen(_handleConnectivityChanged);
+  }
+
+  void _handleConnectivityChanged(ConnectivityResult result) {
+    if (!mounted) return;
+    final nextOffline = result == ConnectivityResult.none;
+    if (nextOffline == _isOffline) return;
+    setState(() => _isOffline = nextOffline);
   }
 
   Future<void> _loadLightMapStyle() async {
@@ -191,6 +323,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     _mapController?.dispose();
     _viewportDebounceTimer?.cancel();
     _viewportLoadingTimer?.cancel();
+    _connectivitySubscription?.cancel();
     _zoomNotifier.dispose();
     super.dispose();
   }
@@ -299,6 +432,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         _roadLabelMarkers = cached.roadLabelMarkers;
         _amenityLabelMarkers = cached.amenityLabelMarkers;
         _layoutPolygons = cached.layoutPolygons;
+        _propertyPolygons = cached.propertyPolygons;
         _plotPolygons = cached.plotPolygons;
         _amenityPolygons = cached.amenityPolygons;
         _roadPolygons = cached.roadPolygons;
@@ -351,6 +485,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         _roadLabelMarkers = merged.roadLabelMarkers;
         _amenityLabelMarkers = merged.amenityLabelMarkers;
         _layoutPolygons = merged.layoutPolygons;
+        _propertyPolygons = merged.propertyPolygons;
         _plotPolygons = merged.plotPolygons;
         _amenityPolygons = merged.amenityPolygons;
         _roadPolygons = merged.roadPolygons;
@@ -379,8 +514,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   }) {
     final nextMarkers = <Marker>{};
     final nextLayoutPolygons = <Polygon>{};
+    final nextPropertyPolygons = <Polygon>{};
     var layoutFeatureCount = 0;
     var layoutPolygonCount = 0;
+    final styleZoom = _effectiveZoom ?? zoom;
     for (final feature in response.properties) {
       final center = feature.centerPoint;
       if (center == null) continue;
@@ -422,6 +559,42 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                   .withOpacity(_layoutBoundaryStrokeOpacity),
               fillColor: _layoutBoundaryFill.withOpacity(fillOpacity),
               consumeTapEvents: false,
+              zIndex: _propertyStyleForType('Layout').zIndex,
+            ),
+          );
+        }
+      } else {
+        final polygons = GeoJson.tryParsePolygons(feature.boundaryGeoJson);
+        if (polygons.isEmpty) continue;
+
+        final style = _propertyStyleForType(feature.propertyType);
+        final isDetailedPlotGroup =
+            feature.propertyType.trim() == 'IndividualPlots' &&
+                response.detailLevel == MapDetailLevel.detailed;
+
+        final strokeOpacity =
+            isDetailedPlotGroup ? 0.92 : _propertyStrokeOpacity;
+        final fillOpacity = isDetailedPlotGroup
+            ? 0.0
+            : _adjustFillOpacityForZoom(styleZoom, _propertyBaseFillOpacity);
+        final strokeWidth = isDetailedPlotGroup
+            ? _propertyBaseStrokeWidth
+            : _adjustStrokeWidthForZoom(styleZoom, _propertyBaseStrokeWidth);
+
+        for (var i = 0; i < polygons.length; i++) {
+          final points = polygons[i];
+          if (points.length < 3) continue;
+          nextPropertyPolygons.add(
+            Polygon(
+              polygonId: PolygonId(
+                'prop:${feature.propertyType}:${feature.featureId}:$i',
+              ),
+              points: points,
+              strokeWidth: strokeWidth,
+              strokeColor: style.stroke.withOpacity(strokeOpacity),
+              fillColor: style.fill.withOpacity(fillOpacity),
+              consumeTapEvents: false,
+              zIndex: style.zIndex,
             ),
           );
         }
@@ -569,6 +742,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       roadLabelMarkers: const <Marker>{},
       amenityLabelMarkers: const <Marker>{},
       layoutPolygons: Set<Polygon>.unmodifiable(nextLayoutPolygons),
+      propertyPolygons: Set<Polygon>.unmodifiable(nextPropertyPolygons),
       plotPolygons: Set<Polygon>.unmodifiable(nextPlotPolygons),
       amenityPolygons: Set<Polygon>.unmodifiable(nextAmenityPolygons),
       roadPolygons: Set<Polygon>.unmodifiable(nextRoadPolygons),
@@ -1225,6 +1399,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             markers: markers,
             polygons: {
               ..._layoutPolygons,
+              ..._propertyPolygons,
               ..._plotPolygons,
               ..._amenityPolygons,
               ..._roadPolygons,
@@ -1240,12 +1415,19 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             top: 48,
             left: 16,
             right: 16,
-            child: _googlePlace == null
-                ? const ApiKeyMissingBanner()
-                : SearchOverlay(
-                    googlePlace: _googlePlace!,
-                    onPlaceSelected: _moveCameraTo,
-                  ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                NetworkStatusBanner(isOffline: _isOffline),
+                if (_isOffline) const SizedBox(height: 8),
+                _googlePlace == null
+                    ? const ApiKeyMissingBanner()
+                    : SearchOverlay(
+                        googlePlace: _googlePlace!,
+                        onPlaceSelected: _moveCameraTo,
+                      ),
+              ],
+            ),
           ),
           Positioned(
             left: 16,
@@ -1293,38 +1475,41 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             ),
           ),
           if (_isViewportLoading)
-            Positioned(
-              right: 16,
-              bottom: 64,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Center(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Padding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          ),
+                          SizedBox(width: 10),
+                          Text(
+                            'Loading…',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
-                      SizedBox(width: 8),
-                      Text(
-                        'Loading…',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -1342,6 +1527,7 @@ class _ViewportRenderCacheEntry {
     required this.roadLabelMarkers,
     required this.amenityLabelMarkers,
     required this.layoutPolygons,
+    required this.propertyPolygons,
     required this.plotPolygons,
     required this.amenityPolygons,
     required this.roadPolygons,
@@ -1354,6 +1540,7 @@ class _ViewportRenderCacheEntry {
   final Set<Marker> roadLabelMarkers;
   final Set<Marker> amenityLabelMarkers;
   final Set<Polygon> layoutPolygons;
+  final Set<Polygon> propertyPolygons;
   final Set<Polygon> plotPolygons;
   final Set<Polygon> amenityPolygons;
   final Set<Polygon> roadPolygons;
@@ -1371,6 +1558,7 @@ class _ViewportRenderCacheEntry {
       roadLabelMarkers: roadLabelMarkers ?? this.roadLabelMarkers,
       amenityLabelMarkers: amenityLabelMarkers ?? this.amenityLabelMarkers,
       layoutPolygons: layoutPolygons,
+      propertyPolygons: propertyPolygons,
       plotPolygons: plotPolygons,
       amenityPolygons: amenityPolygons,
       roadPolygons: roadPolygons,
@@ -1378,6 +1566,18 @@ class _ViewportRenderCacheEntry {
       createdAt: createdAt,
     );
   }
+}
+
+class _PropertyPolygonStyle {
+  const _PropertyPolygonStyle({
+    required this.stroke,
+    required this.fill,
+    required this.zIndex,
+  });
+
+  final Color stroke;
+  final Color fill;
+  final int zIndex;
 }
 
 class _LabelMarkerResult {

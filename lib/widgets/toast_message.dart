@@ -12,6 +12,7 @@ class ToastMessage {
     Duration duration = const Duration(seconds: 4),
     double bottomMargin = 24,
     double fontSize = 14,
+    int maxLines = 3,
   }) {
     if (!context.mounted) return;
 
@@ -22,6 +23,7 @@ class ToastMessage {
 
     final screenWidth = MediaQuery.maybeSizeOf(context)?.width ?? 400;
     final textScaler = MediaQuery.textScalerOf(context);
+    final maxWidth = screenWidth - 24;
 
     const horizontalPadding = 12.0;
     const verticalPadding = 8.0;
@@ -35,14 +37,13 @@ class ToastMessage {
     final textDirection = Directionality.maybeOf(context) ?? TextDirection.ltr;
     final painter = TextPainter(
       text: TextSpan(text: message, style: textStyle),
-      maxLines: 1,
+      maxLines: maxLines < 1 ? 1 : maxLines,
       textDirection: textDirection,
       textScaler: textScaler,
-    )..layout(maxWidth: screenWidth);
+    )..layout(maxWidth: maxWidth - (horizontalPadding * 2) - 6);
 
-    // Approximate width: text + padding + a little safety.
+    // Approximate width: wrapped text + padding + a little safety.
     final desiredWidth = painter.width + (horizontalPadding * 2) + 6;
-    final maxWidth = screenWidth - 24;
     final pillWidth = desiredWidth.clamp(80.0, maxWidth).toDouble();
     final horizontalMargin =
         ((screenWidth - pillWidth) / 2).clamp(12.0, 200.0).toDouble();
@@ -63,8 +64,10 @@ class ToastMessage {
         ),
         content: Text(
           message,
-          overflow: TextOverflow.clip,
-          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          maxLines: maxLines < 1 ? 1 : maxLines,
+          softWrap: true,
+          textAlign: TextAlign.center,
           style: textStyle,
         ),
       ),

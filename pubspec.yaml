@@ -38,6 +38,7 @@ dependencies:
   google_place: ^0.4.7
   http: ^0.13.6
   shared_preferences: ^2.3.2
+  connectivity_plus: ^5.0.2
 
 dev_dependencies:
   flutter_test:
