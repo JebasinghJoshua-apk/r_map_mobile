@@ -261,7 +261,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
     if (set.contains('sublocality') ||
         set.contains('sublocality_level_1') ||
         set.contains('neighborhood')) {
-      return 15.0;
+      return 15.8;
     }
 
     // Streets / POIs / addresses

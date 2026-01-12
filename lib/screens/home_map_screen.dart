@@ -15,6 +15,7 @@ import '../state/auth_scope.dart';
 import '../utils/geojson.dart';
 import '../widgets/api_key_missing_banner.dart';
 import '../widgets/network_status_banner.dart';
+import '../widgets/plot_details_panel.dart';
 import '../widgets/search_overlay.dart';
 import '../widgets/toast_message.dart';
 import '../models/map_viewport_models.dart';
@@ -81,6 +82,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   Set<Polygon> _roadPolygons = <Polygon>{};
   Set<Polyline> _roadPolylines = <Polyline>{};
 
+  MapPlotFeature? _selectedPlot;
+
   static const double _minPlotPolygonZoom = 16.2;
   static const double _minRoadOverlayZoom = 16.0;
 
@@ -144,8 +147,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
   static const Color _plotStroke = Color(0xFF0F766E);
   static const Color _plotFill = Color(0xFF16A34A);
-  static const double _plotStrokeOpacity = 1.0;
-  static const double _plotFillOpacity = 0.55;
+  // Match web: r-map-ui/src/constants/drawingStyles.ts (plot.fillOpacity=0.3, strokeOpacity=0.95)
+  static const double _plotStrokeOpacity = 0.95;
+  static const double _plotFillOpacity = 0.30;
   static const int _plotStrokeWidth = 2;
 
   static const Color _soldPlotStroke = Color(0xFF4B5563);
@@ -640,6 +644,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         int strokeWidth;
         double strokeOpacity;
         double fillOpacity;
+        int zIndex;
 
         if (kind == 'road') {
           stroke = _roadStroke;
@@ -647,6 +652,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           strokeWidth = _roadStrokeWidth;
           strokeOpacity = _roadStrokeOpacity;
           fillOpacity = _roadFillOpacity;
+          zIndex = 58;
         } else if (kind == 'boundary') {
           stroke = _layoutBoundaryStroke;
           fill = _layoutBoundaryFill;
@@ -654,18 +660,21 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           strokeOpacity = _layoutBoundaryStrokeOpacity;
           fillOpacity =
               zoom >= _layoutFillHideZoom ? 0.0 : _layoutBoundaryFillOpacity;
+          zIndex = 45;
         } else if (isSold) {
           stroke = _soldPlotStroke;
           fill = _soldPlotFill;
           strokeWidth = _plotStrokeWidth;
           strokeOpacity = _soldPlotStrokeOpacity;
           fillOpacity = _soldPlotFillOpacity;
+          zIndex = 60;
         } else {
           stroke = _plotStroke;
           fill = _plotFill;
           strokeWidth = _plotStrokeWidth;
           strokeOpacity = _plotStrokeOpacity;
           fillOpacity = _plotFillOpacity;
+          zIndex = 60;
         }
 
         for (var i = 0; i < polygons.length; i++) {
@@ -678,7 +687,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               strokeWidth: strokeWidth,
               strokeColor: stroke.withOpacity(strokeOpacity),
               fillColor: fill.withOpacity(fillOpacity),
-              consumeTapEvents: false,
+              consumeTapEvents: true,
+              zIndex: zIndex,
+              onTap: () => _handlePlotTapped(plot),
             ),
           );
         }
@@ -697,6 +708,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               strokeColor: _amenityStroke.withOpacity(_amenityStrokeOpacity),
               fillColor: _amenityFill.withOpacity(_amenityFillOpacity),
               consumeTapEvents: false,
+              zIndex: 64,
             ),
           );
         }
@@ -769,6 +781,77 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       roadPolygons: Set<Polygon>.unmodifiable(nextRoadPolygons),
       roadPolylines: Set<Polyline>.unmodifiable(nextRoadPolylines),
     );
+  }
+
+  void _handlePlotTapped(MapPlotFeature plot) {
+    if (!mounted) return;
+    setState(() {
+      _selectedPlot = plot;
+    });
+  }
+
+  void _closePlotPanel() {
+    if (!mounted) return;
+    if (_selectedPlot == null) return;
+    setState(() {
+      _selectedPlot = null;
+    });
+  }
+
+  String? _plotAreaLabel(MapPlotFeature plot) {
+    final meta = plot.metadata;
+    for (final key in const <String>[
+      'areaSqft',
+      'area_sqft',
+      'sqft',
+      'plotArea',
+      'area',
+    ]) {
+      final raw = meta[key]?.trim();
+      if (raw == null || raw.isEmpty) continue;
+      final numericText = raw.replaceAll(',', '');
+      final value = double.tryParse(numericText);
+      if (value == null) {
+        // If the backend already includes unit, show as-is.
+        return raw;
+      }
+      final rounded = value.round();
+      return '$rounded sqft';
+    }
+    return null;
+  }
+
+  List<String> _plotTags(MapPlotFeature plot) {
+    final meta = plot.metadata;
+    final tags = <String>[];
+
+    bool hasTruthy(List<String> keys) {
+      for (final key in keys) {
+        final v = meta[key]?.trim().toLowerCase();
+        if (v == null || v.isEmpty) continue;
+        if (v == 'true' || v == '1' || v == 'yes') return true;
+      }
+      return false;
+    }
+
+    if (hasTruthy(const <String>['cornerPlot', 'corner_plot', 'isCorner'])) {
+      tags.add('Corner Plot');
+    }
+    if (hasTruthy(const <String>[
+      'mainRoadFacing',
+      'main_road_facing',
+      'isMainRoadFacing'
+    ])) {
+      tags.add('Main Road Facing');
+    }
+
+    final facing =
+        (meta['facing'] ?? meta['plotFacing'] ?? meta['direction'])?.trim();
+    if (facing != null && facing.isNotEmpty) {
+      tags.add('Facing $facing');
+    }
+
+    return tags;
   }
 
   Future<Set<Marker>> _buildPropertyMarkers({
@@ -878,10 +961,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                     zoom:
                         focusZoom ?? (isLayout ? _layoutFocusZoomTarget : 20.0),
                   ),
-          infoWindow: InfoWindow(
-            title: title,
-            snippet: feature.listingType,
-          ),
+          // Disable default Google Maps tooltip/infowindow (web UX doesn't show it).
+          infoWindow: InfoWindow.noText,
         ),
       );
     }
@@ -1925,6 +2006,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final selectedPlot = _selectedPlot;
     final markers = <Marker>{
       ..._viewportMarkers,
       ..._plotLabelMarkers,
@@ -1938,6 +2020,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           GoogleMap(
             initialCameraPosition: _initialCameraPosition,
             onMapCreated: _onMapCreated,
+            onTap: (_) => _closePlotPanel(),
             onCameraMove: (position) {
               _lastCameraPosition = position;
               if (_effectiveZoom == null ||
@@ -2078,6 +2161,31 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                     ),
                   ),
                 ),
+              ),
+            ),
+          if (selectedPlot != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: PlotDetailsPanel(
+                plot: selectedPlot,
+                isSold:
+                    selectedPlot.layoutId != null && _isSoldPlot(selectedPlot),
+                areaLabel: _plotAreaLabel(selectedPlot),
+                tags: _plotTags(selectedPlot),
+                onClose: _closePlotPanel,
+                onLayoutDetails: () {
+                  final layoutId = selectedPlot.layoutId;
+                  if (layoutId == null || layoutId.trim().isEmpty) {
+                    ToastMessage.show(context, 'Layout details not available');
+                    return;
+                  }
+                  ToastMessage.show(context, 'Layout Details: $layoutId');
+                },
+                onUpdateStatus: (status) {
+                  ToastMessage.show(context, 'Update status: $status (TODO)');
+                },
               ),
             ),
         ],
