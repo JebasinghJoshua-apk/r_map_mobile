@@ -97,6 +97,41 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   final LinkedHashMap<String, BitmapDescriptor> _labelIconCache =
       LinkedHashMap<String, BitmapDescriptor>();
 
+    static const int _badgeIconCacheMaxEntries = 2500;
+    final LinkedHashMap<String, BitmapDescriptor> _badgeIconCache =
+      LinkedHashMap<String, BitmapDescriptor>();
+
+    // Keep badge marker styling aligned with the web app.
+    // Source of truth: r-map-ui/src/components/Map/utils/markerIcons.ts
+    static const double _layoutBadgeMaxZoom = 17.0;
+
+    static const Color _priceBadgeDefaultBackground = Color(0xFF0F766E);
+    static const Color _priceBadgeDefaultStroke = Color(0xFFFFFFFF);
+    static const Color _priceBadgeDefaultText = Color(0xFFF8FAFC);
+
+    static const Color _priceBadgeCommercialBackground = Color(0xFF6B21A8);
+    static const Color _priceBadgeCommercialStroke = Color(0xFFE9D5FF);
+    static const Color _priceBadgeCommercialText = Color(0xFFFDF4FF);
+
+    static const Color _priceBadgeLandBackground = Color(0xFF3F6212);
+    static const Color _priceBadgeLandStroke = Color(0xFFD9F99D);
+    static const Color _priceBadgeLandText = Color(0xFFF7FEE7);
+
+    static const Color _priceBadgeApartmentBackground = Color(0xFF155E75);
+    static const Color _priceBadgeApartmentStroke = Color(0xFFBAE6FD);
+    static const Color _priceBadgeApartmentText = Color(0xFFECFEFF);
+
+    static const Color _priceBadgePlotBackground = Color(0xFF22543D);
+    static const Color _priceBadgePlotStroke = Color(0xFFBAE6FD);
+    static const Color _priceBadgePlotText = Color(0xFFF8FAFC);
+
+    static const Color _layoutBadgeBackground = Color(0xFF3730A3);
+    static const Color _layoutBadgeStroke = Color(0xFFEEF2FF);
+    static const Color _layoutBadgeTitle = Color(0xFFF8FAFC);
+    static const Color _layoutBadgeSubtitle = Color(0xFFC7D2FE);
+
+    static const Color _badgeShadowColor = Color(0x590F172A);
+
   // Keep map overlay styling aligned with the web app.
   // Source of truth: r-map-ui/src/constants/drawingStyles.ts
   // and r-map-ui/src/components/Map/utils/overlayStyles.ts
@@ -462,6 +497,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         response: response,
         zoom: _lastCameraPosition.zoom,
       );
+
+      final pixelRatio = MediaQuery.of(context).devicePixelRatio;
+      final propertyMarkers = await _buildPropertyMarkers(
+        response: response,
+        zoom: _lastCameraPosition.zoom,
+        pixelRatio: pixelRatio,
+      );
       final labels = await _buildLabelMarkers(
         response: response,
         zoom: _lastCameraPosition.zoom,
@@ -473,6 +515,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       }
 
       final merged = rendered.copyWith(
+        markers: propertyMarkers,
         plotLabelMarkers: labels.plotLabelMarkers,
         roadLabelMarkers: labels.roadLabelMarkers,
         amenityLabelMarkers: labels.amenityLabelMarkers,
@@ -512,7 +555,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     required MapViewportResponse response,
     required double zoom,
   }) {
-    final nextMarkers = <Marker>{};
     final nextLayoutPolygons = <Polygon>{};
     final nextPropertyPolygons = <Polygon>{};
     var layoutFeatureCount = 0;
@@ -521,23 +563,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     for (final feature in response.properties) {
       final center = feature.centerPoint;
       if (center == null) continue;
-
-      final title = feature.name.trim().isEmpty
-          ? (feature.propertyType.trim().isEmpty
-              ? 'Property'
-              : feature.propertyType)
-          : feature.name;
-
-      nextMarkers.add(
-        Marker(
-          markerId: MarkerId('property:${feature.propertyId}'),
-          position: center,
-          infoWindow: InfoWindow(
-            title: title,
-            snippet: feature.listingType,
-          ),
-        ),
-      );
 
       final normalizedType = feature.propertyType.trim().toLowerCase();
       final isLayout = normalizedType == 'layout';
@@ -737,7 +762,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     }());
 
     return _ViewportRenderCacheEntry(
-      markers: Set<Marker>.unmodifiable(nextMarkers),
+      markers: const <Marker>{},
       plotLabelMarkers: const <Marker>{},
       roadLabelMarkers: const <Marker>{},
       amenityLabelMarkers: const <Marker>{},
@@ -748,6 +773,446 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       roadPolygons: Set<Polygon>.unmodifiable(nextRoadPolygons),
       roadPolylines: Set<Polyline>.unmodifiable(nextRoadPolylines),
     );
+  }
+
+  Future<Set<Marker>> _buildPropertyMarkers({
+    required MapViewportResponse response,
+    required double zoom,
+    required double pixelRatio,
+  }) async {
+    final nextMarkers = <Marker>{};
+
+    for (final feature in response.properties) {
+      final center = feature.centerPoint;
+      if (center == null) continue;
+
+      final rawName = feature.name.trim();
+      final title = rawName.isEmpty
+          ? (feature.propertyType.trim().isEmpty
+              ? 'Property'
+              : feature.propertyType)
+          : rawName;
+
+      final isLayout = feature.propertyType.trim() == 'Layout';
+
+      final rawPrice = _getMetadataValue(
+        feature.metadata,
+        const <String>['price', 'listingPrice', 'salePrice', 'amount'],
+      );
+      final isPriceEligible = const <String>[
+        'IndependentHouse',
+        'CommercialSpace',
+        'Land',
+        'ApartmentFlat',
+        'IndividualPlots',
+      ].contains(feature.propertyType.trim());
+
+      final priceBadgeLabel =
+          (isPriceEligible && rawPrice != null) ? _formatPriceBadgeLabel(rawPrice) : null;
+
+      final shouldShowLayoutBadge = isLayout && zoom <= _layoutBadgeMaxZoom;
+      final layoutLocation = shouldShowLayoutBadge
+          ? _getMetadataValue(
+              feature.metadata,
+              const <String>[
+                'location',
+                'locality',
+                'city',
+                'area',
+              ],
+            )
+          : null;
+
+      BitmapDescriptor? icon;
+      Offset? anchor;
+      double zIndex = 80;
+
+      if (shouldShowLayoutBadge) {
+        icon = await _getLayoutBadgeIcon(
+          title: title.isEmpty ? 'Layout' : title,
+          subtitle: layoutLocation,
+          zoom: zoom,
+          pixelRatio: pixelRatio,
+        );
+        anchor = const Offset(0.5, 1.0);
+        zIndex = 999999;
+      } else if (priceBadgeLabel != null) {
+        final colors = _priceBadgeColorsForPropertyType(feature.propertyType);
+        icon = await _getPriceBadgeIcon(
+          label: priceBadgeLabel,
+          zoom: zoom,
+          pixelRatio: pixelRatio,
+          background: colors.background,
+          stroke: colors.stroke,
+          text: colors.text,
+        );
+        anchor = const Offset(0.5, 1.0);
+        zIndex = 200;
+      }
+
+      nextMarkers.add(
+        Marker(
+          markerId: MarkerId('property:${feature.propertyId}'),
+          position: center,
+          icon: icon ?? BitmapDescriptor.defaultMarker,
+          anchor: anchor ?? const Offset(0.5, 1.0),
+          zIndex: zIndex,
+          infoWindow: InfoWindow(
+            title: title,
+            snippet: feature.listingType,
+          ),
+        ),
+      );
+    }
+
+    return Set<Marker>.unmodifiable(nextMarkers);
+  }
+
+  _PriceBadgeColors _priceBadgeColorsForPropertyType(String propertyType) {
+    switch (propertyType.trim()) {
+      case 'CommercialSpace':
+        return const _PriceBadgeColors(
+          background: _priceBadgeCommercialBackground,
+          stroke: _priceBadgeCommercialStroke,
+          text: _priceBadgeCommercialText,
+        );
+      case 'Land':
+        return const _PriceBadgeColors(
+          background: _priceBadgeLandBackground,
+          stroke: _priceBadgeLandStroke,
+          text: _priceBadgeLandText,
+        );
+      case 'ApartmentFlat':
+        return const _PriceBadgeColors(
+          background: _priceBadgeApartmentBackground,
+          stroke: _priceBadgeApartmentStroke,
+          text: _priceBadgeApartmentText,
+        );
+      case 'IndividualPlots':
+        return const _PriceBadgeColors(
+          background: _priceBadgePlotBackground,
+          stroke: _priceBadgePlotStroke,
+          text: _priceBadgePlotText,
+        );
+      default:
+        return const _PriceBadgeColors(
+          background: _priceBadgeDefaultBackground,
+          stroke: _priceBadgeDefaultStroke,
+          text: _priceBadgeDefaultText,
+        );
+    }
+  }
+
+  String? _getMetadataValue(Map<String, String?> metadata, List<String> keys) {
+    for (final key in keys) {
+      final v = metadata[key]?.trim();
+      if (v != null && v.isNotEmpty) return v;
+    }
+    return null;
+  }
+
+  static const double _rupeeCrore = 10000000;
+  static const double _rupeeLakh = 100000;
+  static const double _rupeeThousand = 1000;
+
+  String? _formatPriceBadgeLabel(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+
+    final match = RegExp(r'([\d.,]+)(?:\s*([a-zA-Z]+))?').firstMatch(trimmed);
+    if (match == null) return null;
+
+    final numericText = match.group(1)?.replaceAll(',', '');
+    final numericValue = numericText == null ? null : double.tryParse(numericText);
+    if (numericValue == null || !numericValue.isFinite) return null;
+
+    final suffix = (match.group(2) ?? '').toLowerCase();
+    final lower = trimmed.toLowerCase();
+
+    double multiplier = 1;
+    const suffixMultipliers = <String, double>{
+      'c': _rupeeCrore,
+      'cr': _rupeeCrore,
+      'crore': _rupeeCrore,
+      'crores': _rupeeCrore,
+      'l': _rupeeLakh,
+      'lac': _rupeeLakh,
+      'lacs': _rupeeLakh,
+      'lakh': _rupeeLakh,
+      'lakhs': _rupeeLakh,
+      'k': _rupeeThousand,
+      'thousand': _rupeeThousand,
+    };
+
+    if (suffix.isNotEmpty && suffixMultipliers.containsKey(suffix)) {
+      multiplier = suffixMultipliers[suffix]!;
+    } else {
+      if (lower.contains('crore') || RegExp(r'\bcr\b').hasMatch(lower)) {
+        multiplier = _rupeeCrore;
+      } else if (lower.contains('lakh') || lower.contains('lac') || RegExp(r'\bl\b').hasMatch(lower)) {
+        multiplier = _rupeeLakh;
+      } else if (lower.contains('thousand') || RegExp(r'\bk\b').hasMatch(lower)) {
+        multiplier = _rupeeThousand;
+      }
+    }
+
+    final amount = numericValue * multiplier;
+    if (!amount.isFinite || amount <= 0) return null;
+
+    String compact(double value) {
+      if (value >= 10) return value.round().toString();
+      final rounded = (value * 10).round() / 10;
+      return (rounded % 1 == 0) ? rounded.toStringAsFixed(0) : rounded.toStringAsFixed(1);
+    }
+
+    if (amount >= _rupeeCrore) {
+      return '₹${compact(amount / _rupeeCrore)}C';
+    }
+    if (amount >= _rupeeLakh) {
+      return '₹${compact(amount / _rupeeLakh)}L';
+    }
+    if (amount >= _rupeeThousand) {
+      return '₹${compact(amount / _rupeeThousand)}K';
+    }
+    return '₹${amount.round()}';
+  }
+
+  Future<BitmapDescriptor> _getPriceBadgeIcon({
+    required String label,
+    required double zoom,
+    required double pixelRatio,
+    required Color background,
+    required Color stroke,
+    required Color text,
+  }) async {
+    final fontSize = zoom >= 18.2 ? 14.0 : zoom >= 17.0 ? 12.0 : 10.0;
+    final charWidth = fontSize * 0.52;
+    final paddingX = math.max(8.0, fontSize * 0.6);
+    final minWidth = (fontSize * 2.6).ceilToDouble();
+    final badgeWidth = math.max(minWidth, label.length * charWidth + paddingX * 2);
+    final paddingY = math.max(4.0, fontSize * 0.35);
+    final badgeHeight = (fontSize + paddingY * 2);
+    const pointerHeight = 6.0;
+    final totalHeight = badgeHeight + pointerHeight;
+    const radius = 6.0;
+    final triangleHalfWidth = math.max(6.0, fontSize * 0.55);
+    final borderWidth = math.max(0.9, fontSize * 0.1);
+
+    final cacheKey = [
+      'price',
+      label,
+      zoom.toStringAsFixed(2),
+      pixelRatio.toStringAsFixed(2),
+      background.value.toRadixString(16),
+      stroke.value.toRadixString(16),
+      text.value.toRadixString(16),
+    ].join('|');
+
+    final cached = _badgeIconCache.remove(cacheKey);
+    if (cached != null) {
+      _badgeIconCache[cacheKey] = cached;
+      return cached;
+    }
+
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+    canvas.scale(pixelRatio);
+
+    final bubblePath = ui.Path()
+      ..moveTo(radius, 0)
+      ..lineTo(badgeWidth - radius, 0)
+      ..quadraticBezierTo(badgeWidth, 0, badgeWidth, radius)
+      ..lineTo(badgeWidth, badgeHeight - radius)
+      ..quadraticBezierTo(badgeWidth, badgeHeight, badgeWidth - radius, badgeHeight)
+      ..lineTo(badgeWidth / 2 + triangleHalfWidth, badgeHeight)
+      ..lineTo(badgeWidth / 2, totalHeight)
+      ..lineTo(badgeWidth / 2 - triangleHalfWidth, badgeHeight)
+      ..lineTo(radius, badgeHeight)
+      ..quadraticBezierTo(0, badgeHeight, 0, badgeHeight - radius)
+      ..lineTo(0, radius)
+      ..quadraticBezierTo(0, 0, radius, 0)
+      ..close();
+
+    canvas.drawShadow(bubblePath, _badgeShadowColor, 4.0, true);
+
+    final fillPaint = ui.Paint()
+      ..style = ui.PaintingStyle.fill
+      ..color = background;
+    final strokePaint = ui.Paint()
+      ..style = ui.PaintingStyle.stroke
+      ..strokeWidth = borderWidth
+      ..color = stroke;
+
+    canvas.drawPath(bubblePath, fillPaint);
+    canvas.drawPath(bubblePath, strokePaint);
+
+    final textPainter = TextPainter(
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+      text: TextSpan(
+        text: label,
+        style: TextStyle(
+          color: text,
+          fontSize: fontSize,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    )..layout(maxWidth: badgeWidth);
+
+    final textX = (badgeWidth - textPainter.width) / 2;
+    final textY = (badgeHeight - textPainter.height) / 2;
+    textPainter.paint(canvas, ui.Offset(textX, textY));
+
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(
+      (badgeWidth * pixelRatio).ceil(),
+      (totalHeight * pixelRatio).ceil(),
+    );
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    final bytes = byteData?.buffer.asUint8List() ?? Uint8List(0);
+    final descriptor = BitmapDescriptor.bytes(
+      bytes,
+      imagePixelRatio: pixelRatio,
+    );
+
+    if (_badgeIconCache.length >= _badgeIconCacheMaxEntries) {
+      _badgeIconCache.remove(_badgeIconCache.keys.first);
+    }
+    _badgeIconCache[cacheKey] = descriptor;
+    return descriptor;
+  }
+
+  Future<BitmapDescriptor> _getLayoutBadgeIcon({
+    required String title,
+    required String? subtitle,
+    required double zoom,
+    required double pixelRatio,
+  }) async {
+    final safeTitle = title.trim().isEmpty ? 'Layout' : title.trim();
+    final safeSubtitle = (subtitle ?? '').trim();
+    final hasSubtitle = safeSubtitle.isNotEmpty;
+
+    final titleFontSize = zoom >= 18.5 ? 15.0 : zoom >= 17.5 ? 14.0 : 12.0;
+    final subtitleFontSize = hasSubtitle ? math.max(11.0, (titleFontSize * 0.78).roundToDouble()) : 0.0;
+    final titleCharWidth = titleFontSize * 0.55;
+    final subtitleCharWidth = subtitleFontSize * 0.52;
+    final paddingX = math.max(12.0, titleFontSize * 0.7);
+    final paddingY = math.max(8.0, titleFontSize * 0.45);
+    final lineGap = hasSubtitle ? math.max(4.0, titleFontSize * 0.2) : 0.0;
+
+    final textWidth = math.max(
+      safeTitle.length * titleCharWidth,
+      hasSubtitle ? safeSubtitle.length * subtitleCharWidth : 0.0,
+    );
+    final minWidth = (titleFontSize * 4.5).roundToDouble();
+    final badgeWidth = math.max(minWidth, textWidth + paddingX * 2);
+    final textHeight = titleFontSize + (hasSubtitle ? lineGap + subtitleFontSize : 0.0);
+    final badgeHeight = paddingY * 2 + textHeight;
+    const pointerHeight = 8.0;
+    final totalHeight = badgeHeight + pointerHeight;
+    const radius = 8.0;
+    final triangleHalfWidth = math.max(8.0, badgeWidth * 0.12);
+    const borderWidth = 1.2;
+
+    final cacheKey = [
+      'layout',
+      safeTitle,
+      safeSubtitle,
+      zoom.toStringAsFixed(2),
+      pixelRatio.toStringAsFixed(2),
+    ].join('|');
+
+    final cached = _badgeIconCache.remove(cacheKey);
+    if (cached != null) {
+      _badgeIconCache[cacheKey] = cached;
+      return cached;
+    }
+
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+    canvas.scale(pixelRatio);
+
+    final bubblePath = ui.Path()
+      ..moveTo(radius, 0)
+      ..lineTo(badgeWidth - radius, 0)
+      ..quadraticBezierTo(badgeWidth, 0, badgeWidth, radius)
+      ..lineTo(badgeWidth, badgeHeight - radius)
+      ..quadraticBezierTo(badgeWidth, badgeHeight, badgeWidth - radius, badgeHeight)
+      ..lineTo(badgeWidth / 2 + triangleHalfWidth, badgeHeight)
+      ..lineTo(badgeWidth / 2, totalHeight)
+      ..lineTo(badgeWidth / 2 - triangleHalfWidth, badgeHeight)
+      ..lineTo(radius, badgeHeight)
+      ..quadraticBezierTo(0, badgeHeight, 0, badgeHeight - radius)
+      ..lineTo(0, radius)
+      ..quadraticBezierTo(0, 0, radius, 0)
+      ..close();
+
+    canvas.drawShadow(bubblePath, _badgeShadowColor, 4.5, true);
+
+    final fillPaint = ui.Paint()
+      ..style = ui.PaintingStyle.fill
+      ..color = _layoutBadgeBackground;
+    final strokePaint = ui.Paint()
+      ..style = ui.PaintingStyle.stroke
+      ..strokeWidth = borderWidth
+      ..color = _layoutBadgeStroke;
+
+    canvas.drawPath(bubblePath, fillPaint);
+    canvas.drawPath(bubblePath, strokePaint);
+
+    final titlePainter = TextPainter(
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+      text: TextSpan(
+        text: safeTitle,
+        style: TextStyle(
+          color: _layoutBadgeTitle,
+          fontSize: titleFontSize,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    )..layout(maxWidth: badgeWidth);
+
+    final titleX = (badgeWidth - titlePainter.width) / 2;
+    final titleY = paddingY;
+    titlePainter.paint(canvas, ui.Offset(titleX, titleY));
+
+    if (hasSubtitle) {
+      final subtitlePainter = TextPainter(
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+        text: TextSpan(
+          text: safeSubtitle,
+          style: TextStyle(
+            color: _layoutBadgeSubtitle,
+            fontSize: subtitleFontSize,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      )..layout(maxWidth: badgeWidth);
+
+      final subtitleX = (badgeWidth - subtitlePainter.width) / 2;
+      final subtitleY = titleY + titleFontSize + lineGap;
+      subtitlePainter.paint(canvas, ui.Offset(subtitleX, subtitleY));
+    }
+
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(
+      (badgeWidth * pixelRatio).ceil(),
+      (totalHeight * pixelRatio).ceil(),
+    );
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    final bytes = byteData?.buffer.asUint8List() ?? Uint8List(0);
+    final descriptor = BitmapDescriptor.bytes(
+      bytes,
+      imagePixelRatio: pixelRatio,
+    );
+
+    if (_badgeIconCache.length >= _badgeIconCacheMaxEntries) {
+      _badgeIconCache.remove(_badgeIconCache.keys.first);
+    }
+    _badgeIconCache[cacheKey] = descriptor;
+    return descriptor;
   }
 
   Future<_LabelMarkerResult> _buildLabelMarkers({
@@ -1548,12 +2013,13 @@ class _ViewportRenderCacheEntry {
   final DateTime createdAt;
 
   _ViewportRenderCacheEntry copyWith({
+    Set<Marker>? markers,
     Set<Marker>? plotLabelMarkers,
     Set<Marker>? roadLabelMarkers,
     Set<Marker>? amenityLabelMarkers,
   }) {
     return _ViewportRenderCacheEntry(
-      markers: markers,
+      markers: markers ?? this.markers,
       plotLabelMarkers: plotLabelMarkers ?? this.plotLabelMarkers,
       roadLabelMarkers: roadLabelMarkers ?? this.roadLabelMarkers,
       amenityLabelMarkers: amenityLabelMarkers ?? this.amenityLabelMarkers,
@@ -1566,6 +2032,18 @@ class _ViewportRenderCacheEntry {
       createdAt: createdAt,
     );
   }
+}
+
+class _PriceBadgeColors {
+  const _PriceBadgeColors({
+    required this.background,
+    required this.stroke,
+    required this.text,
+  });
+
+  final Color background;
+  final Color stroke;
+  final Color text;
 }
 
 class _PropertyPolygonStyle {
