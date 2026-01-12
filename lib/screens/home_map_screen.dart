@@ -362,11 +362,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     super.dispose();
   }
 
-  Future<void> _moveCameraTo(LatLng target, String label) async {
+  Future<void> _moveCameraTo(LatLng target, String label, double zoom) async {
     if (_mapController == null) return;
     await _mapController!.animateCamera(
       CameraUpdate.newCameraPosition(
-        CameraPosition(target: target, zoom: 15.8),
+        CameraPosition(target: target, zoom: zoom),
       ),
     );
 

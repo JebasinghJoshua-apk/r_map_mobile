@@ -20,7 +20,8 @@ enum _ProfileMenuAction {
 
 class SearchOverlay extends StatefulWidget {
   final GooglePlace googlePlace;
-  final void Function(LatLng position, String label) onPlaceSelected;
+  final void Function(LatLng position, String label, double zoom)
+      onPlaceSelected;
 
   const SearchOverlay({
     super.key,
@@ -204,7 +205,11 @@ class _SearchOverlayState extends State<SearchOverlay> {
       final label = details?.result?.name ?? fallbackLabel;
       final latLng = LatLng(location.lat ?? 0, location.lng ?? 0);
 
-      widget.onPlaceSelected(latLng, label);
+      final types = details?.result?.types?.whereType<String>().toList() ??
+          const <String>[];
+      final zoom = _suggestZoomForPlaceTypes(types, label);
+
+      widget.onPlaceSelected(latLng, label, zoom);
       if (!mounted) return true;
       setState(() {
         _controller.text = label;
@@ -215,7 +220,6 @@ class _SearchOverlayState extends State<SearchOverlay> {
       _keyboardShowTimer?.cancel();
       SystemChannels.textInput.invokeMethod('TextInput.hide');
 
-      ToastMessage.show(context, label);
       return true;
     } catch (e) {
       debugPrint('Error selecting place: $e');
@@ -227,6 +231,49 @@ class _SearchOverlayState extends State<SearchOverlay> {
         });
       }
     }
+  }
+
+  double _suggestZoomForPlaceTypes(List<String> types, String label) {
+    // Heuristic: label visibility is controlled by Google map tiles, so we
+    // can't reliably detect if a name will be rendered. Instead, align zoom
+    // with the place granularity.
+    final set = types.map((t) => t.trim().toLowerCase()).toSet();
+
+    // Broad regions
+    if (set.contains('country')) return 5.5;
+    if (set.contains('administrative_area_level_1')) return 8.5; // state
+
+    // Cities / districts
+    // Some smaller towns come back as `locality` but look better at a
+    // neighborhood-ish zoom (15.8), while major metros are better at 13.8.
+    if (set.contains('locality') ||
+        set.contains('administrative_area_level_2')) {
+      final normalizedName = label.trim().toLowerCase();
+      const majorCitiesAtCityZoom = <String>{
+        'madurai',
+        'coimbatore',
+        'chennai',
+      };
+      return majorCitiesAtCityZoom.contains(normalizedName) ? 13.8 : 15.8;
+    }
+
+    // Neighborhood-level
+    if (set.contains('sublocality') ||
+        set.contains('sublocality_level_1') ||
+        set.contains('neighborhood')) {
+      return 15.0;
+    }
+
+    // Streets / POIs / addresses
+    if (set.contains('route')) return 15.8;
+    if (set.contains('street_address') ||
+        set.contains('premise') ||
+        set.contains('establishment') ||
+        set.contains('point_of_interest')) {
+      return 15.8;
+    }
+
+    return 15.8;
   }
 
   Future<void> _handlePredictionTap(AutocompletePrediction prediction) async {
