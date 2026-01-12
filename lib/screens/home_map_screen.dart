@@ -69,7 +69,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   );
 
   Set<Marker> _viewportMarkers = <Marker>{};
-  Marker? _selectedPlaceMarker;
 
   Set<Marker> _plotLabelMarkers = <Marker>{};
   Set<Marker> _roadLabelMarkers = <Marker>{};
@@ -367,16 +366,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     if (_mapController == null) return;
     await _mapController!.animateCamera(
       CameraUpdate.newCameraPosition(
-        CameraPosition(target: target, zoom: 16),
+        CameraPosition(target: target, zoom: 15.8),
       ),
     );
-    setState(() {
-      _selectedPlaceMarker = Marker(
-        markerId: const MarkerId('selected-place'),
-        position: target,
-        infoWindow: InfoWindow(title: label),
-      );
-    });
+
+    if (!mounted) return;
+    final safeLabel = label.trim().isEmpty ? 'Selected place' : label.trim();
+    ToastMessage.show(context, safeLabel);
   }
 
   void _onMapCreated(GoogleMapController controller) {
@@ -811,6 +807,23 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           ? _formatPriceBadgeLabel(rawPrice)
           : null;
 
+      LatLng? focusCenter;
+      double? focusZoom;
+      if (priceBadgeLabel != null || isLayout) {
+        final polygons = GeoJson.tryParsePolygons(feature.boundaryGeoJson);
+        final points = polygons.firstWhere(
+          (p) => p.length >= 3,
+          orElse: () => const <LatLng>[],
+        );
+        if (points.isNotEmpty) {
+          focusCenter = _centerOfBounds(_boundsFromPoints(points));
+        }
+        focusCenter ??= center;
+        focusZoom = isLayout
+            ? _layoutFocusZoomTarget
+            : _priceBadgeFocusZoomTarget(feature.propertyType);
+      }
+
       final shouldShowLayoutBadge = isLayout && zoom <= _layoutBadgeMaxZoom;
       final layoutLocation = shouldShowLayoutBadge
           ? _getMetadataValue(
@@ -858,6 +871,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           icon: icon ?? BitmapDescriptor.defaultMarker,
           anchor: anchor ?? const Offset(0.5, 1.0),
           zIndex: zIndex,
+          onTap: (!isLayout && priceBadgeLabel == null)
+              ? null
+              : () => _focusPropertyOnMap(
+                    target: focusCenter ?? center,
+                    zoom:
+                        focusZoom ?? (isLayout ? _layoutFocusZoomTarget : 20.0),
+                  ),
           infoWindow: InfoWindow(
             title: title,
             snippet: feature.listingType,
@@ -867,6 +887,67 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     }
 
     return Set<Marker>.unmodifiable(nextMarkers);
+  }
+
+  double _priceBadgeFocusZoomTarget(String propertyType) {
+    // Keep aligned with web: r-map-ui/src/components/Map/MapViewportLayer/constants.ts
+    switch (propertyType.trim()) {
+      case 'Land':
+        return 18.5;
+      case 'IndependentHouse':
+      case 'ApartmentFlat':
+      case 'CommercialSpace':
+      case 'IndividualPlots':
+        return 20.0;
+      default:
+        return 20.0;
+    }
+  }
+
+  // Keep aligned with web: LAYOUT_AUTO_FOCUS_ZOOM_TARGET in
+  // r-map-ui/src/components/Map/MapViewportLayer/constants.ts
+  static const double _layoutFocusZoomTarget = 18.5;
+
+  LatLngBounds _boundsFromPoints(List<LatLng> points) {
+    var minLat = points.first.latitude;
+    var maxLat = points.first.latitude;
+    var minLng = points.first.longitude;
+    var maxLng = points.first.longitude;
+
+    for (final p in points) {
+      final lat = p.latitude;
+      final lng = p.longitude;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+      if (lng < minLng) minLng = lng;
+      if (lng > maxLng) maxLng = lng;
+    }
+
+    return LatLngBounds(
+      southwest: LatLng(minLat, minLng),
+      northeast: LatLng(maxLat, maxLng),
+    );
+  }
+
+  LatLng _centerOfBounds(LatLngBounds bounds) {
+    return LatLng(
+      (bounds.southwest.latitude + bounds.northeast.latitude) / 2,
+      (bounds.southwest.longitude + bounds.northeast.longitude) / 2,
+    );
+  }
+
+  Future<void> _focusPropertyOnMap({
+    required LatLng target,
+    required double zoom,
+  }) async {
+    final controller = _mapController;
+    if (controller == null) return;
+
+    await controller.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: target, zoom: zoom),
+      ),
+    );
   }
 
   _PriceBadgeColors _priceBadgeColorsForPropertyType(String propertyType) {
@@ -1849,7 +1930,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       ..._plotLabelMarkers,
       ..._roadLabelMarkers,
       ..._amenityLabelMarkers,
-      if (_selectedPlaceMarker != null) _selectedPlaceMarker!,
     };
 
     return Scaffold(
