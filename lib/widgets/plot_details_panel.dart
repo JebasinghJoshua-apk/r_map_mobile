@@ -110,9 +110,10 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
                         Expanded(
                           flex: 2,
                           child: Padding(
-                            // Allow the diagram to use the top-left space while
-                            // keeping the close button from overlapping the text.
-                            padding: const EdgeInsets.only(top: 40),
+                            // Let the details column use the top space; the close
+                            // button is on the far right so centered text won't
+                            // overlap in practice.
+                            padding: const EdgeInsets.only(top: 4),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
@@ -218,51 +219,60 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
                   padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                   child: Row(
                     children: [
-                      const Expanded(
+                      const Flexible(
+                        flex: 2,
                         child: Text(
                           'UPDATE STATUS',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: Color(0xFF111827),
-                            fontSize: 12,
+                            fontSize: 14,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 0.6,
                           ),
                         ),
                       ),
-                      SizedBox(
-                        width: 160,
-                        child: DropdownButtonFormField<String>(
-                          value: _statusValue,
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'Available',
-                              child: Text('Available'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'Sold',
-                              child: Text('Sold'),
-                            ),
-                          ],
-                          onChanged: widget.onUpdateStatus == null
-                              ? null
-                              : (v) {
-                                  if (v == null) return;
-                                  setState(() {
-                                    _statusValue = v;
-                                  });
-                                  widget.onUpdateStatus?.call(v);
-                                },
-                          decoration: InputDecoration(
-                            isDense: true,
-                            contentPadding:
-                                const EdgeInsets.symmetric(horizontal: 10),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFD1D5DB),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 3,
+                        child: SizedBox(
+                          height: 40,
+                          child: DropdownButtonFormField<String>(
+                            value: _statusValue,
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'Available',
+                                child: Text('Available'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Sold',
+                                child: Text('Sold'),
+                              ),
+                            ],
+                            onChanged: widget.onUpdateStatus == null
+                                ? null
+                                : (v) {
+                                    if (v == null) return;
+                                    setState(() {
+                                      _statusValue = v;
+                                    });
+                                    widget.onUpdateStatus?.call(v);
+                                  },
+                            decoration: InputDecoration(
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 10,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFD1D5DB),
+                                ),
                               ),
                             ),
                           ),
@@ -274,10 +284,9 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: Color(0xFFD1D5DB)),
                           foregroundColor: const Color(0xFF111827),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
-                          ),
+                          minimumSize: const Size(0, 40),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
