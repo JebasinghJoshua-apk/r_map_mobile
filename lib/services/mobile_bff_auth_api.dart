@@ -198,7 +198,7 @@ class MobileBffAuthApi {
         debugPrint('Device IPv4: ${ipv4.join(', ')}');
       }
 
-        final host = (baseUri != null && baseUri.host.isNotEmpty)
+      final host = (baseUri != null && baseUri.host.isNotEmpty)
           ? baseUri.host
           : requestUri.host;
       final port = (baseUri?.hasPort ?? false)

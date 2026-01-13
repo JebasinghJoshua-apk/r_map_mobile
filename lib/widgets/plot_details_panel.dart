@@ -578,3 +578,11 @@ class _PlotSketchPainter extends CustomPainter {
       drawRotatedLabel(formatFeet(value), labelCenter, angle);
     }
   }
+
+  @override
+  bool shouldRepaint(covariant _PlotSketchPainter oldDelegate) {
+    return oldDelegate.borderColor != borderColor ||
+        oldDelegate.dimensions != dimensions ||
+        oldDelegate.boundaryRing != boundaryRing;
+  }
+}
