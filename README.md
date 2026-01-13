@@ -22,6 +22,21 @@ The Flutter app calls the Mobile BFF (default: `http://10.0.2.2:5150`).
 - `flutter run --dart-define=MOBILE_BFF_BASE_URL=http://10.0.2.2:5150`
 - `flutter run --dart-define=MOBILE_BFF_BASE_URL=http://192.168.1.34:5150`
 
+### Media (/uploads) on real devices
+
+Layout/property images are served from the upstream API under `/uploads/*`.
+
+- **Android emulator**: the default `API_BASE_URL`/`UPLOADS_BASE_URL` works (`http://10.0.2.2:5132`).
+- **Real phone on Wi‑Fi**: pass your PC LAN IP for uploads (or API) so images resolve correctly.
+
+Recommended (explicit) command:
+
+- `flutter run --dart-define=MOBILE_BFF_BASE_URL=http://192.168.1.34:5150 --dart-define=UPLOADS_BASE_URL=http://192.168.1.34:5132`
+
+Alternative:
+
+- `flutter run --dart-define=MOBILE_BFF_BASE_URL=http://192.168.1.34:5150 --dart-define=API_BASE_URL=http://192.168.1.34:5132`
+
 Notes:
 
 - Android blocks cleartext HTTP by default on modern SDKs; this repo enables it for **debug** builds via `android/app/src/debug/AndroidManifest.xml`.

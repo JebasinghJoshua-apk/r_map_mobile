@@ -26,7 +26,7 @@ class MobileBffLayoutsApi {
 
   Future<LayoutDetailDto> getLayoutDetail({
     required String layoutId,
-    required String bearerToken,
+    String? bearerToken,
   }) async {
     final trimmedId = layoutId.trim();
     if (trimmedId.isEmpty) {
@@ -37,17 +37,18 @@ class MobileBffLayoutsApi {
 
     http.Response response;
     try {
-      final token = bearerToken.toLowerCase().startsWith('bearer ')
-          ? bearerToken.substring('bearer '.length)
-          : bearerToken;
+      final token = bearerToken?.trim();
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+      };
+      if (token != null && token.isNotEmpty) {
+        final normalized = token.toLowerCase().startsWith('bearer ')
+            ? token.substring('bearer '.length)
+            : token;
+        headers['Authorization'] = 'Bearer $normalized';
+      }
 
-      response = await _client.get(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(_timeout);
+      response = await _client.get(uri, headers: headers).timeout(_timeout);
     } on SocketException {
       _logNetworkHelp(uri);
       throw const LayoutsApiException(

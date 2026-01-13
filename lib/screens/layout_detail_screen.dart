@@ -28,6 +28,9 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
   String? _error;
   bool _loading = false;
 
+  bool _hasTriggeredInitialLoad = false;
+  String? _lastSeenToken;
+
   int _activeIndex = 0;
   final PageController _pageController = PageController();
 
@@ -35,7 +38,36 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
   void initState() {
     super.initState();
     _api = MobileBffLayoutsApi();
-    _load();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // AuthState.initialize() is async; on cold start the token may not be
+    // available yet during initState. Trigger the first load here instead.
+    if (!_hasTriggeredInitialLoad) {
+      _hasTriggeredInitialLoad = true;
+      _load();
+      return;
+    }
+
+    // If the token becomes available later (e.g. after async init or login),
+    // retry loading details/images.
+    final token = AuthScope.of(context).session?.token;
+    final normalized = token?.trim();
+    final hasToken = normalized != null && normalized.isNotEmpty;
+
+    if (hasToken && normalized != _lastSeenToken) {
+      _lastSeenToken = normalized;
+
+      if (_detail == null && !_loading) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _load();
+        });
+      }
+    }
   }
 
   @override
@@ -47,21 +79,14 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
   Future<void> _load() async {
     final token = AuthScope.of(context).session?.token;
 
+    _lastSeenToken = token?.trim();
+
     setState(() {
       _loading = true;
       _error = null;
       _detail = null;
       _activeIndex = 0;
     });
-
-    if (token == null || token.trim().isEmpty) {
-      // No auth available; fall back to viewport metadata-based view.
-      setState(() {
-        _loading = false;
-        _error = null;
-      });
-      return;
-    }
 
     try {
       final detail = await _api.getLayoutDetail(
@@ -107,17 +132,43 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
   String resolveMediaUrl(String rawUrl) {
     final url = rawUrl.trim();
     if (url.isEmpty) return url;
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
 
-    final base = ApiConstants.uploadsBaseUrl.endsWith('/')
-        ? ApiConstants.uploadsBaseUrl
-            .substring(0, ApiConstants.uploadsBaseUrl.length - 1)
-        : ApiConstants.uploadsBaseUrl;
+    final uploadsBase = ApiConstants.effectiveUploadsBaseUrl;
 
-    if (url.startsWith('/')) {
-      return '$base$url';
+    // If the backend returns absolute URLs like http://localhost:5132/uploads/...
+    // that will break on physical devices (localhost == the phone). Rewrite
+    // common dev-hosts to the configured uploads base.
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      final parsed = Uri.tryParse(url);
+      if (parsed == null) return url;
+
+      final host = parsed.host.toLowerCase();
+      final isDevHost =
+          host == 'localhost' || host == '127.0.0.1' || host == '10.0.2.2';
+      if (!isDevHost) return url;
+
+      final baseUri = Uri.tryParse(uploadsBase);
+      if (baseUri == null || !baseUri.hasScheme || baseUri.host.isEmpty) {
+        return url;
+      }
+
+      // Keep path/query from upstream URL, but point at uploadsBase.
+      final rewritten = Uri(
+        scheme: baseUri.scheme,
+        userInfo: baseUri.userInfo,
+        host: baseUri.host,
+        port: baseUri.hasPort ? baseUri.port : null,
+        path: parsed.path,
+        query: parsed.query,
+      );
+      return rewritten.toString();
     }
-    return '$base/$url';
+
+    final base = uploadsBase.endsWith('/')
+        ? uploadsBase.substring(0, uploadsBase.length - 1)
+        : uploadsBase;
+
+    return url.startsWith('/') ? '$base$url' : '$base/$url';
   }
 
   @override
@@ -389,13 +440,27 @@ class _HeroCarousel extends StatelessWidget {
                               child: Image.network(
                                 img.url,
                                 fit: BoxFit.contain,
-                                errorBuilder: (context, _, __) => const Center(
-                                  child: Icon(
-                                    Icons.broken_image_outlined,
-                                    color: Color(0xFF94A3B8),
-                                    size: 36,
-                                  ),
-                                ),
+                                loadingBuilder: (context, child, progress) {
+                                  if (progress == null) return child;
+                                  final expected = progress.expectedTotalBytes;
+                                  final loaded = progress.cumulativeBytesLoaded;
+                                  final value = expected != null && expected > 0
+                                      ? loaded / expected
+                                      : null;
+                                  return Center(
+                                    child:
+                                        CircularProgressIndicator(value: value),
+                                  );
+                                },
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Center(
+                                    child: Icon(
+                                      Icons.broken_image_outlined,
+                                      color: Color(0xFF94A3B8),
+                                      size: 36,
+                                    ),
+                                  );
+                                },
                               ),
                             );
                           },
