@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/map_viewport_models.dart';
@@ -34,6 +35,11 @@ class PlotDetailsPanel extends StatefulWidget {
 class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
   late String _statusValue;
   bool _isUpdatingStatus = false;
+
+  void _dismissKeyboard() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
+  }
 
   @override
   void initState() {
@@ -267,6 +273,13 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
                                   ? null
                                   : (v) async {
                                       if (v == null) return;
+
+                                      // Prevent the map search field (or any
+                                      // other text input) from grabbing focus
+                                      // and popping the keyboard when changing
+                                      // the dropdown value.
+                                      _dismissKeyboard();
+
                                       final previous = _statusValue;
                                       final messenger =
                                           ScaffoldMessenger.of(context);
@@ -297,6 +310,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
                                           ),
                                         );
                                       } finally {
+                                        _dismissKeyboard();
                                         if (mounted) {
                                           setState(() {
                                             _isUpdatingStatus = false;

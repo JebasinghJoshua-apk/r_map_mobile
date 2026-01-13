@@ -1428,6 +1428,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                     : SearchOverlay(
                         googlePlace: _googlePlace!,
                         onPlaceSelected: _moveCameraTo,
+                        onSearchTap: _closePlotPanel,
                       ),
               ],
             ),

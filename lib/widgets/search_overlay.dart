@@ -22,11 +22,13 @@ class SearchOverlay extends StatefulWidget {
   final GooglePlace googlePlace;
   final void Function(LatLng position, String label, double zoom)
       onPlaceSelected;
+  final VoidCallback? onSearchTap;
 
   const SearchOverlay({
     super.key,
     required this.googlePlace,
     required this.onPlaceSelected,
+    this.onSearchTap,
   });
 
   @override
@@ -339,7 +341,10 @@ class _SearchOverlayState extends State<SearchOverlay> {
                     hintText: 'Search for places...',
                   ),
                   onChanged: _onQueryChanged,
-                  onTap: _enterExpandedMode,
+                  onTap: () {
+                    widget.onSearchTap?.call();
+                    _enterExpandedMode();
+                  },
                 ),
               ),
               if (_controller.text.isNotEmpty)
