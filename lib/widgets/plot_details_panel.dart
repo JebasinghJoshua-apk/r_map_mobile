@@ -1,10 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/map_viewport_models.dart';
-import '../utils/geojson.dart';
 
 class PlotDetailsPanel extends StatefulWidget {
   const PlotDetailsPanel({
@@ -91,70 +89,85 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Align(
-                  alignment: Alignment.topRight,
-                  child: _CloseIconButton(onPressed: widget.onClose),
-                ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Stack(
                   children: [
-                    _PlotSketchCard(
-                      borderColor: const Color(0xFF16A34A),
-                      dimensions: dimensions,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Plot #$plotNumber',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF111827),
-                                  ),
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: statusColor.withOpacity(0.12),
-                                  border: Border.all(
-                                    color: statusColor.withOpacity(0.35),
-                                  ),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Text(
-                                  statusText,
-                                  style: TextStyle(
-                                    color: statusColor,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 11,
-                                    letterSpacing: 0.8,
-                                  ),
-                                ),
-                              ),
-                            ],
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: _PlotSketchCard(
+                            borderColor: const Color(0xFF16A34A),
+                            dimensions: dimensions,
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            totalSqftText,
-                            style: const TextStyle(
-                              color: Color(0xFF4B5563),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: Padding(
+                            // Allow the diagram to use the top-left space while
+                            // keeping the close button from overlapping the text.
+                            padding: const EdgeInsets.only(top: 40),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Plot #$plotNumber',
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                          color: Color(0xFF111827),
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 5,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: statusColor.withOpacity(0.12),
+                                        border: Border.all(
+                                          color: statusColor.withOpacity(0.35),
+                                        ),
+                                        borderRadius:
+                                            BorderRadius.circular(999),
+                                      ),
+                                      child: Text(
+                                        statusText,
+                                        style: TextStyle(
+                                          color: statusColor,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 11,
+                                          letterSpacing: 0.8,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  totalSqftText,
+                                  style: const TextStyle(
+                                    color: Color(0xFF4B5563),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
+                    ),
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: _CloseIconButton(onPressed: widget.onClose),
                     ),
                   ],
                 ),
@@ -325,157 +338,34 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
       values.add(v);
     }
 
-    // If we can compute the geometry-derived edges, use it as a hint to pick
-    // the best ordering/rotation of metadata dimensions.
-    final computed = _tryComputePlotEdgeDimensionsFromBoundary(plot);
-    if (computed == null) {
-      // Common backend ordering (as provided): left, top, right, bottom.
+    // If the metadata looks like two pairs (A,B,A,B), prefer rendering like the
+    // web/mobile view: shorter value on top/bottom, longer on left/right.
+    // Example: "87,25,87,25" => top/bottom=25, left/right=87.
+    final normalized = values
+        .map((v) => (v * 100).round() / 100)
+        .toSet()
+        .toList(growable: false);
+    if (normalized.length == 2) {
+      final a = normalized[0];
+      final b = normalized[1];
+      final shortSide = math.min(a, b);
+      final longSide = math.max(a, b);
       return _PlotDimensionsFeet(
-        topFeet: values[1],
-        rightFeet: values[2],
-        bottomFeet: values[3],
-        leftFeet: values[0],
+        topFeet: shortSide,
+        rightFeet: longSide,
+        bottomFeet: shortSide,
+        leftFeet: longSide,
       );
     }
 
-    final target = <double>[
-      computed.topFeet,
-      computed.rightFeet,
-      computed.bottomFeet,
-      computed.leftFeet,
-    ];
-
-    List<double> rotate(List<double> v, int k) {
-      final kk = k % v.length;
-      return <double>[...v.sublist(kk), ...v.sublist(0, kk)];
-    }
-
-    final candidates = <List<double>>[];
-    for (var k = 0; k < 4; k++) {
-      candidates.add(rotate(values, k));
-    }
-    final reversed = values.reversed.toList(growable: false);
-    for (var k = 0; k < 4; k++) {
-      candidates.add(rotate(reversed, k));
-    }
-
-    double score(List<double> candidate) {
-      var sum = 0.0;
-      for (var i = 0; i < 4; i++) {
-        sum += (candidate[i] - target[i]).abs();
-      }
-      return sum;
-    }
-
-    var best = candidates.first;
-    var bestScore = score(best);
-    for (final c in candidates.skip(1)) {
-      final s = score(c);
-      if (s < bestScore) {
-        best = c;
-        bestScore = s;
-      }
-    }
-
+    // Otherwise, assume backend ordering: left, top, right, bottom.
     return _PlotDimensionsFeet(
-      topFeet: best[0],
-      rightFeet: best[1],
-      bottomFeet: best[2],
-      leftFeet: best[3],
+      topFeet: values[1],
+      rightFeet: values[2],
+      bottomFeet: values[3],
+      leftFeet: values[0],
     );
   }
-
-  static _PlotDimensionsFeet? _tryComputePlotEdgeDimensionsFromBoundary(
-    MapPlotFeature plot,
-  ) {
-    final polygons = GeoJson.tryParsePolygons(plot.boundaryGeoJson);
-    if (polygons.isEmpty) return null;
-
-    var points = polygons.first;
-    if (points.length < 3) return null;
-
-    points = _removeDuplicateClosingPoint(points);
-    if (points.length < 3) return null;
-
-    final corners = _pickFourCorners(points);
-    if (corners == null) return null;
-
-    final a = corners[0];
-    final b = corners[1];
-    final c = corners[2];
-    final d = corners[3];
-
-    final top = _metersToFeet(_haversineMeters(a, b));
-    final right = _metersToFeet(_haversineMeters(b, c));
-    final bottom = _metersToFeet(_haversineMeters(c, d));
-    final left = _metersToFeet(_haversineMeters(d, a));
-
-    return _PlotDimensionsFeet(
-      topFeet: top,
-      rightFeet: right,
-      bottomFeet: bottom,
-      leftFeet: left,
-    );
-  }
-
-  static List<LatLng> _removeDuplicateClosingPoint(List<LatLng> points) {
-    if (points.length < 2) return points;
-    final first = points.first;
-    final last = points.last;
-    final dLat = (first.latitude - last.latitude).abs();
-    final dLng = (first.longitude - last.longitude).abs();
-    if (dLat < 1e-9 && dLng < 1e-9) {
-      return points.sublist(0, points.length - 1);
-    }
-    return points;
-  }
-
-  static List<LatLng>? _pickFourCorners(List<LatLng> points) {
-    if (points.length == 4) return points;
-    if (points.length < 4) return null;
-
-    // Many plot polygons are rectangles; if the backend includes more points,
-    // pick 4 evenly spaced points to keep labels stable.
-    final n = points.length;
-    const i0 = 0;
-    final i1 = (n / 4).round().clamp(1, n - 1);
-    final i2 = (n / 2).round().clamp(2, n - 1);
-    final i3 = (3 * n / 4).round().clamp(3, n - 1);
-
-    final corners = <LatLng>[points[i0], points[i1], points[i2], points[i3]];
-    if (_hasDuplicates(corners)) return null;
-    return corners;
-  }
-
-  static bool _hasDuplicates(List<LatLng> points) {
-    final set = <String>{};
-    for (final p in points) {
-      final key =
-          '${p.latitude.toStringAsFixed(9)},${p.longitude.toStringAsFixed(9)}';
-      if (set.contains(key)) return true;
-      set.add(key);
-    }
-    return false;
-  }
-
-  static double _haversineMeters(LatLng a, LatLng b) {
-    const r = 6371000.0;
-    final dLat = _toRad(b.latitude - a.latitude);
-    final dLng = _toRad(b.longitude - a.longitude);
-    final lat1 = _toRad(a.latitude);
-    final lat2 = _toRad(b.latitude);
-
-    final sinDLat = math.sin(dLat / 2);
-    final sinDLng = math.sin(dLng / 2);
-    final aa =
-        sinDLat * sinDLat + math.cos(lat1) * math.cos(lat2) * sinDLng * sinDLng;
-    final c = 2 * math.atan2(math.sqrt(aa), math.sqrt(1 - aa));
-    return r * c;
-  }
-
-  static double _toRad(double deg) => deg * (math.pi / 180.0);
-
-  static double _metersToFeet(double meters) => meters * 3.280839895;
 }
 
 class _CloseIconButton extends StatelessWidget {
@@ -516,22 +406,25 @@ class _PlotSketchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 152,
-      height: 112,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: CustomPaint(
-          painter: _PlotSketchPainter(
-            borderColor: borderColor,
-            dimensions: dimensions,
+    // Keep the same visual proportions as the original fixed-size card
+    // (152x112) while letting the parent decide the width.
+    return AspectRatio(
+      aspectRatio: 152 / 112,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: CustomPaint(
+            painter: _PlotSketchPainter(
+              borderColor: borderColor,
+              dimensions: dimensions,
+            ),
+            child: const SizedBox.expand(),
           ),
-          child: const SizedBox.expand(),
         ),
       ),
     );
@@ -560,10 +453,31 @@ class _PlotSketchPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p0 = Offset(size.width * 0.22, size.height * 0.20);
-    final p1 = Offset(size.width * 0.80, size.height * 0.12);
-    final p2 = Offset(size.width * 0.70, size.height * 0.85);
-    final p3 = Offset(size.width * 0.14, size.height * 0.74);
+    const rotationRadians = 0.12; // ~7 degrees clockwise
+
+    // Match web/mobile view: a skewed plot with shorter top/bottom edges and
+    // longer left/right edges.
+    var p0 = Offset(size.width * 0.30, size.height * 0.22);
+    var p1 = Offset(size.width * 0.78, size.height * 0.14);
+    var p2 = Offset(size.width * 0.68, size.height * 0.86);
+    var p3 = Offset(size.width * 0.20, size.height * 0.94);
+
+    Offset rotateAround(Offset p, Offset center, double angle) {
+      final dx = p.dx - center.dx;
+      final dy = p.dy - center.dy;
+      final cosA = math.cos(angle);
+      final sinA = math.sin(angle);
+      return Offset(
+        center.dx + (dx * cosA - dy * sinA),
+        center.dy + (dx * sinA + dy * cosA),
+      );
+    }
+
+    final centerHint = Offset(size.width / 2, size.height / 2);
+    p0 = rotateAround(p0, centerHint, rotationRadians);
+    p1 = rotateAround(p1, centerHint, rotationRadians);
+    p2 = rotateAround(p2, centerHint, rotationRadians);
+    p3 = rotateAround(p3, centerHint, rotationRadians);
 
     final path = Path()
       ..moveTo(p0.dx, p0.dy)
@@ -579,7 +493,7 @@ class _PlotSketchPainter extends CustomPainter {
 
     final strokePaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
+      ..strokeWidth = 3
       ..color = borderColor;
 
     canvas.drawPath(path, fillPaint);
@@ -645,11 +559,14 @@ class _PlotSketchPainter extends CustomPainter {
       return '$rounded ft';
     }
 
-    final centerHint = Offset(size.width / 2, size.height / 2);
-    const pad = 10.0;
+    const pad = 8.0;
 
-    void drawOnEdge(String text, Offset a, Offset b) {
-      final m = midpoint(a, b);
+    void drawOnEdge(String text, Offset a, Offset b, {double t = 0.5}) {
+      final clampedT = t.clamp(0.0, 1.0);
+      final m = Offset(
+        a.dx + (b.dx - a.dx) * clampedT,
+        a.dy + (b.dy - a.dy) * clampedT,
+      );
       final angle = math.atan2(b.dy - a.dy, b.dx - a.dx);
       final n = unitNormalOutward(a, b, centerHint);
       drawRotatedLabel(text, m + (n * pad), angle);
@@ -658,7 +575,8 @@ class _PlotSketchPainter extends CustomPainter {
     // Match the web sketch label placement by aligning labels with edges.
     drawOnEdge(ft(dimensions!.topFeet), p0, p1);
     drawOnEdge(ft(dimensions!.rightFeet), p1, p2);
-    drawOnEdge(ft(dimensions!.bottomFeet), p3, p2);
+    // Match map-like placement: bottom label tends to sit a bit left.
+    drawOnEdge(ft(dimensions!.bottomFeet), p3, p2, t: 0.26);
     drawOnEdge(ft(dimensions!.leftFeet), p0, p3);
   }
 

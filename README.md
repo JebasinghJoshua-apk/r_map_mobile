@@ -27,6 +27,7 @@ Notes:
 - Android blocks cleartext HTTP by default on modern SDKs; this repo enables it for **debug** builds via `android/app/src/debug/AndroidManifest.xml`.
 - If a real phone still can’t reach the PC, check:
   - Phone and PC are on the same Wi-Fi (no guest/AP isolation)
+  - On Windows, ensure your Wi-Fi network profile is **Private** or your Firewall rule allows inbound TCP `5150` on the **Public** profile
   - Windows Firewall allows inbound TCP `5150`
 
 ## Getting Started

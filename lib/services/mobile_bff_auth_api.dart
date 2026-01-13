@@ -28,11 +28,12 @@ class MobileBffAuthApi {
     required String phoneOrEmail,
     required String password,
   }) async {
+    final uri = _uri('/mobile/auth/login');
     http.Response response;
     try {
       response = await _client
           .post(
-            _uri('/mobile/auth/login'),
+            uri,
             headers: const {'Content-Type': 'application/json'},
             body: jsonEncode({
               'phoneOrEmail': phoneOrEmail,
@@ -41,11 +42,13 @@ class MobileBffAuthApi {
           )
           .timeout(_timeout);
     } on SocketException {
+      await _logNetworkDiagnostics(uri);
       debugPrint(_networkHelpMessage());
       throw const AuthApiException(
         'Cannot connect to the server. Please check your network and try again.',
       );
     } on HttpException {
+      await _logNetworkDiagnostics(uri);
       debugPrint(_networkHelpMessage());
       throw const AuthApiException('Network error. Please try again.');
     } on FormatException {
@@ -75,11 +78,12 @@ class MobileBffAuthApi {
     required String phoneNumber,
     required String password,
   }) async {
+    final uri = _uri('/mobile/auth/register');
     http.Response response;
     try {
       response = await _client
           .post(
-            _uri('/mobile/auth/register'),
+            uri,
             headers: const {'Content-Type': 'application/json'},
             body: jsonEncode({
               'firstName': firstName,
@@ -90,11 +94,13 @@ class MobileBffAuthApi {
           )
           .timeout(_timeout);
     } on SocketException {
+      await _logNetworkDiagnostics(uri);
       debugPrint(_networkHelpMessage());
       throw const AuthApiException(
         'No internet connection. Please check your network and try again.',
       );
     } on HttpException {
+      await _logNetworkDiagnostics(uri);
       debugPrint(_networkHelpMessage());
       throw const AuthApiException('Network error. Please try again.');
     } on FormatException {
@@ -158,7 +164,61 @@ class MobileBffAuthApi {
         'If using a real phone, set MOBILE_BFF_BASE_URL to your PC LAN IP (e.g. http://192.168.x.x:5150). '
         'If using an Android emulator, use http://10.0.2.2:5150. '
         'Also ensure MobileBff is running and Windows Firewall allows port 5150. '
-        'On Android, debug builds must allow cleartext HTTP.';
+        'On Android, debug builds must allow cleartext HTTP. '
+        'Tip: try opening $base/health in your phone browser; if that fails, the phone is not reaching your PC (different Wi-Fi/VPN/guest isolation/firewall).';
+  }
+
+  Future<void> _logNetworkDiagnostics(Uri requestUri) async {
+    if (!kDebugMode) {
+      return;
+    }
+
+    try {
+      final baseUri = Uri.tryParse(ApiConstants.mobileBffBaseUrl);
+      debugPrint('--- MobileBFF network diagnostics ---');
+      debugPrint('Base: ${ApiConstants.mobileBffBaseUrl}');
+      debugPrint('Request: $requestUri');
+
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLoopback: true,
+        includeLinkLocal: true,
+      );
+
+      final ipv4 = <String>[];
+      for (final iface in interfaces) {
+        for (final addr in iface.addresses) {
+          ipv4.add('${iface.name}:${addr.address}');
+        }
+      }
+
+      if (ipv4.isEmpty) {
+        debugPrint('Device IPv4: <none>');
+      } else {
+        debugPrint('Device IPv4: ${ipv4.join(', ')}');
+      }
+
+      final host = (baseUri?.host?.isNotEmpty ?? false)
+          ? baseUri!.host
+          : requestUri.host;
+      final port = (baseUri?.hasPort ?? false)
+          ? baseUri!.port
+          : (requestUri.hasPort
+              ? requestUri.port
+              : (requestUri.scheme == 'https' ? 443 : 80));
+
+      debugPrint('TCP probe: $host:$port');
+      final socket = await Socket.connect(
+        host,
+        port,
+        timeout: const Duration(seconds: 3),
+      );
+      socket.destroy();
+      debugPrint('TCP probe result: connected (HTTP may still fail)');
+      debugPrint('--- end diagnostics ---');
+    } catch (e) {
+      debugPrint('MobileBFF diagnostics failed: $e');
+    }
   }
 }
 
