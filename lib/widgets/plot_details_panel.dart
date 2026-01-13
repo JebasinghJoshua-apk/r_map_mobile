@@ -25,7 +25,7 @@ class PlotDetailsPanel extends StatefulWidget {
   final List<String> tags;
   final VoidCallback onClose;
   final VoidCallback? onLayoutDetails;
-  final ValueChanged<String>? onUpdateStatus;
+  final Future<void> Function(String)? onUpdateStatus;
 
   @override
   State<PlotDetailsPanel> createState() => _PlotDetailsPanelState();
@@ -33,18 +33,20 @@ class PlotDetailsPanel extends StatefulWidget {
 
 class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
   late String _statusValue;
+  bool _isUpdatingStatus = false;
 
   @override
   void initState() {
     super.initState();
-    _statusValue = widget.isSold ? 'Sold' : 'Available';
+    _statusValue = _resolvePlotStatusLabel(widget.plot, widget.isSold);
   }
 
   @override
   void didUpdateWidget(covariant PlotDetailsPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.isSold != widget.isSold) {
-      _statusValue = widget.isSold ? 'Sold' : 'Available';
+    if (oldWidget.plot.plotId != widget.plot.plotId ||
+        oldWidget.isSold != widget.isSold) {
+      _statusValue = _resolvePlotStatusLabel(widget.plot, widget.isSold);
     }
   }
 
@@ -53,12 +55,10 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
     final plotNumber =
         widget.plot.plotNumber.trim().isEmpty ? '—' : widget.plot.plotNumber;
 
-    final isSold = widget.isSold;
-    final statusText = isSold ? 'SOLD' : 'AVAILABLE';
-
-    // Match the web screenshot: AVAILABLE is green, SOLD is red.
-    final statusColor =
-        isSold ? const Color(0xFFDC2626) : const Color(0xFF16A34A);
+    final statusTheme = _plotStatusTheme(_statusValue);
+    final statusText = _statusValue.trim().isEmpty
+        ? 'STATUS'
+        : _statusValue.trim().toUpperCase();
 
     final areaText = (widget.areaLabel ?? '').trim();
     final totalSqftText = areaText.isEmpty ? '—' : areaText;
@@ -67,6 +67,9 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
     final plotRing = _tryParsePlotBoundaryRing(widget.plot);
 
     final tagsLine = widget.tags.where((t) => t.trim().isNotEmpty).join(', ');
+
+    final canEditStatus = widget.onUpdateStatus != null &&
+        (widget.plot.layoutId?.trim().isNotEmpty ?? false);
 
     return Material(
       color: Colors.transparent,
@@ -143,16 +146,16 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
                                     vertical: 5,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: statusColor.withOpacity(0.12),
+                                    color: statusTheme.bg,
                                     border: Border.all(
-                                      color: statusColor.withOpacity(0.35),
+                                      color: statusTheme.border,
                                     ),
                                     borderRadius: BorderRadius.circular(999),
                                   ),
                                   child: Text(
                                     statusText,
                                     style: TextStyle(
-                                      color: statusColor,
+                                      color: statusTheme.color,
                                       fontWeight: FontWeight.w800,
                                       fontSize: 11,
                                       letterSpacing: 0.8,
@@ -209,98 +212,134 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
                   ],
                 ),
                 const SizedBox(height: 10),
-                Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
-                  ),
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                  child: Row(
-                    children: [
-                      const Flexible(
-                        flex: 2,
-                        child: Text(
-                          'UPDATE STATUS',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Color(0xFF111827),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.6,
+                if (canEditStatus)
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                    child: Row(
+                      children: [
+                        const Flexible(
+                          flex: 2,
+                          child: Text(
+                            'UPDATE STATUS',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Color(0xFF111827),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.6,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 3,
-                        child: SizedBox(
-                          height: 40,
-                          child: DropdownButtonFormField<String>(
-                            value: _statusValue,
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'Available',
-                                child: Text('Available'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'Sold',
-                                child: Text('Sold'),
-                              ),
-                            ],
-                            onChanged: widget.onUpdateStatus == null
-                                ? null
-                                : (v) {
-                                    if (v == null) return;
-                                    setState(() {
-                                      _statusValue = v;
-                                    });
-                                    widget.onUpdateStatus?.call(v);
-                                  },
-                            decoration: InputDecoration(
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 10,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFD1D5DB),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 3,
+                          child: SizedBox(
+                            height: 40,
+                            child: DropdownButtonFormField<String>(
+                              value: _statusValue,
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'Available',
+                                  child: Text('Available'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Booked',
+                                  child: Text('Booked'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Sold',
+                                  child: Text('Sold'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Blocked',
+                                  child: Text('Blocked'),
+                                ),
+                              ],
+                              onChanged: (widget.onUpdateStatus == null ||
+                                      _isUpdatingStatus)
+                                  ? null
+                                  : (v) async {
+                                      if (v == null) return;
+                                      final previous = _statusValue;
+                                      final messenger =
+                                          ScaffoldMessenger.of(context);
+                                      setState(() {
+                                        _statusValue = v;
+                                        _isUpdatingStatus = true;
+                                      });
+
+                                      try {
+                                        await widget.onUpdateStatus?.call(v);
+                                      } catch (e) {
+                                        if (mounted) {
+                                          setState(() {
+                                            _statusValue = previous;
+                                          });
+                                        }
+                                        messenger.showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Failed to update status. Please try again.',
+                                            ),
+                                          ),
+                                        );
+                                      } finally {
+                                        if (mounted) {
+                                          setState(() {
+                                            _isUpdatingStatus = false;
+                                          });
+                                        }
+                                      }
+                                    },
+                              decoration: InputDecoration(
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 10,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFD1D5DB),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      OutlinedButton(
-                        onPressed: widget.onClose,
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFFD1D5DB)),
-                          foregroundColor: const Color(0xFF111827),
-                          minimumSize: const Size(0, 40),
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                        const SizedBox(width: 10),
+                        OutlinedButton(
+                          onPressed: widget.onClose,
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFD1D5DB)),
+                            foregroundColor: const Color(0xFF111827),
+                            minimumSize: const Size(0, 40),
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text(
+                            'Close',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
-                        child: const Text(
-                          'Close',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -359,6 +398,86 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
     if (ring.length < 3) return null;
     return ring;
   }
+
+  static String _resolvePlotStatusLabel(
+      MapPlotFeature plot, bool isSoldFallback) {
+    final meta = plot.metadata;
+    final raw = (meta['plotStatus'] ??
+            meta['plot_status'] ??
+            meta['status'] ??
+            meta['availability'])
+        ?.trim();
+
+    final normalized = (raw ?? '').trim().toLowerCase();
+    final normalizedKey = normalized == '0'
+        ? 'available'
+        : normalized == '1'
+            ? 'booked'
+            : (normalized == '2' || normalized == 'sld')
+                ? 'sold'
+                : normalized == '3'
+                    ? 'blocked'
+                    : normalized;
+
+    if (normalizedKey == 'available') return 'Available';
+    if (normalizedKey == 'booked') return 'Booked';
+    if (normalizedKey == 'sold') return 'Sold';
+    if (normalizedKey == 'blocked') return 'Blocked';
+
+    if (isSoldFallback) return 'Sold';
+    return 'Available';
+  }
+
+  static _PlotStatusTheme _plotStatusTheme(String statusLabel) {
+    final normalized = statusLabel.trim().toLowerCase();
+
+    // Mirror the web `PLOT_STATUS_THEME` in:
+    // r-map-ui/src/components/Map/utils/tooltipContent.ts
+    switch (normalized) {
+      case 'available':
+        return const _PlotStatusTheme(
+          bg: Color(0x99BBF7D0),
+          color: Color(0xFF059669),
+          border: Color(0xFF34D399),
+        );
+      case 'booked':
+        return const _PlotStatusTheme(
+          bg: Color(0xA6FED7AA),
+          color: Color(0xFF92400E),
+          border: Color(0xFFFB923C),
+        );
+      case 'sold':
+        return const _PlotStatusTheme(
+          bg: Color(0xB2FECACA),
+          color: Color(0xFF7F1D1D),
+          border: Color(0xFFF87171),
+        );
+      case 'blocked':
+        return const _PlotStatusTheme(
+          bg: Color(0xE6E2E8F0),
+          color: Color(0xFF0F172A),
+          border: Color(0xFF94A3B8),
+        );
+      default:
+        return const _PlotStatusTheme(
+          bg: Color(0x00FFFFFF),
+          color: Color(0xFF111827),
+          border: Color(0x00000000),
+        );
+    }
+  }
+}
+
+class _PlotStatusTheme {
+  const _PlotStatusTheme({
+    required this.bg,
+    required this.color,
+    required this.border,
+  });
+
+  final Color bg;
+  final Color color;
+  final Color border;
 }
 
 class _CloseIconButton extends StatelessWidget {
