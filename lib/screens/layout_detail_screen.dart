@@ -1,0 +1,611 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../constants/api_constants.dart';
+import '../models/map_viewport_models.dart';
+import '../services/mobile_bff_layouts_api.dart';
+import '../state/auth_scope.dart';
+import '../widgets/toast_message.dart';
+
+class LayoutDetailScreen extends StatefulWidget {
+  const LayoutDetailScreen({
+    super.key,
+    required this.layoutId,
+    this.fallbackFeature,
+  });
+
+  final String layoutId;
+  final MapPropertyFeature? fallbackFeature;
+
+  @override
+  State<LayoutDetailScreen> createState() => _LayoutDetailScreenState();
+}
+
+class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
+  late final MobileBffLayoutsApi _api;
+
+  LayoutDetailDto? _detail;
+  String? _error;
+  bool _loading = false;
+
+  int _activeIndex = 0;
+  final PageController _pageController = PageController();
+
+  @override
+  void initState() {
+    super.initState();
+    _api = MobileBffLayoutsApi();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final token = AuthScope.of(context).session?.token;
+
+    setState(() {
+      _loading = true;
+      _error = null;
+      _detail = null;
+      _activeIndex = 0;
+    });
+
+    if (token == null || token.trim().isEmpty) {
+      // No auth available; fall back to viewport metadata-based view.
+      setState(() {
+        _loading = false;
+        _error = null;
+      });
+      return;
+    }
+
+    try {
+      final detail = await _api.getLayoutDetail(
+        layoutId: widget.layoutId,
+        bearerToken: token,
+      );
+      if (!mounted) return;
+      setState(() {
+        _detail = detail;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  String _trimOrEmpty(String? value) => (value ?? '').trim();
+
+  String? _firstNonEmpty(List<String?> candidates) {
+    for (final c in candidates) {
+      final t = _trimOrEmpty(c);
+      if (t.isNotEmpty) return t;
+    }
+    return null;
+  }
+
+  String? _meta(MapPropertyFeature? feature, List<String> keys) {
+    final meta = feature?.metadata;
+    if (meta == null) return null;
+    for (final k in keys) {
+      final v = meta[k];
+      if (v != null && v.trim().isNotEmpty) {
+        return v.trim();
+      }
+    }
+    return null;
+  }
+
+  String resolveMediaUrl(String rawUrl) {
+    final url = rawUrl.trim();
+    if (url.isEmpty) return url;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+
+    final base = ApiConstants.uploadsBaseUrl.endsWith('/')
+        ? ApiConstants.uploadsBaseUrl
+            .substring(0, ApiConstants.uploadsBaseUrl.length - 1)
+        : ApiConstants.uploadsBaseUrl;
+
+    if (url.startsWith('/')) {
+      return '$base$url';
+    }
+    return '$base/$url';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = widget.fallbackFeature;
+
+    final title = _firstNonEmpty([
+          _detail?.name,
+          fallback?.name,
+        ]) ??
+        'Layout';
+
+    final location = _firstNonEmpty([
+      _detail?.locationDetails,
+      _meta(fallback, const ['location', 'locality', 'city', 'area']),
+    ]);
+
+    final plotsCountLabel = _detail?.plotsCount != null
+        ? _detail!.plotsCount!.toString()
+        : _meta(fallback, const ['plotsCount', 'totalPlots', 'plots']);
+
+    final areaLabel = _firstNonEmpty([
+      _detail?.area,
+      _meta(fallback, const ['area', 'totalArea', 'areaLabel']),
+    ]);
+
+    final additionalInfo = _firstNonEmpty([
+      _detail?.additionalDetails,
+      _meta(fallback, const ['additionalDetails', 'otherInformation']),
+    ]);
+
+    final contactNumbers = _firstNonEmpty([
+      _detail?.contactNumbers,
+      _meta(fallback, const ['contactNumbers', 'contact', 'phone']),
+    ]);
+
+    final images = (_detail?.images ?? const <LayoutImageDto>[])
+        .where((img) => img.fileUrl.trim().isNotEmpty)
+        .toList(growable: false);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        title: Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Copy link',
+            onPressed: () async {
+              final link = '/property/Layout/${widget.layoutId}';
+              await Clipboard.setData(ClipboardData(text: link));
+              if (!context.mounted) return;
+              ToastMessage.show(context, 'Copied link');
+            },
+            icon: const Icon(Icons.share_outlined),
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          padding: const EdgeInsets.only(bottom: 24),
+          children: [
+            _HeroCarousel(
+              height: 360,
+              images: images
+                  .map((img) => _HeroImage(
+                        url: resolveMediaUrl(img.fileUrl),
+                        alt: _trimOrEmpty(img.altText).isEmpty
+                            ? title
+                            : img.altText!,
+                      ))
+                  .toList(growable: false),
+              loading: _loading,
+              error: _error,
+              onIndexChanged: (idx) => setState(() => _activeIndex = idx),
+              controller: _pageController,
+              activeIndex: _activeIndex,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  if (location != null) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(top: 2),
+                          child: Icon(
+                            Icons.location_on_outlined,
+                            size: 18,
+                            color: Color(0xFF94A3B8),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            location,
+                            style: const TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _StatCard(
+                          label: 'TOTAL PLOTS',
+                          value: plotsCountLabel?.trim().isNotEmpty ?? false
+                              ? plotsCountLabel!.trim()
+                              : '—',
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _StatCard(
+                          label: 'TOTAL AREA',
+                          value: (areaLabel ?? '').trim().isEmpty
+                              ? '—'
+                              : areaLabel!,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (additionalInfo != null) ...[
+                    const SizedBox(height: 14),
+                    _SectionCard(
+                      title: 'ADDITIONAL INFO',
+                      child: Text(
+                        additionalInfo,
+                        style: const TextStyle(
+                          color: Color(0xFF334155),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          height: 1.45,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  _SectionCard(
+                    title: 'LAYOUT OVERVIEW',
+                    child: Column(
+                      children: [
+                        _KeyValueRow(
+                          label: 'Location',
+                          value: location ?? '—',
+                        ),
+                        if (contactNumbers != null) ...[
+                          const SizedBox(height: 10),
+                          _KeyValueRow(
+                            label: 'Contact',
+                            value: contactNumbers,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (_error != null && _detail == null) ...[
+                    const SizedBox(height: 14),
+                    _SectionCard(
+                      title: 'ERROR',
+                      child: Text(
+                        _error!,
+                        style: const TextStyle(
+                          color: Color(0xFFB91C1C),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroImage {
+  const _HeroImage({required this.url, required this.alt});
+
+  final String url;
+  final String alt;
+}
+
+class _HeroCarousel extends StatelessWidget {
+  const _HeroCarousel({
+    required this.height,
+    required this.images,
+    required this.loading,
+    required this.error,
+    required this.onIndexChanged,
+    required this.controller,
+    required this.activeIndex,
+  });
+
+  final double height;
+  final List<_HeroImage> images;
+  final bool loading;
+  final String? error;
+  final ValueChanged<int> onIndexChanged;
+  final PageController controller;
+  final int activeIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImages = images.isNotEmpty;
+
+    return SizedBox(
+      height: height,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                color: Color(0xFFF1F5F9),
+              ),
+              child: loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : (!hasImages
+                      ? Center(
+                          child: Text(
+                            error != null
+                                ? 'Unable to load images'
+                                : 'No images',
+                            style: const TextStyle(
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        )
+                      : PageView.builder(
+                          controller: controller,
+                          itemCount: images.length,
+                          onPageChanged: onIndexChanged,
+                          itemBuilder: (context, index) {
+                            final img = images[index];
+                            return InteractiveViewer(
+                              minScale: 1,
+                              maxScale: 3,
+                              child: Image.network(
+                                img.url,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, _, __) => const Center(
+                                  child: Icon(
+                                    Icons.broken_image_outlined,
+                                    color: Color(0xFF94A3B8),
+                                    size: 36,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        )),
+            ),
+          ),
+          if (hasImages && images.length > 1) ...[
+            Positioned(
+              left: 12,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: _RoundIconButton(
+                  icon: Icons.chevron_left,
+                  onPressed: () {
+                    final prev =
+                        (activeIndex - 1 + images.length) % images.length;
+                    controller.animateToPage(
+                      prev,
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOut,
+                    );
+                  },
+                ),
+              ),
+            ),
+            Positioned(
+              right: 12,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: _RoundIconButton(
+                  icon: Icons.chevron_right,
+                  onPressed: () {
+                    final next = (activeIndex + 1) % images.length;
+                    controller.animateToPage(
+                      next,
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOut,
+                    );
+                  },
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 12,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  images.length,
+                  (index) => Container(
+                    width: 7,
+                    height: 7,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: index == activeIndex
+                          ? const Color(0xFF0F172A)
+                          : const Color(0xFFCBD5E1),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RoundIconButton extends StatelessWidget {
+  const _RoundIconButton({required this.icon, required this.onPressed});
+
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withOpacity(0.92),
+      shape: const CircleBorder(),
+      elevation: 2,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onPressed,
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Icon(icon, color: const Color(0xFF0F172A)),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF94A3B8),
+              letterSpacing: 2.4,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF94A3B8),
+              letterSpacing: 2.4,
+            ),
+          ),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _KeyValueRow extends StatelessWidget {
+  const _KeyValueRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              color: Color(0xFF0F172A),
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

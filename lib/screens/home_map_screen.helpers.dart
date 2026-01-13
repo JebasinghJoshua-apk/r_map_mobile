@@ -842,6 +842,7 @@ class _ViewportRenderCacheEntry {
     required this.roadPolygons,
     required this.roadPolylines,
     required this.ownedLayoutIds,
+    required this.propertyByFeatureId,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -856,6 +857,7 @@ class _ViewportRenderCacheEntry {
   final Set<Polygon> roadPolygons;
   final Set<Polyline> roadPolylines;
   final Set<String> ownedLayoutIds;
+  final Map<String, MapPropertyFeature> propertyByFeatureId;
   final DateTime createdAt;
 
   _ViewportRenderCacheEntry copyWith({
@@ -876,6 +878,7 @@ class _ViewportRenderCacheEntry {
       roadPolygons: roadPolygons,
       roadPolylines: roadPolylines,
       ownedLayoutIds: ownedLayoutIds,
+      propertyByFeatureId: propertyByFeatureId,
       createdAt: createdAt,
     );
   }

@@ -20,6 +20,7 @@ import '../widgets/plot_details_panel.dart';
 import '../widgets/search_overlay.dart';
 import '../widgets/toast_message.dart';
 import '../models/map_viewport_models.dart';
+import 'layout_detail_screen.dart';
 
 part 'home_map_screen.helpers.dart';
 
@@ -79,6 +80,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   // layouts owned by the current user (within the current viewport response).
   Set<String> _ownedLayoutIds = <String>{};
 
+  // Cached map of property features keyed by featureId.
+  // Used for opening layout details from plot panels.
+  Map<String, MapPropertyFeature> _propertyByFeatureId =
+      <String, MapPropertyFeature>{};
+
   @override
   void initState() {
     super.initState();
@@ -131,6 +137,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     _connectivitySubscription?.cancel();
     _zoomNotifier.dispose();
     super.dispose();
+  }
+
+  void _dismissKeyboard() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
   }
 
   Future<void> _moveCameraTo(LatLng target, String label, double zoom) async {
@@ -241,6 +252,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         _roadPolygons = cached.roadPolygons;
         _roadPolylines = cached.roadPolylines;
         _ownedLayoutIds = cached.ownedLayoutIds;
+        _propertyByFeatureId = cached.propertyByFeatureId;
       });
       return;
     }
@@ -304,6 +316,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         _roadPolygons = merged.roadPolygons;
         _roadPolylines = merged.roadPolylines;
         _ownedLayoutIds = merged.ownedLayoutIds;
+        _propertyByFeatureId = merged.propertyByFeatureId;
       });
       _setViewportLoading(false);
     } catch (e) {
@@ -326,6 +339,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     required MapViewportResponse response,
     required double zoom,
   }) {
+    final propertyByFeatureId = <String, MapPropertyFeature>{};
+    for (final feature in response.properties) {
+      final id = feature.featureId.trim();
+      if (id.isNotEmpty) {
+        propertyByFeatureId[id] = feature;
+      }
+    }
+
     final ownedLayoutIds = <String>{};
     for (final feature in response.properties) {
       if (feature.propertyType.trim() == 'Layout' &&
@@ -563,6 +584,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       roadPolygons: Set<Polygon>.unmodifiable(nextRoadPolygons),
       roadPolylines: Set<Polyline>.unmodifiable(nextRoadPolylines),
       ownedLayoutIds: Set<String>.unmodifiable(ownedLayoutIds),
+      propertyByFeatureId:
+          Map<String, MapPropertyFeature>.unmodifiable(propertyByFeatureId),
     );
   }
 
@@ -1536,7 +1559,16 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                     ToastMessage.show(context, 'Layout details not available');
                     return;
                   }
-                  ToastMessage.show(context, 'Layout Details: $layoutId');
+                  _dismissKeyboard();
+                  final feature = _propertyByFeatureId[layoutId.trim()];
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => LayoutDetailScreen(
+                        layoutId: layoutId.trim(),
+                        fallbackFeature: feature,
+                      ),
+                    ),
+                  );
                 },
                 onUpdateStatus: () {
                   final isAuthenticated = AuthScope.of(context).isAuthenticated;
