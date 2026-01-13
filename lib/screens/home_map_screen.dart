@@ -160,6 +160,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   static const double _plotFillOpacity = 0.30;
   static const int _plotStrokeWidth = 2;
 
+  // Keep plot outlines readable at very high zoom.
+  static const double _extraThickPlotStrokeZoomThreshold = 19.0;
+  static const int _extraThickPlotStrokeBump = 2;
+
   static const Color _soldPlotStroke = Color(0xFF4B5563);
   static const Color _soldPlotFill = Color(0xFFDC2626);
   static const double _soldPlotStrokeOpacity = 0.70;
@@ -215,7 +219,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
   static int _adjustStrokeWidthForZoom(double zoom, int base) {
     double value;
-    if (zoom >= 18) {
+    if (zoom > _extraThickPlotStrokeZoomThreshold) {
+      value = base + 3.0;
+    } else if (zoom >= 18) {
       value = base + 2.2;
     } else if (zoom >= 16) {
       value = base + 1.6;
@@ -228,6 +234,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     }
     final rounded = value.round();
     return rounded < 1 ? 1 : rounded;
+  }
+
+  static int _bumpPlotStrokeWidthForHighZoom(double zoom, int base) {
+    if (zoom > _extraThickPlotStrokeZoomThreshold) {
+      return base + _extraThickPlotStrokeBump;
+    }
+    return base;
   }
 
   static _PropertyPolygonStyle _propertyStyleForType(String propertyType) {
@@ -672,14 +685,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         } else if (isSold) {
           stroke = _soldPlotStroke;
           fill = _soldPlotFill;
-          strokeWidth = _plotStrokeWidth;
+          strokeWidth = _bumpPlotStrokeWidthForHighZoom(zoom, _plotStrokeWidth);
           strokeOpacity = _soldPlotStrokeOpacity;
           fillOpacity = _soldPlotFillOpacity;
           zIndex = 60;
         } else {
           stroke = _plotStroke;
           fill = _plotFill;
-          strokeWidth = _plotStrokeWidth;
+          strokeWidth = _bumpPlotStrokeWidthForHighZoom(zoom, _plotStrokeWidth);
           strokeOpacity = _plotStrokeOpacity;
           fillOpacity = _plotFillOpacity;
           zIndex = 60;
