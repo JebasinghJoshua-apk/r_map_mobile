@@ -278,15 +278,21 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
                                       try {
                                         await widget.onUpdateStatus?.call(v);
                                       } catch (e) {
+                                        debugPrint(
+                                            'Failed to update plot status: $e');
                                         if (mounted) {
                                           setState(() {
                                             _statusValue = previous;
                                           });
                                         }
+
+                                        final message = e.toString().trim();
                                         messenger.showSnackBar(
-                                          const SnackBar(
+                                          SnackBar(
                                             content: Text(
-                                              'Failed to update status. Please try again.',
+                                              message.isEmpty
+                                                  ? 'Failed to update status. Please try again.'
+                                                  : message,
                                             ),
                                           ),
                                         );
