@@ -93,6 +93,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   static const double _minRoadLabelZoom = 17.0;
   static const double _minAmenityLabelZoom = 17.0;
 
+  // Keep aligned with web marker icon colors:
+  // r-map-ui/src/components/Map/utils/markerIcons.ts (LAYOUT_MARKER_COLORS)
+  static const Color _layoutMarkerOuterFill = Color.fromRGBO(55, 48, 163, 0.3);
+  static const Color _layoutMarkerOuterStroke =
+      Color.fromRGBO(55, 48, 163, 0.55);
+  static const Color _layoutMarkerInnerFill = Color(0xFF3730A3);
+  static const Color _layoutMarkerInnerStroke = Color(0xFFC7D2FE);
+
   static const int _maxLabelMarkers = 550;
 
   static const int _labelIconCacheMaxEntries = 5000;
@@ -801,6 +809,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   String? _plotAreaLabel(MapPlotFeature plot) {
     final meta = plot.metadata;
     for (final key in const <String>[
+      'areaSqFt',
       'areaSqft',
       'area_sqft',
       'sqft',
@@ -849,6 +858,20 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         (meta['facing'] ?? meta['plotFacing'] ?? meta['direction'])?.trim();
     if (facing != null && facing.isNotEmpty) {
       tags.add('Facing $facing');
+    }
+
+    final otherInfo = (meta['otherInformation'] ??
+            meta['other_info'] ??
+            meta['other_information'])
+        ?.trim();
+    if (otherInfo != null && otherInfo.isNotEmpty) {
+      for (final part in otherInfo.split(',')) {
+        final t = part.trim();
+        if (t.isEmpty) continue;
+        if (!tags.contains(t)) {
+          tags.add(t);
+        }
+      }
     }
 
     return tags;
@@ -933,6 +956,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         );
         anchor = const Offset(0.5, 1.0);
         zIndex = 999999;
+      } else if (isLayout) {
+        icon = await _getLayoutMarkerDotIcon(
+          zoom: zoom,
+          pixelRatio: pixelRatio,
+        );
+        // Circular marker: anchor at center.
+        anchor = const Offset(0.5, 0.5);
+        zIndex = 140;
       } else if (priceBadgeLabel != null) {
         final colors = _priceBadgeColorsForPropertyType(feature.propertyType);
         icon = await _getPriceBadgeIcon(
@@ -968,6 +999,81 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     }
 
     return Set<Marker>.unmodifiable(nextMarkers);
+  }
+
+  int _layoutMarkerSizeForZoom(double zoom) {
+    // Keep aligned with computeMarkerSizeForZoom in web markerIcons.ts
+    if (zoom >= 18.5) return 29;
+    if (zoom >= 17.2) return 27;
+    if (zoom >= 16.5) return 24;
+    if (zoom >= 15.5) return 20;
+    return 14;
+  }
+
+  Future<BitmapDescriptor> _getLayoutMarkerDotIcon({
+    required double zoom,
+    required double pixelRatio,
+  }) async {
+    final size = _layoutMarkerSizeForZoom(zoom);
+
+    final cacheKey = [
+      'layout-dot',
+      size,
+      zoom.toStringAsFixed(2),
+      pixelRatio.toStringAsFixed(2),
+    ].join('|');
+
+    final cached = _badgeIconCache.remove(cacheKey);
+    if (cached != null) {
+      _badgeIconCache[cacheKey] = cached;
+      return cached;
+    }
+
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+    canvas.scale(pixelRatio);
+
+    final center = size / 2;
+    final innerRadius = (size * 0.25).roundToDouble();
+    final outerRadius = center - 1;
+
+    final outerFillPaint = ui.Paint()
+      ..style = ui.PaintingStyle.fill
+      ..color = _layoutMarkerOuterFill;
+    final outerStrokePaint = ui.Paint()
+      ..style = ui.PaintingStyle.stroke
+      ..strokeWidth = 1.25
+      ..color = _layoutMarkerOuterStroke;
+    final innerFillPaint = ui.Paint()
+      ..style = ui.PaintingStyle.fill
+      ..color = _layoutMarkerInnerFill;
+    final innerStrokePaint = ui.Paint()
+      ..style = ui.PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..color = _layoutMarkerInnerStroke;
+
+    canvas.drawCircle(ui.Offset(center, center), outerRadius, outerFillPaint);
+    canvas.drawCircle(ui.Offset(center, center), outerRadius, outerStrokePaint);
+    canvas.drawCircle(ui.Offset(center, center), innerRadius, innerFillPaint);
+    canvas.drawCircle(ui.Offset(center, center), innerRadius, innerStrokePaint);
+
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(
+      (size * pixelRatio).ceil(),
+      (size * pixelRatio).ceil(),
+    );
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    final bytes = byteData?.buffer.asUint8List() ?? Uint8List(0);
+    final descriptor = BitmapDescriptor.bytes(
+      bytes,
+      imagePixelRatio: pixelRatio,
+    );
+
+    if (_badgeIconCache.length >= _badgeIconCacheMaxEntries) {
+      _badgeIconCache.remove(_badgeIconCache.keys.first);
+    }
+    _badgeIconCache[cacheKey] = descriptor;
+    return descriptor;
   }
 
   double _priceBadgeFocusZoomTarget(String propertyType) {

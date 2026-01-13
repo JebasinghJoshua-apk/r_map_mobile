@@ -43,7 +43,7 @@ class MobileBffAuthApi {
     } on SocketException {
       debugPrint(_networkHelpMessage());
       throw const AuthApiException(
-        'No internet connection. Please check your network and try again.',
+        'Cannot connect to the server. Please check your network and try again.',
       );
     } on HttpException {
       debugPrint(_networkHelpMessage());
@@ -157,7 +157,8 @@ class MobileBffAuthApi {
     return 'Cannot reach Mobile BFF at $base. '
         'If using a real phone, set MOBILE_BFF_BASE_URL to your PC LAN IP (e.g. http://192.168.x.x:5150). '
         'If using an Android emulator, use http://10.0.2.2:5150. '
-        'Also ensure MobileBff is running and Windows Firewall allows port 5150.';
+        'Also ensure MobileBff is running and Windows Firewall allows port 5150. '
+        'On Android, debug builds must allow cleartext HTTP.';
   }
 }
 

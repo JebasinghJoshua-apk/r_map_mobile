@@ -290,6 +290,104 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
   static _PlotDimensionsFeet? _tryComputePlotEdgeDimensionsFeet(
     MapPlotFeature plot,
   ) {
+    // Only display dimensions when provided by the API.
+    return _tryParsePlotEdgeDimensionsFromMetadata(plot);
+  }
+
+  static _PlotDimensionsFeet? _tryParsePlotEdgeDimensionsFromMetadata(
+    MapPlotFeature plot,
+  ) {
+    final meta = plot.metadata;
+    final raw = (meta['dimensions'] ??
+            meta['plotDimensions'] ??
+            meta['plot_dimensions'] ??
+            meta['dimension'])
+        ?.trim();
+    if (raw == null || raw.isEmpty) return null;
+
+    final parts = raw
+        .split(RegExp(r'[\s,]+'))
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList(growable: false);
+    if (parts.length < 4) return null;
+
+    double? parseFeet(String raw) {
+      final match = RegExp(r'([0-9]+(?:\.[0-9]+)?)').firstMatch(raw);
+      if (match == null) return null;
+      return double.tryParse(match.group(1) ?? '');
+    }
+
+    final values = <double>[];
+    for (final part in parts.take(4)) {
+      final v = parseFeet(part);
+      if (v == null || !v.isFinite || v <= 0) return null;
+      values.add(v);
+    }
+
+    // If we can compute the geometry-derived edges, use it as a hint to pick
+    // the best ordering/rotation of metadata dimensions.
+    final computed = _tryComputePlotEdgeDimensionsFromBoundary(plot);
+    if (computed == null) {
+      // Common backend ordering (as provided): left, top, right, bottom.
+      return _PlotDimensionsFeet(
+        topFeet: values[1],
+        rightFeet: values[2],
+        bottomFeet: values[3],
+        leftFeet: values[0],
+      );
+    }
+
+    final target = <double>[
+      computed.topFeet,
+      computed.rightFeet,
+      computed.bottomFeet,
+      computed.leftFeet,
+    ];
+
+    List<double> rotate(List<double> v, int k) {
+      final kk = k % v.length;
+      return <double>[...v.sublist(kk), ...v.sublist(0, kk)];
+    }
+
+    final candidates = <List<double>>[];
+    for (var k = 0; k < 4; k++) {
+      candidates.add(rotate(values, k));
+    }
+    final reversed = values.reversed.toList(growable: false);
+    for (var k = 0; k < 4; k++) {
+      candidates.add(rotate(reversed, k));
+    }
+
+    double score(List<double> candidate) {
+      var sum = 0.0;
+      for (var i = 0; i < 4; i++) {
+        sum += (candidate[i] - target[i]).abs();
+      }
+      return sum;
+    }
+
+    var best = candidates.first;
+    var bestScore = score(best);
+    for (final c in candidates.skip(1)) {
+      final s = score(c);
+      if (s < bestScore) {
+        best = c;
+        bestScore = s;
+      }
+    }
+
+    return _PlotDimensionsFeet(
+      topFeet: best[0],
+      rightFeet: best[1],
+      bottomFeet: best[2],
+      leftFeet: best[3],
+    );
+  }
+
+  static _PlotDimensionsFeet? _tryComputePlotEdgeDimensionsFromBoundary(
+    MapPlotFeature plot,
+  ) {
     final polygons = GeoJson.tryParsePolygons(plot.boundaryGeoJson);
     if (polygons.isEmpty) return null;
 
