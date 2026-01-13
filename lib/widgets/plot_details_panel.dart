@@ -197,9 +197,9 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
                                   child: const Text(
                                     'Layout Details →',
                                     style: TextStyle(
-                                      // Slightly softer “blur” blue than before.
-                                      color: Color(0xFF60A5FA),
-                                      fontSize: 12,
+                                      // Slightly darker blue for better contrast.
+                                      color: Color(0xFF2563EB),
+                                      fontSize: 13,
                                       fontWeight: FontWeight.w800,
                                     ),
                                   ),
