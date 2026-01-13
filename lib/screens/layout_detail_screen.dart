@@ -434,33 +434,53 @@ class _HeroCarousel extends StatelessWidget {
                           onPageChanged: onIndexChanged,
                           itemBuilder: (context, index) {
                             final img = images[index];
-                            return InteractiveViewer(
-                              minScale: 1,
-                              maxScale: 3,
-                              child: Image.network(
-                                img.url,
-                                fit: BoxFit.contain,
-                                loadingBuilder: (context, child, progress) {
-                                  if (progress == null) return child;
-                                  final expected = progress.expectedTotalBytes;
-                                  final loaded = progress.cumulativeBytesLoaded;
-                                  final value = expected != null && expected > 0
-                                      ? loaded / expected
-                                      : null;
-                                  return Center(
-                                    child:
-                                        CircularProgressIndicator(value: value),
-                                  );
-                                },
-                                errorBuilder: (context, error, stackTrace) {
-                                  return const Center(
-                                    child: Icon(
-                                      Icons.broken_image_outlined,
-                                      color: Color(0xFF94A3B8),
-                                      size: 36,
+                            return GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => _FullScreenImageGallery(
+                                      images: images,
+                                      initialIndex: index,
                                     ),
-                                  );
-                                },
+                                  ),
+                                );
+                              },
+                              child: Hero(
+                                tag: 'layout_image_${img.url}',
+                                child: InteractiveViewer(
+                                  minScale: 1,
+                                  maxScale: 3,
+                                  child: Image.network(
+                                    img.url,
+                                    fit: BoxFit.contain,
+                                    loadingBuilder: (context, child, progress) {
+                                      if (progress == null) return child;
+                                      final expected =
+                                          progress.expectedTotalBytes;
+                                      final loaded =
+                                          progress.cumulativeBytesLoaded;
+                                      final value =
+                                          expected != null && expected > 0
+                                              ? loaded / expected
+                                              : null;
+                                      return Center(
+                                        child: CircularProgressIndicator(
+                                          value: value,
+                                        ),
+                                      );
+                                    },
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return const Center(
+                                        child: Icon(
+                                          Icons.broken_image_outlined,
+                                          color: Color(0xFF94A3B8),
+                                          size: 36,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
                               ),
                             );
                           },
@@ -553,6 +573,189 @@ class _RoundIconButton extends StatelessWidget {
           width: 44,
           height: 44,
           child: Icon(icon, color: const Color(0xFF0F172A)),
+        ),
+      ),
+    );
+  }
+}
+
+class _FullScreenImageGallery extends StatefulWidget {
+  const _FullScreenImageGallery({
+    required this.images,
+    required this.initialIndex,
+  });
+
+  final List<_HeroImage> images;
+  final int initialIndex;
+
+  @override
+  State<_FullScreenImageGallery> createState() =>
+      _FullScreenImageGalleryState();
+}
+
+class _FullScreenImageGalleryState extends State<_FullScreenImageGallery> {
+  late final PageController _controller;
+  late int _activeIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    final safeInitial = widget.initialIndex.clamp(0, widget.images.length - 1);
+    _activeIndex = safeInitial;
+    _controller = PageController(initialPage: safeInitial);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = widget.images.length;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: PageView.builder(
+                controller: _controller,
+                itemCount: total,
+                onPageChanged: (idx) => setState(() => _activeIndex = idx),
+                itemBuilder: (context, index) {
+                  final img = widget.images[index];
+                  return Center(
+                    child: Hero(
+                      tag: 'layout_image_${img.url}',
+                      child: InteractiveViewer(
+                        minScale: 1,
+                        maxScale: 4,
+                        child: Image.network(
+                          img.url,
+                          fit: BoxFit.contain,
+                          loadingBuilder: (context, child, progress) {
+                            if (progress == null) return child;
+                            final expected = progress.expectedTotalBytes;
+                            final loaded = progress.cumulativeBytesLoaded;
+                            final value = expected != null && expected > 0
+                                ? loaded / expected
+                                : null;
+                            return Center(
+                              child: CircularProgressIndicator(
+                                value: value,
+                                color: Colors.white,
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Center(
+                              child: Icon(
+                                Icons.broken_image_outlined,
+                                color: Colors.white70,
+                                size: 48,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (total > 1) ...[
+              Positioned(
+                left: 12,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: _RoundIconButton(
+                    icon: Icons.chevron_left,
+                    onPressed: () {
+                      final prev = (total + _activeIndex - 1) % total;
+                      _controller.animateToPage(
+                        prev,
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOut,
+                      );
+                    },
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 12,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: _RoundIconButton(
+                    icon: Icons.chevron_right,
+                    onPressed: () {
+                      final next = (_activeIndex + 1) % total;
+                      _controller.animateToPage(
+                        next,
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOut,
+                      );
+                    },
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 16,
+                child: IgnorePointer(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      total,
+                      (index) => Container(
+                        width: 7,
+                        height: 7,
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: index == _activeIndex
+                              ? Colors.white
+                              : Colors.white38,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                child: Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.close, color: Colors.white),
+                    ),
+                    const Spacer(),
+                    if (total > 1)
+                      Text(
+                        '${_activeIndex + 1} / $total',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    const SizedBox(width: 8),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
