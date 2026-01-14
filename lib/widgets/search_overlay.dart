@@ -316,65 +316,69 @@ class _SearchOverlayState extends State<SearchOverlay> {
       ),
       child: Column(
         children: [
-          Row(
-            children: [
-              if (showCompactRLogoInSearchBar)
-                const Padding(
-                  padding: EdgeInsets.only(left: 6, right: 8),
-                  child: _RLogoTile(),
-                )
-              else
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Icon(Icons.search, color: Colors.grey, size: 22),
-                ),
-              if (showCompactRLogoInSearchBar) ...[
-                const _VerticalSeparator(),
-                const SizedBox(width: 10),
-              ],
-              Expanded(
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    hintText: 'Search for places...',
+          Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) => widget.onSearchTap?.call(),
+            child: Row(
+              children: [
+                if (showCompactRLogoInSearchBar)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 6, right: 8),
+                    child: _RLogoTile(),
+                  )
+                else
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Icon(Icons.search, color: Colors.grey, size: 22),
                   ),
-                  onChanged: _onQueryChanged,
-                  onTap: () {
-                    widget.onSearchTap?.call();
-                    _enterExpandedMode();
-                  },
+                if (showCompactRLogoInSearchBar) ...[
+                  const _VerticalSeparator(),
+                  const SizedBox(width: 10),
+                ],
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      hintText: 'Search for places...',
+                    ),
+                    onChanged: _onQueryChanged,
+                    onTap: () {
+                      widget.onSearchTap?.call();
+                      _enterExpandedMode();
+                    },
+                  ),
                 ),
-              ),
-              if (_controller.text.isNotEmpty)
+                if (_controller.text.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.grey),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 28,
+                      height: 40,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () {
+                      setState(() {
+                        _controller.clear();
+                      });
+                      _enterExpandedMode();
+                      _onQueryChanged('');
+                    },
+                  ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.grey),
+                  icon: const Icon(Icons.tune, color: Color(0xFF0FAD97)),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints.tightFor(
-                    width: 28,
+                    width: 42,
                     height: 40,
                   ),
                   visualDensity: VisualDensity.compact,
-                  onPressed: () {
-                    setState(() {
-                      _controller.clear();
-                    });
-                    _enterExpandedMode();
-                    _onQueryChanged('');
-                  },
+                  onPressed: () {},
                 ),
-              IconButton(
-                icon: const Icon(Icons.tune, color: Color(0xFF0FAD97)),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints.tightFor(
-                  width: 42,
-                  height: 40,
-                ),
-                visualDensity: VisualDensity.compact,
-                onPressed: () {},
-              ),
-            ],
+              ],
+            ),
           ),
           if (_isLoading) const LinearProgressIndicator(minHeight: 2),
           if (_shouldShowRecents)

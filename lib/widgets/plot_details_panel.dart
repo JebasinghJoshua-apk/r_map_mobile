@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/map_viewport_models.dart';
 import '../utils/geojson.dart';
+import '../utils/route_observer.dart';
 
 class PlotDetailsPanel extends StatefulWidget {
   const PlotDetailsPanel({
@@ -32,9 +33,15 @@ class PlotDetailsPanel extends StatefulWidget {
   State<PlotDetailsPanel> createState() => _PlotDetailsPanelState();
 }
 
-class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
+class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
   late String _statusValue;
   bool _isUpdatingStatus = false;
+
+  void _handleLayoutDetailsPressed() {
+    _dismissKeyboard();
+    // Let callers navigate without inheriting any lingering focus.
+    Future.microtask(() => widget.onLayoutDetails?.call());
+  }
 
   void _showShareSheet() {
     final plotId = widget.plot.plotId.trim();
@@ -119,6 +126,32 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
         oldWidget.isSold != widget.isSold) {
       _statusValue = _resolvePlotStatusLabel(widget.plot, widget.isSold);
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is ModalRoute<void>) {
+      routeObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    // We just returned to this panel (e.g. from Layout Details). Make sure
+    // no lingering focus causes the keyboard to appear.
+    _dismissKeyboard();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _dismissKeyboard();
+    });
   }
 
   @override
@@ -283,7 +316,8 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
                                       ),
                                       if (widget.onLayoutDetails != null)
                                         TextButton(
-                                          onPressed: widget.onLayoutDetails,
+                                          onPressed:
+                                              _handleLayoutDetailsPressed,
                                           style: TextButton.styleFrom(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 10,

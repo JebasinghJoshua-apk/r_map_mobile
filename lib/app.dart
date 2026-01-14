@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'screens/home_map_screen.dart';
 import 'state/auth_scope.dart';
 import 'state/auth_state.dart';
+import 'utils/route_observer.dart';
 
 class RMapApp extends StatefulWidget {
   const RMapApp({super.key});
@@ -37,6 +38,7 @@ class _RMapAppState extends State<RMapApp> {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
           useMaterial3: true,
         ),
+        navigatorObservers: [routeObserver],
         home: const HomeMapScreen(),
       ),
     );
