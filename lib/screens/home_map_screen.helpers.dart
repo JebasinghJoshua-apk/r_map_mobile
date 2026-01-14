@@ -98,6 +98,17 @@ const Color _soldPlotFill = Color(0xFFDC2626);
 const double _soldPlotStrokeOpacity = 0.70;
 const double _soldPlotFillOpacity = 0.55;
 
+// Selected plot highlight overlay (mobile-only UX affordance).
+const Color _selectedPlotStroke = Color(0xFF2563EB);
+const Color _selectedPlotFill = Color(0xFF93C5FD);
+const double _selectedPlotStrokeOpacity = 1.0;
+const double _selectedPlotFillOpacity = 0.22;
+const int _selectedPlotStrokeWidthBump = 2;
+const int _selectedPlotZIndex = 999999;
+
+// Camera behavior when selecting a plot.
+const double _selectedPlotMaxFocusZoom = 20.5;
+
 const Color _amenityStroke = Color(0xFF0F766E);
 const Color _amenityFill = Color(0xFF65A30D);
 const double _amenityStrokeOpacity = 0.95;

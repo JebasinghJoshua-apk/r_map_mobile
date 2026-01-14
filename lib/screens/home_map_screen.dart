@@ -70,11 +70,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   Set<Polygon> _layoutPolygons = <Polygon>{};
   Set<Polygon> _propertyPolygons = <Polygon>{};
   Set<Polygon> _plotPolygons = <Polygon>{};
+  Set<Polygon> _selectedPlotHighlightPolygons = <Polygon>{};
   Set<Polygon> _amenityPolygons = <Polygon>{};
   Set<Polygon> _roadPolygons = <Polygon>{};
   Set<Polyline> _roadPolylines = <Polyline>{};
 
   MapPlotFeature? _selectedPlot;
+  int _plotFocusSeq = 0;
 
   // Mirrors web MapViewportLayer: only allow plot status edits for plots under
   // layouts owned by the current user (within the current viewport response).
@@ -593,15 +595,92 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     if (!mounted) return;
     setState(() {
       _selectedPlot = plot;
+      _selectedPlotHighlightPolygons =
+          _buildSelectedPlotHighlightPolygons(plot);
     });
+
+    // Center the plot after selection so users immediately see what's selected.
+    unawaited(_focusPlotOnMap(plot));
   }
 
   void _closePlotPanel() {
     if (!mounted) return;
     if (_selectedPlot == null) return;
+    // Cancel any in-flight focus animation/clamp for the previous selection.
+    _plotFocusSeq++;
     setState(() {
       _selectedPlot = null;
+      _selectedPlotHighlightPolygons = const <Polygon>{};
     });
+  }
+
+  Set<Polygon> _buildSelectedPlotHighlightPolygons(MapPlotFeature plot) {
+    final polygons = GeoJson.tryParsePolygons(plot.boundaryGeoJson);
+    if (polygons.isEmpty) return const <Polygon>{};
+
+    final zoom = _effectiveZoom ?? _lastCameraPosition.zoom;
+    final baseStrokeWidth =
+        _bumpPlotStrokeWidthForHighZoom(zoom, _plotStrokeWidth);
+    final strokeWidth = baseStrokeWidth + _selectedPlotStrokeWidthBump;
+
+    final next = <Polygon>{};
+    for (var i = 0; i < polygons.length; i++) {
+      final points = polygons[i];
+      if (points.length < 3) continue;
+      next.add(
+        Polygon(
+          polygonId: PolygonId('plot-selected:${plot.plotId}:$i'),
+          points: points,
+          strokeWidth: strokeWidth,
+          strokeColor:
+              _selectedPlotStroke.withOpacity(_selectedPlotStrokeOpacity),
+          fillColor: _selectedPlotFill.withOpacity(_selectedPlotFillOpacity),
+          consumeTapEvents: false,
+          zIndex: _selectedPlotZIndex,
+        ),
+      );
+    }
+
+    return Set<Polygon>.unmodifiable(next);
+  }
+
+  Future<void> _focusPlotOnMap(MapPlotFeature plot) async {
+    final controller = _mapController;
+    if (controller == null) return;
+
+    final focusSeq = ++_plotFocusSeq;
+
+    // Strict zoom clamp: never exceed the max zoom (e.g. 20.5).
+    // `newLatLngBounds` can temporarily zoom in beyond the max, so instead we
+    // compute a center point and move the camera directly.
+    LatLng? center = plot.centerPoint;
+
+    final polygons = GeoJson.tryParsePolygons(plot.boundaryGeoJson);
+    if (center == null && polygons.isNotEmpty) {
+      final points = <LatLng>[];
+      for (final poly in polygons) {
+        points.addAll(poly);
+      }
+      if (points.isNotEmpty) {
+        center = _centerOfBounds(_boundsFromPoints(points));
+      }
+    }
+
+    if (center == null) return;
+
+    // Zoom behavior:
+    // - If current zoom is below the target (20.5), zoom in to 20.5.
+    // - If current zoom is already above 20.5, keep it (don't zoom out).
+    double currentZoom;
+    try {
+      currentZoom = await controller.getZoomLevel();
+    } catch (_) {
+      currentZoom = _effectiveZoom ?? _lastCameraPosition.zoom;
+    }
+
+    final nextZoom = math.max(currentZoom, _selectedPlotMaxFocusZoom);
+    if (focusSeq != _plotFocusSeq) return;
+    await _focusPropertyOnMap(target: center, zoom: nextZoom);
   }
 
   Future<void> _updatePlotStatus(MapPlotFeature plot, String status) async {
@@ -1432,6 +1511,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               ..._layoutPolygons,
               ..._propertyPolygons,
               ..._plotPolygons,
+              ..._selectedPlotHighlightPolygons,
               ..._amenityPolygons,
               ..._roadPolygons,
             },
