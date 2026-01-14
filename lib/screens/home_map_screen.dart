@@ -939,7 +939,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             icon: icon,
             anchor: const Offset(0.5, 0.5),
             zIndex: 120,
-            consumeTapEvents: false,
+            // Plot labels sit above polygons. If we let taps fall through, the
+            // map's `onTap` handler can fire and immediately close the panel.
+            // Make the label itself open the same plot details panel.
+            onTap: () => _handlePlotTapped(plot),
+            consumeTapEvents: true,
+            infoWindow: InfoWindow.noText,
           ),
         );
         totalLabels++;
