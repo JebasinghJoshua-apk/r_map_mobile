@@ -413,19 +413,31 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                   items: const [
                                     DropdownMenuItem(
                                       value: 'Available',
-                                      child: Text('Available'),
+                                      child: Padding(
+                                        padding: EdgeInsets.only(left: 6),
+                                        child: Text('Available'),
+                                      ),
                                     ),
                                     DropdownMenuItem(
                                       value: 'Booked',
-                                      child: Text('Booked'),
+                                      child: Padding(
+                                        padding: EdgeInsets.only(left: 6),
+                                        child: Text('Booked'),
+                                      ),
                                     ),
                                     DropdownMenuItem(
                                       value: 'Sold',
-                                      child: Text('Sold'),
+                                      child: Padding(
+                                        padding: EdgeInsets.only(left: 6),
+                                        child: Text('Sold'),
+                                      ),
                                     ),
                                     DropdownMenuItem(
                                       value: 'Blocked',
-                                      child: Text('Blocked'),
+                                      child: Padding(
+                                        padding: EdgeInsets.only(left: 6),
+                                        child: Text('Blocked'),
+                                      ),
                                     ),
                                   ],
                                   onChanged: (widget.onUpdateStatus == null ||
