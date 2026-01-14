@@ -36,6 +36,71 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
   late String _statusValue;
   bool _isUpdatingStatus = false;
 
+  void _showShareSheet() {
+    final plotId = widget.plot.plotId.trim();
+    final plotNumber = widget.plot.plotNumber.trim();
+    final shareUrl = plotId.isNotEmpty
+        ? 'https://rmap.local/plot/$plotId'
+        : plotNumber.isNotEmpty
+            ? 'https://rmap.local/plot-number/$plotNumber'
+            : 'https://rmap.local/plot';
+
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.chat_bubble_outline),
+                title: const Text('Share to WhatsApp'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    const SnackBar(
+                      content: Text('TODO: Share to WhatsApp'),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.public),
+                title: const Text('Share to Facebook'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    const SnackBar(
+                      content: Text('TODO: Share to Facebook'),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.link),
+                title: const Text('Copy URL'),
+                subtitle: Text(shareUrl,
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  await Clipboard.setData(ClipboardData(text: shareUrl));
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    const SnackBar(
+                      content: Text('URL copied (placeholder)'),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _dismissKeyboard() {
     FocusManager.instance.primaryFocus?.unfocus();
     SystemChannels.textInput.invokeMethod('TextInput.hide');
@@ -75,8 +140,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
 
     final tagsLine = widget.tags.where((t) => t.trim().isNotEmpty).join(', ');
 
-    final showInfoRow =
-        tagsLine.trim().isNotEmpty || widget.onLayoutDetails != null;
+    final showInfoRow = tagsLine.trim().isNotEmpty;
 
     final canEditStatus = widget.onUpdateStatus != null &&
         (widget.plot.layoutId?.trim().isNotEmpty ?? false);
@@ -113,75 +177,139 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
                 child: Stack(
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: _PlotSketchCard(
-                            borderColor: const Color(0xFF15803D),
-                            dimensions: dimensions,
-                            boundaryRing: plotRing,
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        const gap = 12.0;
+                        const leftFlex = 3.0;
+                        const rightFlex = 2.0;
+                        const sketchAspectRatio = 152 / 112;
+
+                        final contentWidth = constraints.maxWidth;
+                        final leftWidth = (contentWidth - gap) *
+                            (leftFlex / (leftFlex + rightFlex));
+                        final sketchHeight = leftWidth / sketchAspectRatio;
+
+                        return SizedBox(
+                          height: sketchHeight,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: _PlotSketchCard(
+                                  borderColor: const Color(0xFF15803D),
+                                  dimensions: dimensions,
+                                  boundaryRing: plotRing,
+                                ),
+                              ),
+                              const SizedBox(width: gap),
+                              Expanded(
+                                flex: 2,
+                                child: Padding(
+                                  // Leave a touch of breathing room from the top.
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceEvenly,
+                                    mainAxisSize: MainAxisSize.max,
+                                    children: [
+                                      Text(
+                                        'Plot #$plotNumber',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                          color: Color(0xFF111827),
+                                        ),
+                                      ),
+                                      Text(
+                                        totalSqftText,
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          color: Color(0xFF4B5563),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: statusTheme.bg,
+                                          border: Border.all(
+                                            color: statusTheme.border,
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(999),
+                                        ),
+                                        child: Text(
+                                          statusText,
+                                          style: TextStyle(
+                                            color: statusTheme.color,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 11,
+                                            letterSpacing: 0.8,
+                                          ),
+                                        ),
+                                      ),
+                                      TextButton.icon(
+                                        onPressed: _showShareSheet,
+                                        style: TextButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 6,
+                                          ),
+                                          minimumSize: const Size(0, 0),
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                        icon: const Icon(
+                                          Icons.share_outlined,
+                                          size: 18,
+                                          color: Color(0xFF2563EB),
+                                        ),
+                                        label: const Text(
+                                          'Share',
+                                          style: TextStyle(
+                                            color: Color(0xFF2563EB),
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ),
+                                      if (widget.onLayoutDetails != null)
+                                        TextButton(
+                                          onPressed: widget.onLayoutDetails,
+                                          style: TextButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 6,
+                                            ),
+                                            minimumSize: const Size(0, 0),
+                                            tapTargetSize: MaterialTapTargetSize
+                                                .shrinkWrap,
+                                          ),
+                                          child: const Text(
+                                            'Layout Details →',
+                                            style: TextStyle(
+                                              color: Color(0xFF2563EB),
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 2,
-                          child: Padding(
-                            // Let the details column use the top space; the close
-                            // button is on the far right so centered text won't
-                            // overlap in practice.
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'Plot #$plotNumber',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF111827),
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  totalSqftText,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Color(0xFF4B5563),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 5,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: statusTheme.bg,
-                                    border: Border.all(
-                                      color: statusTheme.border,
-                                    ),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Text(
-                                    statusText,
-                                    style: TextStyle(
-                                      color: statusTheme.color,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 11,
-                                      letterSpacing: 0.8,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
+                        );
+                      },
                     ),
                     Positioned(
                       top: 0,
@@ -201,131 +329,14 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
                     ),
                   ),
                   padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      const tagsStyle = TextStyle(
-                        color: Color(0xFF111827),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        height: 1.15,
-                      );
-
-                      const buttonLabel = 'Layout Details →';
-                      const buttonStyle = TextStyle(
-                        color: Color(0xFF2563EB),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                      );
-
-                      final hasTags = tagsLine.trim().isNotEmpty;
-                      final hasLayout = widget.onLayoutDetails != null;
-                      if (!hasTags && !hasLayout)
-                        return const SizedBox.shrink();
-
-                      if (!hasTags) {
-                        return Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: widget.onLayoutDetails,
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              minimumSize: const Size(0, 0),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: const Text(buttonLabel, style: buttonStyle),
-                          ),
-                        );
-                      }
-
-                      // When Layout Details is present, the web panel effectively
-                      // uses the right-side space on subsequent lines (the button
-                      // only occupies the first line). To mimic that in Flutter,
-                      // we split the text into:
-                      // - first line: constrained to the width left of the button
-                      // - remaining lines: full width below
-                      if (!hasLayout) {
-                        return Text(tagsLine, style: tagsStyle);
-                      }
-
-                      final buttonTextPainter = TextPainter(
-                        text: const TextSpan(
-                            text: buttonLabel, style: buttonStyle),
-                        textDirection: TextDirection.ltr,
-                        maxLines: 1,
-                      )..layout();
-                      const buttonHPadding = 10.0;
-                      const gap = 12.0;
-                      final buttonWidth =
-                          buttonTextPainter.width + (buttonHPadding * 2);
-                      final firstLineMaxWidth =
-                          (constraints.maxWidth - buttonWidth - gap)
-                              .clamp(0.0, constraints.maxWidth);
-
-                      String firstLine = tagsLine;
-                      String remainder = '';
-                      if (firstLineMaxWidth > 0) {
-                        final tp = TextPainter(
-                          text: TextSpan(text: tagsLine, style: tagsStyle),
-                          textDirection: TextDirection.ltr,
-                          maxLines: 1,
-                        )..layout(maxWidth: firstLineMaxWidth);
-
-                        final end = tp
-                            .getPositionForOffset(Offset(firstLineMaxWidth, 0))
-                            .offset;
-                        var cut = end.clamp(0, tagsLine.length);
-                        // Avoid cutting mid-word when possible.
-                        final lastSpace = tagsLine.lastIndexOf(' ', cut);
-                        if (lastSpace > 0) {
-                          cut = lastSpace;
-                        }
-
-                        if (cut > 0 && cut < tagsLine.length) {
-                          firstLine = tagsLine.substring(0, cut).trimRight();
-                          remainder = tagsLine.substring(cut).trimLeft();
-                        }
-                      }
-
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  firstLine,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.clip,
-                                  style: tagsStyle,
-                                ),
-                              ),
-                              const SizedBox(width: gap),
-                              TextButton(
-                                onPressed: widget.onLayoutDetails,
-                                style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: buttonHPadding,
-                                    vertical: 6,
-                                  ),
-                                  minimumSize: const Size(0, 0),
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                child:
-                                    const Text(buttonLabel, style: buttonStyle),
-                              ),
-                            ],
-                          ),
-                          if (remainder.isNotEmpty) ...[
-                            Text(remainder, style: tagsStyle),
-                          ],
-                        ],
-                      );
-                    },
+                  child: Text(
+                    tagsLine,
+                    style: const TextStyle(
+                      color: Color(0xFF111827),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      height: 1.15,
+                    ),
                   ),
                 ),
               Padding(
@@ -433,7 +444,6 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
                                   decoration: InputDecoration(
                                     isDense: true,
                                     contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
                                       vertical: 10,
                                     ),
                                     border: OutlineInputBorder(
