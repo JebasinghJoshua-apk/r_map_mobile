@@ -266,73 +266,100 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 5,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: statusTheme.bg,
-                                          border: Border.all(
-                                            color: statusTheme.border,
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 6),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 5,
                                           ),
-                                          borderRadius:
-                                              BorderRadius.circular(999),
-                                        ),
-                                        child: Text(
-                                          statusText,
-                                          style: TextStyle(
-                                            color: statusTheme.color,
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 11,
-                                            letterSpacing: 0.8,
+                                          decoration: BoxDecoration(
+                                            color: statusTheme.bg,
+                                            border: Border.all(
+                                              color: statusTheme.border,
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(999),
+                                          ),
+                                          child: Text(
+                                            statusText,
+                                            style: TextStyle(
+                                              color: statusTheme.color,
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 11,
+                                              letterSpacing: 0.8,
+                                            ),
                                           ),
                                         ),
                                       ),
-                                      TextButton.icon(
-                                        onPressed: _showShareSheet,
-                                        style: TextButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 6,
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 8),
+                                        child: TextButton.icon(
+                                          onPressed: _showShareSheet,
+                                          style: TextButton.styleFrom(
+                                            backgroundColor:
+                                                const Color(0xFF2563EB)
+                                                    .withOpacity(0.10),
+                                            side: const BorderSide(
+                                              color: Color(0xFF93C5FD),
+                                              width: 1,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 8,
+                                            ),
+                                            minimumSize: const Size(0, 32),
+                                            tapTargetSize: MaterialTapTargetSize
+                                                .shrinkWrap,
+                                            visualDensity:
+                                                VisualDensity.compact,
                                           ),
-                                          minimumSize: const Size(0, 0),
-                                          tapTargetSize:
-                                              MaterialTapTargetSize.shrinkWrap,
-                                        ),
-                                        icon: const Icon(
-                                          Icons.share_outlined,
-                                          size: 18,
-                                          color: Color(0xFF2563EB),
-                                        ),
-                                        label: const Text(
-                                          'Share',
-                                          style: TextStyle(
-                                            color: Color(0xFF2563EB),
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w800,
+                                          icon: const Icon(
+                                            Icons.share_outlined,
+                                            size: 14,
+                                            color: Color(0xFF1D4ED8),
+                                          ),
+                                          label: const Text(
+                                            'Share',
+                                            style: TextStyle(
+                                              color: Color(0xFF1D4ED8),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                              height: 1,
+                                            ),
                                           ),
                                         ),
                                       ),
                                       if (widget.onLayoutDetails != null)
-                                        TextButton(
-                                          onPressed:
-                                              _handleLayoutDetailsPressed,
-                                          style: TextButton.styleFrom(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 6,
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(top: 6),
+                                          child: TextButton(
+                                            onPressed:
+                                                _handleLayoutDetailsPressed,
+                                            style: TextButton.styleFrom(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                                vertical: 6,
+                                              ),
+                                              minimumSize: const Size(0, 0),
+                                              tapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
                                             ),
-                                            minimumSize: const Size(0, 0),
-                                            tapTargetSize: MaterialTapTargetSize
-                                                .shrinkWrap,
-                                          ),
-                                          child: const Text(
-                                            'Layout Details →',
-                                            style: TextStyle(
-                                              color: Color(0xFF2563EB),
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w800,
+                                            child: const Text(
+                                              'Layout Details →',
+                                              style: TextStyle(
+                                                color: Color(0xFF1D4ED8),
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                height: 1,
+                                              ),
                                             ),
                                           ),
                                         ),
