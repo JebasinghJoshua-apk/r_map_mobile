@@ -58,6 +58,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
     final plotNumber =
         widget.plot.plotNumber.trim().isEmpty ? '—' : widget.plot.plotNumber;
 
@@ -74,35 +75,43 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
 
     final tagsLine = widget.tags.where((t) => t.trim().isNotEmpty).join(', ');
 
+    final showInfoRow =
+        tagsLine.trim().isNotEmpty || widget.onLayoutDetails != null;
+
     final canEditStatus = widget.onUpdateStatus != null &&
         (widget.plot.layoutId?.trim().isNotEmpty ?? false);
 
     return Material(
       color: Colors.transparent,
-      child: SafeArea(
-        top: false,
-        child: Container(
-          width: double.infinity,
-          decoration: const BoxDecoration(
-            color: Color(0xFFEFF6FF),
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(18),
-              topRight: Radius.circular(18),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Color(0x1F000000),
-                blurRadius: 16,
-                offset: Offset(0, -6),
-              ),
-            ],
+      child: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(18),
+            topRight: Radius.circular(18),
           ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Stack(
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x1F000000),
+              blurRadius: 16,
+              offset: Offset(0, -6),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(18),
+            topRight: Radius.circular(18),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: double.infinity,
+                color: const Color(0xFFEFF6FF),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                child: Stack(
                   children: [
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -168,42 +177,6 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
                                     ),
                                   ),
                                 ),
-                                if (tagsLine.trim().isNotEmpty) ...[
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    tagsLine,
-                                    textAlign: TextAlign.center,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Color(0xFF111827),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
-                                const SizedBox(height: 8),
-                                TextButton(
-                                  onPressed: widget.onLayoutDetails,
-                                  style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 8,
-                                    ),
-                                    minimumSize: const Size(0, 0),
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                  child: const Text(
-                                    'Layout Details →',
-                                    style: TextStyle(
-                                      // Slightly darker blue for better contrast.
-                                      color: Color(0xFF2563EB),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
                               ],
                             ),
                           ),
@@ -217,151 +190,294 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                if (canEditStatus)
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
+              if (showInfoRow)
+                Container(
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    border: Border(
+                      top: BorderSide(color: Color(0xFFE5E7EB)),
                     ),
-                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                    child: Row(
-                      children: [
-                        const Flexible(
-                          flex: 2,
-                          child: Text(
-                            'UPDATE STATUS',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Color(0xFF111827),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.6,
+                  ),
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      const tagsStyle = TextStyle(
+                        color: Color(0xFF111827),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        height: 1.15,
+                      );
+
+                      const buttonLabel = 'Layout Details →';
+                      const buttonStyle = TextStyle(
+                        color: Color(0xFF2563EB),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      );
+
+                      final hasTags = tagsLine.trim().isNotEmpty;
+                      final hasLayout = widget.onLayoutDetails != null;
+                      if (!hasTags && !hasLayout)
+                        return const SizedBox.shrink();
+
+                      if (!hasTags) {
+                        return Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: widget.onLayoutDetails,
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              minimumSize: const Size(0, 0),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
+                            child: const Text(buttonLabel, style: buttonStyle),
                           ),
+                        );
+                      }
+
+                      // When Layout Details is present, the web panel effectively
+                      // uses the right-side space on subsequent lines (the button
+                      // only occupies the first line). To mimic that in Flutter,
+                      // we split the text into:
+                      // - first line: constrained to the width left of the button
+                      // - remaining lines: full width below
+                      if (!hasLayout) {
+                        return Text(tagsLine, style: tagsStyle);
+                      }
+
+                      final buttonTextPainter = TextPainter(
+                        text: const TextSpan(
+                            text: buttonLabel, style: buttonStyle),
+                        textDirection: TextDirection.ltr,
+                        maxLines: 1,
+                      )..layout();
+                      const buttonHPadding = 10.0;
+                      const gap = 12.0;
+                      final buttonWidth =
+                          buttonTextPainter.width + (buttonHPadding * 2);
+                      final firstLineMaxWidth =
+                          (constraints.maxWidth - buttonWidth - gap)
+                              .clamp(0.0, constraints.maxWidth);
+
+                      String firstLine = tagsLine;
+                      String remainder = '';
+                      if (firstLineMaxWidth > 0) {
+                        final tp = TextPainter(
+                          text: TextSpan(text: tagsLine, style: tagsStyle),
+                          textDirection: TextDirection.ltr,
+                          maxLines: 1,
+                        )..layout(maxWidth: firstLineMaxWidth);
+
+                        final end = tp
+                            .getPositionForOffset(Offset(firstLineMaxWidth, 0))
+                            .offset;
+                        var cut = end.clamp(0, tagsLine.length);
+                        // Avoid cutting mid-word when possible.
+                        final lastSpace = tagsLine.lastIndexOf(' ', cut);
+                        if (lastSpace > 0) {
+                          cut = lastSpace;
+                        }
+
+                        if (cut > 0 && cut < tagsLine.length) {
+                          firstLine = tagsLine.substring(0, cut).trimRight();
+                          remainder = tagsLine.substring(cut).trimLeft();
+                        }
+                      }
+
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  firstLine,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.clip,
+                                  style: tagsStyle,
+                                ),
+                              ),
+                              const SizedBox(width: gap),
+                              TextButton(
+                                onPressed: widget.onLayoutDetails,
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: buttonHPadding,
+                                    vertical: 6,
+                                  ),
+                                  minimumSize: const Size(0, 0),
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child:
+                                    const Text(buttonLabel, style: buttonStyle),
+                              ),
+                            ],
+                          ),
+                          if (remainder.isNotEmpty) ...[
+                            Text(remainder, style: tagsStyle),
+                          ],
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              Padding(
+                padding: EdgeInsets.fromLTRB(12, 10, 12, 12 + bottomInset),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (canEditStatus)
+                      Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          flex: 3,
-                          child: SizedBox(
-                            height: 40,
-                            child: DropdownButtonFormField<String>(
-                              value: _statusValue,
-                              items: const [
-                                DropdownMenuItem(
-                                  value: 'Available',
-                                  child: Text('Available'),
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                        child: Row(
+                          children: [
+                            const Flexible(
+                              flex: 2,
+                              child: Text(
+                                'UPDATE STATUS',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Color(0xFF111827),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.6,
                                 ),
-                                DropdownMenuItem(
-                                  value: 'Booked',
-                                  child: Text('Booked'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'Sold',
-                                  child: Text('Sold'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'Blocked',
-                                  child: Text('Blocked'),
-                                ),
-                              ],
-                              onChanged: (widget.onUpdateStatus == null ||
-                                      _isUpdatingStatus)
-                                  ? null
-                                  : (v) async {
-                                      if (v == null) return;
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              flex: 3,
+                              child: SizedBox(
+                                height: 40,
+                                child: DropdownButtonFormField<String>(
+                                  value: _statusValue,
+                                  items: const [
+                                    DropdownMenuItem(
+                                      value: 'Available',
+                                      child: Text('Available'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Booked',
+                                      child: Text('Booked'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Sold',
+                                      child: Text('Sold'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Blocked',
+                                      child: Text('Blocked'),
+                                    ),
+                                  ],
+                                  onChanged: (widget.onUpdateStatus == null ||
+                                          _isUpdatingStatus)
+                                      ? null
+                                      : (v) async {
+                                          if (v == null) return;
 
-                                      // Prevent the map search field (or any
-                                      // other text input) from grabbing focus
-                                      // and popping the keyboard when changing
-                                      // the dropdown value.
-                                      _dismissKeyboard();
+                                          _dismissKeyboard();
 
-                                      final previous = _statusValue;
-                                      final messenger =
-                                          ScaffoldMessenger.of(context);
-                                      setState(() {
-                                        _statusValue = v;
-                                        _isUpdatingStatus = true;
-                                      });
-
-                                      try {
-                                        await widget.onUpdateStatus?.call(v);
-                                      } catch (e) {
-                                        debugPrint(
-                                            'Failed to update plot status: $e');
-                                        if (mounted) {
+                                          final previous = _statusValue;
+                                          final messenger =
+                                              ScaffoldMessenger.of(context);
                                           setState(() {
-                                            _statusValue = previous;
+                                            _statusValue = v;
+                                            _isUpdatingStatus = true;
                                           });
-                                        }
 
-                                        final message = e.toString().trim();
-                                        messenger.showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              message.isEmpty
-                                                  ? 'Failed to update status. Please try again.'
-                                                  : message,
-                                            ),
-                                          ),
-                                        );
-                                      } finally {
-                                        _dismissKeyboard();
-                                        if (mounted) {
-                                          setState(() {
-                                            _isUpdatingStatus = false;
-                                          });
-                                        }
-                                      }
-                                    },
-                              decoration: InputDecoration(
-                                isDense: true,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 10,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFFD1D5DB),
+                                          try {
+                                            await widget.onUpdateStatus
+                                                ?.call(v);
+                                          } catch (e) {
+                                            debugPrint(
+                                                'Failed to update plot status: $e');
+                                            if (mounted) {
+                                              setState(() {
+                                                _statusValue = previous;
+                                              });
+                                            }
+
+                                            final message = e.toString().trim();
+                                            messenger.showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  message.isEmpty
+                                                      ? 'Failed to update status. Please try again.'
+                                                      : message,
+                                                ),
+                                              ),
+                                            );
+                                          } finally {
+                                            _dismissKeyboard();
+                                            if (mounted) {
+                                              setState(() {
+                                                _isUpdatingStatus = false;
+                                              });
+                                            }
+                                          }
+                                        },
+                                  decoration: InputDecoration(
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 10,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFFD1D5DB),
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        OutlinedButton(
-                          onPressed: widget.onClose,
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFFD1D5DB)),
-                            foregroundColor: const Color(0xFF111827),
-                            minimumSize: const Size(0, 40),
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                            const SizedBox(width: 10),
+                            OutlinedButton(
+                              onPressed: widget.onClose,
+                              style: OutlinedButton.styleFrom(
+                                side:
+                                    const BorderSide(color: Color(0xFFD1D5DB)),
+                                foregroundColor: const Color(0xFF111827),
+                                minimumSize: const Size(0, 40),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 14),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: const Text(
+                                'Close',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
                             ),
-                          ),
-                          child: const Text(
-                            'Close',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
