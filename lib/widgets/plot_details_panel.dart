@@ -414,28 +414,28 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                     DropdownMenuItem(
                                       value: 'Available',
                                       child: Padding(
-                                        padding: EdgeInsets.only(left: 6),
+                                        padding: EdgeInsets.only(left: 8),
                                         child: Text('Available'),
                                       ),
                                     ),
                                     DropdownMenuItem(
                                       value: 'Booked',
                                       child: Padding(
-                                        padding: EdgeInsets.only(left: 6),
+                                        padding: EdgeInsets.only(left: 8),
                                         child: Text('Booked'),
                                       ),
                                     ),
                                     DropdownMenuItem(
                                       value: 'Sold',
                                       child: Padding(
-                                        padding: EdgeInsets.only(left: 6),
+                                        padding: EdgeInsets.only(left: 8),
                                         child: Text('Sold'),
                                       ),
                                     ),
                                     DropdownMenuItem(
                                       value: 'Blocked',
                                       child: Padding(
-                                        padding: EdgeInsets.only(left: 6),
+                                        padding: EdgeInsets.only(left: 8),
                                         child: Text('Blocked'),
                                       ),
                                     ),
