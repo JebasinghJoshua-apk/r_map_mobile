@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/map_viewport_models.dart';
 import '../utils/geojson.dart';
@@ -17,6 +18,7 @@ class PlotDetailsPanel extends StatefulWidget {
     required this.areaLabel,
     required this.tags,
     required this.onClose,
+    this.contactNumbers,
     this.onLayoutDetails,
     this.onUpdateStatus,
   });
@@ -26,6 +28,7 @@ class PlotDetailsPanel extends StatefulWidget {
   final String? areaLabel;
   final List<String> tags;
   final VoidCallback onClose;
+  final List<String>? contactNumbers;
   final VoidCallback? onLayoutDetails;
   final Future<void> Function(String)? onUpdateStatus;
 
@@ -36,6 +39,121 @@ class PlotDetailsPanel extends StatefulWidget {
 class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
   late String _statusValue;
   bool _isUpdatingStatus = false;
+
+  static String _formatIndianPhoneNumber(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return '';
+
+    final digitsOnly = trimmed.replaceAll(RegExp(r'\D+'), '');
+    if (digitsOnly.isEmpty) return trimmed;
+
+    String local10;
+    if (digitsOnly.length == 10) {
+      local10 = digitsOnly;
+    } else if (digitsOnly.length == 12 && digitsOnly.startsWith('91')) {
+      local10 = digitsOnly.substring(2);
+    } else if (digitsOnly.length == 11 && digitsOnly.startsWith('0')) {
+      local10 = digitsOnly.substring(1);
+    } else {
+      return trimmed;
+    }
+
+    final first = local10.substring(0, 5);
+    final last = local10.substring(5);
+    return '+91 $first $last';
+  }
+
+  static String _dialableFromRawPhoneNumber(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return '';
+
+    final hasPlus = trimmed.startsWith('+');
+    final digitsOnly = trimmed.replaceAll(RegExp(r'\D+'), '');
+    if (digitsOnly.isEmpty) return '';
+
+    if (hasPlus) return '+$digitsOnly';
+
+    if (digitsOnly.length == 10) return '+91$digitsOnly';
+    if (digitsOnly.length == 12 && digitsOnly.startsWith('91')) {
+      return '+$digitsOnly';
+    }
+    if (digitsOnly.length == 11 && digitsOnly.startsWith('0')) {
+      return '+91${digitsOnly.substring(1)}';
+    }
+
+    return digitsOnly;
+  }
+
+  Future<void> _callPhoneNumber(String raw) async {
+    final dialable = _dialableFromRawPhoneNumber(raw);
+    if (dialable.isEmpty) return;
+
+    final uri = Uri(scheme: 'tel', path: dialable);
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open dialer'),
+            duration: Duration(milliseconds: 900),
+          ),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not open dialer'),
+          duration: Duration(milliseconds: 900),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleContactTap({
+    required List<String> rawContacts,
+    required List<String> formattedContacts,
+  }) async {
+    if (rawContacts.isEmpty) return;
+
+    if (rawContacts.length == 1) {
+      await _callPhoneNumber(rawContacts.first);
+      return;
+    }
+
+    final displayContacts =
+        formattedContacts.isEmpty ? rawContacts : formattedContacts;
+
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ListTile(
+                title: Text('Call contact'),
+              ),
+              for (var i = 0; i < rawContacts.length; i++)
+                ListTile(
+                  leading: const Icon(Icons.phone_outlined),
+                  title: Text(displayContacts[i]),
+                  onTap: () async {
+                    Navigator.of(context).pop();
+                    await _callPhoneNumber(rawContacts[i]);
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   void _handleLayoutDetailsPressed() {
     _dismissKeyboard();
@@ -61,46 +179,21 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: const Icon(Icons.chat_bubble_outline),
-                title: const Text('Share to WhatsApp'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(this.context).showSnackBar(
-                    const SnackBar(
-                      content: Text('TODO: Share to WhatsApp'),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.public),
-                title: const Text('Share to Facebook'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(this.context).showSnackBar(
-                    const SnackBar(
-                      content: Text('TODO: Share to Facebook'),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.link),
-                title: const Text('Copy URL'),
-                subtitle: Text(shareUrl,
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                leading: const Icon(Icons.copy_all_outlined),
+                title: const Text('Copy link'),
+                subtitle: Text(shareUrl),
                 onTap: () async {
                   Navigator.of(context).pop();
                   await Clipboard.setData(ClipboardData(text: shareUrl));
                   if (!mounted) return;
                   ScaffoldMessenger.of(this.context).showSnackBar(
                     const SnackBar(
-                      content: Text('URL copied (placeholder)'),
+                      content: Text('Link copied'),
+                      duration: Duration(milliseconds: 900),
                     ),
                   );
                 },
               ),
-              const SizedBox(height: 8),
             ],
           ),
         );
@@ -160,6 +253,24 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
     final plotNumber =
         widget.plot.plotNumber.trim().isEmpty ? '—' : widget.plot.plotNumber;
 
+    final contactNumbers = (widget.contactNumbers ?? const <String>[])
+        .map((v) => v.trim())
+        .where((v) => v.isNotEmpty)
+        .toList(growable: false);
+    final showContactRow = contactNumbers.isNotEmpty;
+
+    final formattedContacts = contactNumbers
+        .map(_formatIndianPhoneNumber)
+        .map((v) => v.trim())
+        .where((v) => v.isNotEmpty)
+        .toList(growable: false);
+
+    final displayContacts =
+        formattedContacts.isNotEmpty ? formattedContacts : contactNumbers;
+    final contactLine = displayContacts.isEmpty
+        ? ''
+        : 'Contact: ${displayContacts.join(' / ')}';
+
     final statusTheme = _plotStatusTheme(_statusValue);
     final statusText = _statusValue.trim().isEmpty
         ? 'STATUS'
@@ -172,7 +283,6 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
     final plotRing = _tryParsePlotBoundaryRing(widget.plot);
 
     final tagsLine = widget.tags.where((t) => t.trim().isNotEmpty).join(', ');
-
     final showInfoRow = tagsLine.trim().isNotEmpty;
 
     final canEditStatus = widget.onUpdateStatus != null &&
@@ -380,7 +490,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                   ],
                 ),
               ),
-              if (showInfoRow)
+              if (showContactRow)
                 Container(
                   width: double.infinity,
                   decoration: const BoxDecoration(
@@ -390,6 +500,53 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                     ),
                   ),
                   padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () async {
+                      await _handleContactTap(
+                        rawContacts: contactNumbers,
+                        formattedContacts: formattedContacts,
+                      );
+                    },
+                    onLongPress: () async {
+                      await Clipboard.setData(
+                        ClipboardData(text: displayContacts.join(' / ')),
+                      );
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Copied contact numbers'),
+                          duration: Duration(milliseconds: 900),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      contactLine,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF1D4ED8),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ),
+              if (showInfoRow)
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: showContactRow
+                        ? null
+                        : const Border(
+                            top: BorderSide(color: Color(0xFFE5E7EB)),
+                          ),
+                  ),
+                  padding: showContactRow
+                      ? const EdgeInsets.fromLTRB(12, 2, 12, 12)
+                      : const EdgeInsets.fromLTRB(12, 10, 12, 12),
                   child: Text(
                     tagsLine,
                     style: const TextStyle(
@@ -400,166 +557,138 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                     ),
                   ),
                 ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(12, 10, 12, 12 + bottomInset),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (canEditStatus)
-                      Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
-                        ),
-                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                        child: Row(
-                          children: [
-                            const Flexible(
-                              flex: 2,
-                              child: Text(
-                                'UPDATE STATUS',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Color(0xFF111827),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.6,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              flex: 3,
-                              child: SizedBox(
-                                height: 40,
-                                child: DropdownButtonFormField<String>(
-                                  value: _statusValue,
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 'Available',
-                                      child: Padding(
-                                        padding: EdgeInsets.only(left: 8),
-                                        child: Text('Available'),
-                                      ),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'Booked',
-                                      child: Padding(
-                                        padding: EdgeInsets.only(left: 8),
-                                        child: Text('Booked'),
-                                      ),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'Sold',
-                                      child: Padding(
-                                        padding: EdgeInsets.only(left: 8),
-                                        child: Text('Sold'),
-                                      ),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'Blocked',
-                                      child: Padding(
-                                        padding: EdgeInsets.only(left: 8),
-                                        child: Text('Blocked'),
-                                      ),
-                                    ),
-                                  ],
-                                  onChanged: (widget.onUpdateStatus == null ||
-                                          _isUpdatingStatus)
-                                      ? null
-                                      : (v) async {
-                                          if (v == null) return;
-
-                                          _dismissKeyboard();
-
-                                          final previous = _statusValue;
-                                          final messenger =
-                                              ScaffoldMessenger.of(context);
-                                          setState(() {
-                                            _statusValue = v;
-                                            _isUpdatingStatus = true;
-                                          });
-
-                                          try {
-                                            await widget.onUpdateStatus
-                                                ?.call(v);
-                                          } catch (e) {
-                                            debugPrint(
-                                                'Failed to update plot status: $e');
-                                            if (mounted) {
-                                              setState(() {
-                                                _statusValue = previous;
-                                              });
-                                            }
-
-                                            final message = e.toString().trim();
-                                            messenger.showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  message.isEmpty
-                                                      ? 'Failed to update status. Please try again.'
-                                                      : message,
-                                                ),
-                                              ),
-                                            );
-                                          } finally {
-                                            _dismissKeyboard();
-                                            if (mounted) {
-                                              setState(() {
-                                                _isUpdatingStatus = false;
-                                              });
-                                            }
-                                          }
-                                        },
-                                  decoration: InputDecoration(
-                                    isDense: true,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      vertical: 10,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFFD1D5DB),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            OutlinedButton(
-                              onPressed: widget.onClose,
-                              style: OutlinedButton.styleFrom(
-                                side:
-                                    const BorderSide(color: Color(0xFFD1D5DB)),
-                                foregroundColor: const Color(0xFF111827),
-                                minimumSize: const Size(0, 40),
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 14),
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              child: const Text(
-                                'Close',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                          ],
+              if (canEditStatus)
+                Container(
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    border: Border(
+                      top: BorderSide(color: Color(0xFFE5E7EB)),
+                    ),
+                  ),
+                  padding: EdgeInsets.fromLTRB(12, 10, 12, 12 + bottomInset),
+                  child: Row(
+                    children: [
+                      const Flexible(
+                        flex: 2,
+                        child: Text(
+                          'Update Status',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Color(0xFF111827),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.6,
+                          ),
                         ),
                       ),
-                  ],
-                ),
-              ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 3,
+                        child: SizedBox(
+                          height: 40,
+                          child: DropdownButtonFormField<String>(
+                            value: _statusValue,
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'Available',
+                                child: Padding(
+                                  padding: EdgeInsets.only(left: 8),
+                                  child: Text('Available'),
+                                ),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Booked',
+                                child: Padding(
+                                  padding: EdgeInsets.only(left: 8),
+                                  child: Text('Booked'),
+                                ),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Sold',
+                                child: Padding(
+                                  padding: EdgeInsets.only(left: 8),
+                                  child: Text('Sold'),
+                                ),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Blocked',
+                                child: Padding(
+                                  padding: EdgeInsets.only(left: 8),
+                                  child: Text('Blocked'),
+                                ),
+                              ),
+                            ],
+                            onChanged: (widget.onUpdateStatus == null ||
+                                    _isUpdatingStatus)
+                                ? null
+                                : (v) async {
+                                    if (v == null) return;
+
+                                    _dismissKeyboard();
+
+                                    final previous = _statusValue;
+                                    final messenger =
+                                        ScaffoldMessenger.of(context);
+                                    setState(() {
+                                      _statusValue = v;
+                                      _isUpdatingStatus = true;
+                                    });
+
+                                    try {
+                                      await widget.onUpdateStatus?.call(v);
+                                    } catch (e) {
+                                      debugPrint(
+                                          'Failed to update plot status: $e');
+                                      if (mounted) {
+                                        setState(() {
+                                          _statusValue = previous;
+                                        });
+                                      }
+
+                                      final message = e.toString().trim();
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            message.isEmpty
+                                                ? 'Failed to update status. Please try again.'
+                                                : message,
+                                          ),
+                                        ),
+                                      );
+                                    } finally {
+                                      _dismissKeyboard();
+                                      if (mounted) {
+                                        setState(() {
+                                          _isUpdatingStatus = false;
+                                        });
+                                      }
+                                    }
+                                  },
+                            decoration: InputDecoration(
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 10,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFD1D5DB),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                SizedBox(height: bottomInset),
             ],
           ),
         ),
@@ -750,7 +879,7 @@ class _PlotSketchCard extends StatelessWidget {
           border: Border.all(color: const Color(0xFFBFDBFE)),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(16),
           child: CustomPaint(
             painter: _PlotSketchPainter(
               borderColor: borderColor,

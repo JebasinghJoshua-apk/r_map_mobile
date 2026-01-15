@@ -89,6 +89,42 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   Map<String, MapPropertyFeature> _propertyByFeatureId =
       <String, MapPropertyFeature>{};
 
+  List<String> _layoutContactNumbersForPlot(MapPlotFeature plot) {
+    final layoutId = plot.layoutId?.trim();
+    if (layoutId == null || layoutId.isEmpty) {
+      return const <String>[];
+    }
+
+    final feature = _propertyByFeatureId[layoutId];
+    final meta = feature?.metadata;
+    if (meta == null || meta.isEmpty) {
+      return const <String>[];
+    }
+
+    final raw = (meta['contactNumbers'] ??
+            meta['ContactNumbers'] ??
+            meta['phoneNumber'] ??
+            meta['PhoneNumber'])
+        ?.trim();
+    if (raw == null || raw.isEmpty) {
+      return const <String>[];
+    }
+
+    final parts = raw
+        .split(RegExp(r'[\n,;/|]+'))
+        .map((v) => v.trim())
+        .where((v) => v.isNotEmpty)
+        .toList();
+
+    final unique = <String>[];
+    for (final value in parts) {
+      if (!unique.contains(value)) {
+        unique.add(value);
+      }
+    }
+    return unique;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1670,6 +1706,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                 areaLabel: _plotAreaLabel(selectedPlot),
                 tags: _plotTags(selectedPlot),
                 onClose: _closePlotPanel,
+                contactNumbers: _layoutContactNumbersForPlot(selectedPlot),
                 onLayoutDetails: () {
                   final layoutId = selectedPlot.layoutId;
                   if (layoutId == null || layoutId.trim().isEmpty) {
