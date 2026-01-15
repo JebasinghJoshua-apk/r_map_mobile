@@ -542,7 +542,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                     },
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(
-                                        vertical: 2,
+                                        vertical: 8,
                                       ),
                                       child: Row(
                                         children: [
@@ -580,7 +580,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                               style: TextButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 10,
-                                  vertical: 8,
+                                  vertical: 10,
                                 ),
                                 minimumSize: const Size(0, 0),
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
