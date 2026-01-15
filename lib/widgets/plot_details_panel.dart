@@ -258,6 +258,8 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
         .where((v) => v.isNotEmpty)
         .toList(growable: false);
     final showContactRow = contactNumbers.isNotEmpty;
+    final showLayoutDetailsLink = widget.onLayoutDetails != null;
+    final showActionsRow = showContactRow || showLayoutDetailsLink;
 
     final formattedContacts = contactNumbers
         .map(_formatIndianPhoneNumber)
@@ -442,35 +444,6 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                           ),
                                         ),
                                       ),
-                                      if (widget.onLayoutDetails != null)
-                                        Padding(
-                                          padding:
-                                              const EdgeInsets.only(top: 6),
-                                          child: TextButton(
-                                            onPressed:
-                                                _handleLayoutDetailsPressed,
-                                            style: TextButton.styleFrom(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 10,
-                                                vertical: 6,
-                                              ),
-                                              minimumSize: const Size(0, 0),
-                                              tapTargetSize:
-                                                  MaterialTapTargetSize
-                                                      .shrinkWrap,
-                                            ),
-                                            child: const Text(
-                                              'Layout Details →',
-                                              style: TextStyle(
-                                                color: Color(0xFF1D4ED8),
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                                height: 1,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
                                     ],
                                   ),
                                 ),
@@ -488,7 +461,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                   ],
                 ),
               ),
-              if (showContactRow)
+              if (showInfoRow)
                 Container(
                   width: double.infinity,
                   decoration: const BoxDecoration(
@@ -497,66 +470,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                       top: BorderSide(color: Color(0xFFE5E7EB)),
                     ),
                   ),
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(10),
-                    onTap: () async {
-                      await _handleContactTap(
-                        rawContacts: contactNumbers,
-                        formattedContacts: formattedContacts,
-                      );
-                    },
-                    onLongPress: () async {
-                      await Clipboard.setData(
-                        ClipboardData(text: displayContacts.join(' / ')),
-                      );
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Copied contact numbers'),
-                          duration: Duration(milliseconds: 900),
-                        ),
-                      );
-                    },
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.phone,
-                          size: 16,
-                          color: Color(0xFF64748B),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            contactLine,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xFF1D4ED8),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              if (showInfoRow)
-                Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: showContactRow
-                        ? null
-                        : const Border(
-                            top: BorderSide(color: Color(0xFFE5E7EB)),
-                          ),
-                  ),
-                  padding: showContactRow
-                      ? const EdgeInsets.fromLTRB(12, 2, 12, 12)
-                      : const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
                   child: Text(
                     tagsLine,
                     style: const TextStyle(
@@ -565,6 +479,129 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                       fontWeight: FontWeight.w800,
                       height: 1.15,
                     ),
+                  ),
+                ),
+              if (showActionsRow)
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: showInfoRow
+                        ? null
+                        : const Border(
+                            top: BorderSide(color: Color(0xFFE5E7EB)),
+                          ),
+                  ),
+                  padding: EdgeInsets.fromLTRB(
+                    12,
+                    showInfoRow ? 6 : 12,
+                    12,
+                    12 + (canEditStatus ? 0 : (bottomInset + 12)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (showInfoRow)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 8),
+                          child: Divider(
+                            height: 1,
+                            thickness: 1.5,
+                            indent: 0,
+                            endIndent: 0,
+                            color: Color(0xFFE5E7EB),
+                          ),
+                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: showContactRow
+                                ? InkWell(
+                                    borderRadius: BorderRadius.circular(10),
+                                    onTap: () async {
+                                      await _handleContactTap(
+                                        rawContacts: contactNumbers,
+                                        formattedContacts: formattedContacts,
+                                      );
+                                    },
+                                    onLongPress: () async {
+                                      await Clipboard.setData(
+                                        ClipboardData(
+                                          text: displayContacts.join(' / '),
+                                        ),
+                                      );
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content:
+                                              Text('Copied contact numbers'),
+                                          duration: Duration(milliseconds: 900),
+                                        ),
+                                      );
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 2,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.phone,
+                                            size: 16,
+                                            color: Color(0xFF64748B),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              contactLine,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                color: Color(0xFF1D4ED8),
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                decoration:
+                                                    TextDecoration.underline,
+                                                height: 1,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                          if (showLayoutDetailsLink) ...[
+                            if (showContactRow) const SizedBox(width: 10),
+                            TextButton(
+                              onPressed: _handleLayoutDetailsPressed,
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                minimumSize: const Size(0, 0),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              child: const Text(
+                                'Layout Details →',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Color(0xFF1D4ED8),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               if (canEditStatus)
