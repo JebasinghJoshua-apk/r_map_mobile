@@ -45,18 +45,18 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
     if (trimmed.isEmpty) return '';
 
     final digitsOnly = trimmed.replaceAll(RegExp(r'\D+'), '');
-    if (digitsOnly.isEmpty) return trimmed;
+    if (digitsOnly.isEmpty) return '';
 
-    String local10;
-    if (digitsOnly.length == 10) {
-      local10 = digitsOnly;
-    } else if (digitsOnly.length == 12 && digitsOnly.startsWith('91')) {
-      local10 = digitsOnly.substring(2);
-    } else if (digitsOnly.length == 11 && digitsOnly.startsWith('0')) {
-      local10 = digitsOnly.substring(1);
-    } else {
-      return trimmed;
+    var local10 = digitsOnly;
+    if (local10.length == 12 && local10.startsWith('91')) {
+      local10 = local10.substring(2);
+    } else if (local10.length == 11 && local10.startsWith('0')) {
+      local10 = local10.substring(1);
+    } else if (local10.length > 10) {
+      local10 = local10.substring(local10.length - 10);
     }
+
+    if (local10.length != 10) return trimmed;
 
     final first = local10.substring(0, 5);
     final last = local10.substring(5);
@@ -518,19 +518,19 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                         ),
                       );
                     },
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          const TextSpan(
-                            text: 'Contact: ',
-                            style: TextStyle(
-                              color: Color(0xFF111827),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          TextSpan(
-                            text: contactLine,
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.phone,
+                          size: 16,
+                          color: Color(0xFF64748B),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            contactLine,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: Color(0xFF1D4ED8),
                               fontSize: 14,
@@ -538,10 +538,8 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                               decoration: TextDecoration.underline,
                             ),
                           ),
-                        ],
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                   ),
                 ),
