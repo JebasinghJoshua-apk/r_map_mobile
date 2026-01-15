@@ -61,6 +61,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   String? _lastViewportSignature;
   DateTime? _lastViewportErrorAt;
 
+  String? _lastViewportAuthKey;
+
   Set<Marker> _viewportMarkers = <Marker>{};
 
   Set<Marker> _plotLabelMarkers = <Marker>{};
@@ -97,6 +99,36 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     if (googlePlacesApiKey != 'YOUR_GOOGLE_PLACES_API_KEY') {
       _googlePlace = GooglePlace(googlePlacesApiKey);
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final session = AuthScope.of(context).session;
+    final token = session?.token.trim();
+    final userId = session?.user.id.trim();
+
+    final authKey = (token != null &&
+            token.isNotEmpty &&
+            userId != null &&
+            userId.isNotEmpty)
+        ? '$userId:$token'
+        : null;
+
+    if (authKey == _lastViewportAuthKey) {
+      return;
+    }
+
+    _lastViewportAuthKey = authKey;
+    _lastViewportSignature = null;
+    _viewportCache.clear();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_mapController == null) return;
+      _fetchViewport();
+    });
   }
 
   Future<void> _initConnectivity() async {
@@ -351,8 +383,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
     final ownedLayoutIds = <String>{};
     for (final feature in response.properties) {
-      if (feature.propertyType.trim() == 'Layout' &&
-          feature.isOwnedByCurrentUser) {
+      final normalizedType = feature.propertyType.trim().toLowerCase();
+      if (normalizedType == 'layout' && feature.isOwnedByCurrentUser) {
         final id = feature.featureId.trim();
         if (id.isNotEmpty) {
           ownedLayoutIds.add(id);
