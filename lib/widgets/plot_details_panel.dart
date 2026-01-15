@@ -267,9 +267,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
 
     final displayContacts =
         formattedContacts.isNotEmpty ? formattedContacts : contactNumbers;
-    final contactLine = displayContacts.isEmpty
-        ? ''
-        : 'Contact: ${displayContacts.join(' / ')}';
+    final contactLine = displayContacts.join(' / ');
 
     final statusTheme = _plotStatusTheme(_statusValue);
     final statusText = _statusValue.trim().isEmpty
@@ -520,16 +518,30 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                         ),
                       );
                     },
-                    child: Text(
-                      contactLine,
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          const TextSpan(
+                            text: 'Contact: ',
+                            style: TextStyle(
+                              color: Color(0xFF111827),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          TextSpan(
+                            text: contactLine,
+                            style: const TextStyle(
+                              color: Color(0xFF1D4ED8),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ],
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF1D4ED8),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        decoration: TextDecoration.underline,
-                      ),
                     ),
                   ),
                 ),
