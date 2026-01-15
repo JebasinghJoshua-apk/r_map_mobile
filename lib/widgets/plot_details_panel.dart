@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/map_viewport_models.dart';
 import '../utils/geojson.dart';
@@ -39,121 +38,6 @@ class PlotDetailsPanel extends StatefulWidget {
 class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
   late String _statusValue;
   bool _isUpdatingStatus = false;
-
-  static String _formatIndianPhoneNumber(String raw) {
-    final trimmed = raw.trim();
-    if (trimmed.isEmpty) return '';
-
-    final digitsOnly = trimmed.replaceAll(RegExp(r'\D+'), '');
-    if (digitsOnly.isEmpty) return '';
-
-    var local10 = digitsOnly;
-    if (local10.length == 12 && local10.startsWith('91')) {
-      local10 = local10.substring(2);
-    } else if (local10.length == 11 && local10.startsWith('0')) {
-      local10 = local10.substring(1);
-    } else if (local10.length > 10) {
-      local10 = local10.substring(local10.length - 10);
-    }
-
-    if (local10.length != 10) return trimmed;
-
-    final first = local10.substring(0, 5);
-    final last = local10.substring(5);
-    return '+91 $first $last';
-  }
-
-  static String _dialableFromRawPhoneNumber(String raw) {
-    final trimmed = raw.trim();
-    if (trimmed.isEmpty) return '';
-
-    final hasPlus = trimmed.startsWith('+');
-    final digitsOnly = trimmed.replaceAll(RegExp(r'\D+'), '');
-    if (digitsOnly.isEmpty) return '';
-
-    if (hasPlus) return '+$digitsOnly';
-
-    if (digitsOnly.length == 10) return '+91$digitsOnly';
-    if (digitsOnly.length == 12 && digitsOnly.startsWith('91')) {
-      return '+$digitsOnly';
-    }
-    if (digitsOnly.length == 11 && digitsOnly.startsWith('0')) {
-      return '+91${digitsOnly.substring(1)}';
-    }
-
-    return digitsOnly;
-  }
-
-  Future<void> _callPhoneNumber(String raw) async {
-    final dialable = _dialableFromRawPhoneNumber(raw);
-    if (dialable.isEmpty) return;
-
-    final uri = Uri(scheme: 'tel', path: dialable);
-    try {
-      final launched = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
-      if (!launched && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not open dialer'),
-            duration: Duration(milliseconds: 900),
-          ),
-        );
-      }
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not open dialer'),
-          duration: Duration(milliseconds: 900),
-        ),
-      );
-    }
-  }
-
-  Future<void> _handleContactTap({
-    required List<String> rawContacts,
-    required List<String> formattedContacts,
-  }) async {
-    if (rawContacts.isEmpty) return;
-
-    if (rawContacts.length == 1) {
-      await _callPhoneNumber(rawContacts.first);
-      return;
-    }
-
-    final displayContacts =
-        formattedContacts.isEmpty ? rawContacts : formattedContacts;
-
-    if (!mounted) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const ListTile(
-                title: Text('Call contact'),
-              ),
-              for (var i = 0; i < rawContacts.length; i++)
-                ListTile(
-                  leading: const Icon(Icons.phone_outlined),
-                  title: Text(displayContacts[i]),
-                  onTap: () async {
-                    Navigator.of(context).pop();
-                    await _callPhoneNumber(rawContacts[i]);
-                  },
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
   void _handleLayoutDetailsPressed() {
     _dismissKeyboard();
@@ -253,23 +137,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
     final plotNumber =
         widget.plot.plotNumber.trim().isEmpty ? '—' : widget.plot.plotNumber;
 
-    final contactNumbers = (widget.contactNumbers ?? const <String>[])
-        .map((v) => v.trim())
-        .where((v) => v.isNotEmpty)
-        .toList(growable: false);
-    final showContactRow = contactNumbers.isNotEmpty;
     final showLayoutDetailsLink = widget.onLayoutDetails != null;
-    final showActionsRow = showContactRow || showLayoutDetailsLink;
-
-    final formattedContacts = contactNumbers
-        .map(_formatIndianPhoneNumber)
-        .map((v) => v.trim())
-        .where((v) => v.isNotEmpty)
-        .toList(growable: false);
-
-    final displayContacts =
-        formattedContacts.isNotEmpty ? formattedContacts : contactNumbers;
-    final contactLine = displayContacts.join(' / ');
 
     final statusTheme = _plotStatusTheme(_statusValue);
     final statusText = _statusValue.trim().isEmpty
@@ -350,12 +218,11 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                 flex: 2,
                                 child: Padding(
                                   // Leave a touch of breathing room from the top.
-                                  padding: const EdgeInsets.only(top: 4),
+                                  padding: const EdgeInsets.only(top: 6),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.center,
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceEvenly,
+                                    mainAxisAlignment: MainAxisAlignment.start,
                                     mainAxisSize: MainAxisSize.max,
                                     children: [
                                       Text(
@@ -367,6 +234,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                           color: Color(0xFF111827),
                                         ),
                                       ),
+                                      const SizedBox(height: 8),
                                       Text(
                                         totalSqftText,
                                         textAlign: TextAlign.center,
@@ -376,74 +244,98 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 6),
-                                        child: Container(
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: statusTheme.bg,
+                                          border: Border.all(
+                                            color: statusTheme.border,
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(999),
+                                        ),
+                                        child: Text(
+                                          statusText,
+                                          style: TextStyle(
+                                            color: statusTheme.color,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 11,
+                                            letterSpacing: 0.8,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      TextButton.icon(
+                                        onPressed: _showShareSheet,
+                                        style: TextButton.styleFrom(
+                                          backgroundColor:
+                                              const Color(0xFF2563EB)
+                                                  .withOpacity(0.10),
+                                          side: const BorderSide(
+                                            color: Color(0xFF93C5FD),
+                                            width: 1,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 10,
-                                            vertical: 5,
+                                            vertical: 8,
                                           ),
-                                          decoration: BoxDecoration(
-                                            color: statusTheme.bg,
-                                            border: Border.all(
-                                              color: statusTheme.border,
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(999),
-                                          ),
-                                          child: Text(
-                                            statusText,
-                                            style: TextStyle(
-                                              color: statusTheme.color,
-                                              fontWeight: FontWeight.w800,
-                                              fontSize: 11,
-                                              letterSpacing: 0.8,
-                                            ),
-                                          ),
+                                          minimumSize: const Size(0, 32),
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                          visualDensity: VisualDensity.compact,
                                         ),
-                                      ),
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 8),
-                                        child: TextButton.icon(
-                                          onPressed: _showShareSheet,
-                                          style: TextButton.styleFrom(
-                                            backgroundColor:
-                                                const Color(0xFF2563EB)
-                                                    .withOpacity(0.10),
-                                            side: const BorderSide(
-                                              color: Color(0xFF93C5FD),
-                                              width: 1,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 8,
-                                            ),
-                                            minimumSize: const Size(0, 32),
-                                            tapTargetSize: MaterialTapTargetSize
-                                                .shrinkWrap,
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                          ),
-                                          icon: const Icon(
-                                            Icons.share_outlined,
-                                            size: 14,
+                                        icon: const Icon(
+                                          Icons.share_outlined,
+                                          size: 14,
+                                          color: Color(0xFF1D4ED8),
+                                        ),
+                                        label: const Text(
+                                          'Share',
+                                          style: TextStyle(
                                             color: Color(0xFF1D4ED8),
-                                          ),
-                                          label: const Text(
-                                            'Share',
-                                            style: TextStyle(
-                                              color: Color(0xFF1D4ED8),
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w500,
-                                              height: 1,
-                                            ),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                            height: 1,
                                           ),
                                         ),
                                       ),
+                                      if (showLayoutDetailsLink) ...[
+                                        const SizedBox(height: 16),
+                                        Center(
+                                          child: TextButton(
+                                            onPressed:
+                                                _handleLayoutDetailsPressed,
+                                            style: TextButton.styleFrom(
+                                              padding: EdgeInsets.zero,
+                                              minimumSize: const Size(0, 0),
+                                              tapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                            ),
+                                            child: const Text(
+                                              'Layout Details →',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: Color(0xFF1D4ED8),
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                height: 1,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -481,129 +373,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                     ),
                   ),
                 ),
-              if (showActionsRow)
-                Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: showInfoRow
-                        ? null
-                        : const Border(
-                            top: BorderSide(color: Color(0xFFE5E7EB)),
-                          ),
-                  ),
-                  padding: EdgeInsets.fromLTRB(
-                    12,
-                    showInfoRow ? 6 : 12,
-                    12,
-                    12 + (canEditStatus ? 0 : (bottomInset + 12)),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (showInfoRow)
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 8),
-                          child: Divider(
-                            height: 1,
-                            thickness: 1.5,
-                            indent: 0,
-                            endIndent: 0,
-                            color: Color(0xFFE5E7EB),
-                          ),
-                        ),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: showContactRow
-                                ? InkWell(
-                                    borderRadius: BorderRadius.circular(10),
-                                    onTap: () async {
-                                      await _handleContactTap(
-                                        rawContacts: contactNumbers,
-                                        formattedContacts: formattedContacts,
-                                      );
-                                    },
-                                    onLongPress: () async {
-                                      await Clipboard.setData(
-                                        ClipboardData(
-                                          text: displayContacts.join(' / '),
-                                        ),
-                                      );
-                                      if (!context.mounted) return;
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content:
-                                              Text('Copied contact numbers'),
-                                          duration: Duration(milliseconds: 900),
-                                        ),
-                                      );
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 8,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.phone,
-                                            size: 16,
-                                            color: Color(0xFF64748B),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              contactLine,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                color: Color(0xFF1D4ED8),
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                                decoration:
-                                                    TextDecoration.underline,
-                                                height: 1,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  )
-                                : const SizedBox.shrink(),
-                          ),
-                          if (showLayoutDetailsLink) ...[
-                            if (showContactRow) const SizedBox(width: 10),
-                            TextButton(
-                              onPressed: _handleLayoutDetailsPressed,
-                              style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 10,
-                                ),
-                                minimumSize: const Size(0, 0),
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              child: const Text(
-                                'Layout Details →',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Color(0xFF1D4ED8),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+              if (!canEditStatus) SizedBox(height: bottomInset + 12),
               if (canEditStatus)
                 Container(
                   width: double.infinity,
