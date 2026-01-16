@@ -384,7 +384,8 @@ const List<_PriceRangeFilter> _priceRangeOptions = <_PriceRangeFilter>[
   _anyPriceRange,
   _PriceRangeFilter(label: '≤ ₹25L', minRupees: null, maxRupees: 2500000),
   _PriceRangeFilter(label: '₹25L–₹50L', minRupees: 2500000, maxRupees: 5000000),
-  _PriceRangeFilter(label: '₹50L–₹1Cr', minRupees: 5000000, maxRupees: 10000000),
+  _PriceRangeFilter(
+      label: '₹50L–₹1Cr', minRupees: 5000000, maxRupees: 10000000),
   _PriceRangeFilter(label: '≥ ₹1Cr', minRupees: 10000000, maxRupees: null),
 ];
 

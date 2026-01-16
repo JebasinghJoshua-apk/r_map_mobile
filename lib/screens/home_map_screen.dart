@@ -119,10 +119,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     final initialType = _selectedPropertyType;
     final initialPrice = _selectedPriceRange;
 
-    final result = await showModalBottomSheet<({
-      String? type,
-      _PriceRangeFilter? price,
-    })>(
+    final result = await showModalBottomSheet<
+        ({
+          String? type,
+          _PriceRangeFilter? price,
+        })>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -237,7 +238,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                       children: [
                         TextButton(
                           onPressed: () {
-                            Navigator.of(context).pop((type: null, price: null));
+                            Navigator.of(context)
+                                .pop((type: null, price: null));
                           },
                           child: const Text(
                             'Clear',
@@ -501,8 +503,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     final zoom = _effectiveZoom ?? _lastCameraPosition.zoom;
     final selectedType = _selectedPropertyType?.trim();
     final propertyTypes = (selectedType == null || selectedType.isEmpty)
-      ? <String>[]
-      : <String>[selectedType];
+        ? <String>[]
+        : <String>[selectedType];
 
     final expandedBounds = _expandBounds(bounds, _overlayRetentionMultiplier);
 
@@ -643,8 +645,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       filteredProperties.add(feature);
     }
 
-    final allowedIds =
-        filteredProperties.map((p) => p.propertyId.trim()).where((p) => p.isNotEmpty).toSet();
+    final allowedIds = filteredProperties
+        .map((p) => p.propertyId.trim())
+        .where((p) => p.isNotEmpty)
+        .toSet();
 
     final filteredPlots = response.plots.where((plot) {
       final id = plot.individualPlotsId?.trim();
@@ -1707,13 +1711,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   double _degToRad(double deg) => deg * math.pi / 180.0;
   double _radToDeg(double rad) => rad * 180.0 / math.pi;
 
-  String _buildViewportSignature(
-    LatLngBounds bounds,
-    double zoom,
-    List<String> propertyTypes,
-    bool isAuthenticated,
-    {String? clientFilters}
-  ) {
+  String _buildViewportSignature(LatLngBounds bounds, double zoom,
+      List<String> propertyTypes, bool isAuthenticated,
+      {String? clientFilters}) {
     final minLat = bounds.southwest.latitude < bounds.northeast.latitude
         ? bounds.southwest.latitude
         : bounds.northeast.latitude;
@@ -1880,9 +1880,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                         onPlaceSelected: _moveCameraTo,
                         onSearchTap: _closePlotPanel,
                         onFilterTap: _openFilters,
-                        hasActiveFilters:
-                            _selectedPropertyType != null ||
-                                _selectedPriceRange != null,
+                        hasActiveFilters: _selectedPropertyType != null ||
+                            _selectedPriceRange != null,
                       ),
               ],
             ),
