@@ -17,6 +17,7 @@ import '../utils/geojson.dart';
 import '../widgets/api_key_missing_banner.dart';
 import '../widgets/network_status_banner.dart';
 import '../widgets/plot_details_panel.dart';
+import '../widgets/property_details_panel.dart';
 import '../widgets/search_overlay.dart';
 import '../widgets/toast_message.dart';
 import '../models/map_viewport_models.dart';
@@ -82,6 +83,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
   MapPlotFeature? _selectedPlot;
   int _plotFocusSeq = 0;
+
+  MapPropertyFeature? _selectedProperty;
+  List<String>? _selectedPropertyMediaUrls;
+  bool _isSelectedPropertyMediaLoading = false;
+  String? _selectedPropertyMediaError;
+  int _propertyMediaSeq = 0;
 
   // Mirrors web MapViewportLayer: only allow plot status edits for plots under
   // layouts owned by the current user (within the current viewport response).
@@ -958,6 +965,92 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     });
   }
 
+  void _closePropertyPanel() {
+    if (!mounted) return;
+    if (_selectedProperty == null) return;
+    setState(() {
+      _selectedProperty = null;
+      _selectedPropertyMediaUrls = null;
+      _isSelectedPropertyMediaLoading = false;
+      _selectedPropertyMediaError = null;
+    });
+
+    // Cancel any in-flight media fetch.
+    _propertyMediaSeq++;
+  }
+
+  void _closeAnyPanel() {
+    _closePlotPanel();
+    _closePropertyPanel();
+  }
+
+  Future<void> _handleIndependentHouseTapped(
+    MapPropertyFeature feature, {
+    required LatLng target,
+    required double zoom,
+  }) async {
+    _closePlotPanel();
+
+    final mediaSeq = ++_propertyMediaSeq;
+    setState(() {
+      _selectedProperty = feature;
+      _selectedPropertyMediaUrls = null;
+      _isSelectedPropertyMediaLoading = true;
+      _selectedPropertyMediaError = null;
+    });
+
+    unawaited(_fetchSelectedPropertyMedia(feature, requestSeq: mediaSeq));
+    await _focusPropertyOnMap(target: target, zoom: zoom);
+  }
+
+  Future<void> _fetchSelectedPropertyMedia(
+    MapPropertyFeature feature, {
+    required int requestSeq,
+  }) async {
+    final propertyType = feature.propertyType.trim();
+    final entityId = feature.featureId.trim();
+    if (propertyType.isEmpty || entityId.isEmpty) {
+      if (!mounted || requestSeq != _propertyMediaSeq) return;
+      setState(() {
+        _isSelectedPropertyMediaLoading = false;
+        _selectedPropertyMediaError = 'Photos not available.';
+      });
+      return;
+    }
+
+    final token = AuthScope.of(context).session?.token;
+
+    try {
+      final images = await _mapApi.getPropertyMedia(
+        propertyType: propertyType,
+        entityId: entityId,
+        bearerToken: token,
+      );
+
+      if (!mounted || requestSeq != _propertyMediaSeq) return;
+
+      final urls = <String>[];
+      for (final img in images) {
+        final u = img.fileUrl.trim();
+        if (u.isEmpty) continue;
+        if (!urls.contains(u)) urls.add(u);
+      }
+
+      setState(() {
+        _selectedPropertyMediaUrls = urls;
+        _isSelectedPropertyMediaLoading = false;
+        _selectedPropertyMediaError = null;
+      });
+    } catch (e) {
+      if (!mounted || requestSeq != _propertyMediaSeq) return;
+      setState(() {
+        _selectedPropertyMediaUrls = const <String>[];
+        _isSelectedPropertyMediaLoading = false;
+        _selectedPropertyMediaError = e.toString();
+      });
+    }
+  }
+
   Set<Polygon> _buildSelectedPlotHighlightPolygons(MapPlotFeature plot) {
     final polygons = GeoJson.tryParsePolygons(plot.boundaryGeoJson);
     if (polygons.isEmpty) return const <Polygon>{};
@@ -1244,13 +1337,19 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           icon: icon ?? BitmapDescriptor.defaultMarker,
           anchor: anchor ?? const Offset(0.5, 1.0),
           zIndex: zIndex,
-          onTap: (!isLayout && priceBadgeLabel == null)
-              ? null
-              : () => _focusPropertyOnMap(
+          onTap: feature.propertyType.trim() == 'IndependentHouse'
+              ? () => _handleIndependentHouseTapped(
+                    feature,
                     target: focusCenter ?? center,
-                    zoom:
-                        focusZoom ?? (isLayout ? _layoutFocusZoomTarget : 20.0),
-                  ),
+                    zoom: focusZoom ?? 20.0,
+                  )
+              : (!isLayout && priceBadgeLabel == null)
+                  ? null
+                  : () => _focusPropertyOnMap(
+                        target: focusCenter ?? center,
+                        zoom: focusZoom ??
+                            (isLayout ? _layoutFocusZoomTarget : 20.0),
+                      ),
           // Disable default Google Maps tooltip/infowindow (web UX doesn't show it).
           infoWindow: InfoWindow.noText,
         ),
@@ -1823,7 +1922,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           GoogleMap(
             initialCameraPosition: _initialCameraPosition,
             onMapCreated: _onMapCreated,
-            onTap: (_) => _closePlotPanel(),
+            onTap: (_) => _closeAnyPanel(),
             onCameraMove: (position) {
               _lastCameraPosition = position;
               if (_effectiveZoom == null ||
@@ -1878,7 +1977,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                     : SearchOverlay(
                         googlePlace: _googlePlace!,
                         onPlaceSelected: _moveCameraTo,
-                        onSearchTap: _closePlotPanel,
+                        onSearchTap: _closeAnyPanel,
                         onFilterTap: _openFilters,
                         hasActiveFilters: _selectedPropertyType != null ||
                             _selectedPriceRange != null,
@@ -2014,6 +2113,19 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                   }
                   return (status) => _updatePlotStatus(selectedPlot, status);
                 }(),
+              ),
+            ),
+          if (selectedPlot == null && _selectedProperty != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: PropertyDetailsPanel(
+                feature: _selectedProperty!,
+                imageUrls: _selectedPropertyMediaUrls,
+                isLoadingImages: _isSelectedPropertyMediaLoading,
+                imagesError: _selectedPropertyMediaError,
+                onClose: _closePropertyPanel,
               ),
             ),
         ],

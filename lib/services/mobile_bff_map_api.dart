@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 
 import '../constants/api_constants.dart';
+import '../models/image_summary.dart';
 import '../models/map_viewport_models.dart';
 
 class MobileBffMapApi {
@@ -137,6 +138,79 @@ class MobileBffMapApi {
     throw MapApiException(
       _tryMessage(response.body) ??
           'Viewport fetch failed (${response.statusCode})',
+    );
+  }
+
+  Future<List<ImageSummary>> getPropertyMedia({
+    required String propertyType,
+    required String entityId,
+    String? bearerToken,
+  }) async {
+    final uri = _uri('/mobile/properties/$propertyType/$entityId/media');
+
+    http.Response response;
+    try {
+      final headers = <String, String>{};
+      if (bearerToken != null && bearerToken.trim().isNotEmpty) {
+        final token = bearerToken.toLowerCase().startsWith('bearer ')
+            ? bearerToken.substring('bearer '.length)
+            : bearerToken;
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      response = await _client
+          .get(uri, headers: headers.isEmpty ? null : headers)
+          .timeout(_timeout);
+    } on SocketException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException(
+        'Cannot connect to the server. Please check your network and try again.',
+      );
+    } on HttpException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException('Network error. Please try again.');
+    } on FormatException {
+      throw const MapApiException('Unexpected response from server');
+    } on TimeoutException {
+      throw const MapApiException(
+        'Request timed out. Please try again.',
+      );
+    }
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List) {
+        throw const MapApiException('Unexpected response from server');
+      }
+
+      final images = decoded
+          .whereType<Map>()
+          .map((e) => ImageSummary.fromJson(e.cast<String, dynamic>()))
+          .where((img) => img.fileUrl.trim().isNotEmpty)
+          .toList();
+
+      images.sort((a, b) {
+        final pa = a.isPrimary ? 0 : 1;
+        final pb = b.isPrimary ? 0 : 1;
+        final byPrimary = pa.compareTo(pb);
+        if (byPrimary != 0) return byPrimary;
+        final byOrder = a.displayOrder.compareTo(b.displayOrder);
+        if (byOrder != 0) return byOrder;
+        return a.fileUrl.compareTo(b.fileUrl);
+      });
+
+      return images;
+    }
+
+    if (response.statusCode == 401) {
+      throw const MapApiException('Please login to view photos.');
+    }
+
+    throw MapApiException(
+      _tryMessage(response.body) ??
+          'Property media fetch failed (${response.statusCode})',
     );
   }
 
