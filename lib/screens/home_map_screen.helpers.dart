@@ -348,6 +348,46 @@ const double _rupeeCrore = 10000000;
 const double _rupeeLakh = 100000;
 const double _rupeeThousand = 1000;
 
+class _PropertyTypeOption {
+  const _PropertyTypeOption({required this.id, required this.label});
+
+  final String? id; // null => All properties
+  final String label;
+}
+
+const List<_PropertyTypeOption> _propertyTypeOptions = <_PropertyTypeOption>[
+  _PropertyTypeOption(id: null, label: 'All properties'),
+  _PropertyTypeOption(id: 'Layout', label: 'Layouts'),
+  _PropertyTypeOption(id: 'IndividualPlots', label: 'Individual Plots'),
+  _PropertyTypeOption(id: 'Land', label: 'Land'),
+  _PropertyTypeOption(id: 'CommercialSpace', label: 'Commercial'),
+  _PropertyTypeOption(id: 'IndependentHouse', label: 'Independent Houses'),
+  _PropertyTypeOption(id: 'ApartmentFlat', label: 'Apartments'),
+];
+
+class _PriceRangeFilter {
+  const _PriceRangeFilter({
+    required this.label,
+    this.minRupees,
+    this.maxRupees,
+  });
+
+  final String label;
+  final int? minRupees;
+  final int? maxRupees;
+}
+
+const _PriceRangeFilter _anyPriceRange =
+    _PriceRangeFilter(label: 'Any', minRupees: null, maxRupees: null);
+
+const List<_PriceRangeFilter> _priceRangeOptions = <_PriceRangeFilter>[
+  _anyPriceRange,
+  _PriceRangeFilter(label: '≤ ₹25L', minRupees: null, maxRupees: 2500000),
+  _PriceRangeFilter(label: '₹25L–₹50L', minRupees: 2500000, maxRupees: 5000000),
+  _PriceRangeFilter(label: '₹50L–₹1Cr', minRupees: 5000000, maxRupees: 10000000),
+  _PriceRangeFilter(label: '≥ ₹1Cr', minRupees: 10000000, maxRupees: null),
+];
+
 String? _formatPriceBadgeLabel(String raw) {
   final trimmed = raw.trim();
   if (trimmed.isEmpty) return null;
@@ -413,6 +453,56 @@ String? _formatPriceBadgeLabel(String raw) {
     return '₹${compact(amount / _rupeeThousand)}K';
   }
   return '₹${amount.round()}';
+}
+
+int? _parsePriceToRupees(String raw) {
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) return null;
+
+  final lower = trimmed.toLowerCase();
+
+  final match = RegExp(r'([\d.,]+)(?:\s*([a-zA-Z]+))?').firstMatch(trimmed);
+  if (match == null) return null;
+
+  final numericText = match.group(1)?.replaceAll(',', '');
+  final numericValue =
+      numericText == null ? null : double.tryParse(numericText);
+  if (numericValue == null || !numericValue.isFinite) return null;
+
+  final suffix = (match.group(2) ?? '').toLowerCase();
+
+  double multiplier = 1;
+  const suffixMultipliers = <String, double>{
+    'c': _rupeeCrore,
+    'cr': _rupeeCrore,
+    'crore': _rupeeCrore,
+    'crores': _rupeeCrore,
+    'l': _rupeeLakh,
+    'lac': _rupeeLakh,
+    'lacs': _rupeeLakh,
+    'lakh': _rupeeLakh,
+    'lakhs': _rupeeLakh,
+    'k': _rupeeThousand,
+    'thousand': _rupeeThousand,
+  };
+
+  if (suffix.isNotEmpty && suffixMultipliers.containsKey(suffix)) {
+    multiplier = suffixMultipliers[suffix]!;
+  } else {
+    if (lower.contains('crore') || RegExp(r'\bcr\b').hasMatch(lower)) {
+      multiplier = _rupeeCrore;
+    } else if (lower.contains('lakh') ||
+        lower.contains('lac') ||
+        RegExp(r'\bl\b').hasMatch(lower)) {
+      multiplier = _rupeeLakh;
+    } else if (lower.contains('thousand') || RegExp(r'\bk\b').hasMatch(lower)) {
+      multiplier = _rupeeThousand;
+    }
+  }
+
+  final amount = numericValue * multiplier;
+  if (!amount.isFinite || amount <= 0) return null;
+  return amount.round();
 }
 
 class _HomeMapIconFactory {

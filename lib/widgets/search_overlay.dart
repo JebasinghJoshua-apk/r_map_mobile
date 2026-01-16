@@ -23,12 +23,16 @@ class SearchOverlay extends StatefulWidget {
   final void Function(LatLng position, String label, double zoom)
       onPlaceSelected;
   final VoidCallback? onSearchTap;
+  final VoidCallback? onFilterTap;
+  final bool hasActiveFilters;
 
   const SearchOverlay({
     super.key,
     required this.googlePlace,
     required this.onPlaceSelected,
     this.onSearchTap,
+    this.onFilterTap,
+    this.hasActiveFilters = false,
   });
 
   @override
@@ -368,14 +372,45 @@ class _SearchOverlayState extends State<SearchOverlay> {
                     },
                   ),
                 IconButton(
-                  icon: const Icon(Icons.tune, color: Color(0xFF0FAD97)),
+                  icon: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const Icon(Icons.tune, color: Color(0xFF0FAD97)),
+                      if (widget.hasActiveFilters)
+                        const Positioned(
+                          top: -1,
+                          right: -1,
+                          child: SizedBox(
+                            width: 9,
+                            height: 9,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: Color(0xFF0FAD97),
+                                shape: BoxShape.circle,
+                                border: Border.fromBorderSide(
+                                  BorderSide(
+                                    color: Colors.white,
+                                    width: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints.tightFor(
                     width: 42,
                     height: 40,
                   ),
                   visualDensity: VisualDensity.compact,
-                  onPressed: () {},
+                  onPressed: () {
+                    FocusScope.of(context).unfocus();
+                    _keyboardShowTimer?.cancel();
+                    SystemChannels.textInput.invokeMethod('TextInput.hide');
+                    widget.onFilterTap?.call();
+                  },
                 ),
               ],
             ),
