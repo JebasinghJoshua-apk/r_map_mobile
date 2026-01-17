@@ -12,6 +12,7 @@ class PropertyDetailsPanel extends StatelessWidget {
     this.imageUrls,
     this.isLoadingImages = false,
     this.imagesError,
+    this.onOpenDetails,
     required this.onClose,
   });
 
@@ -19,6 +20,7 @@ class PropertyDetailsPanel extends StatelessWidget {
   final List<String>? imageUrls;
   final bool isLoadingImages;
   final String? imagesError;
+  final VoidCallback? onOpenDetails;
   final VoidCallback onClose;
 
   static String resolveMediaUrl(String rawUrl) {
@@ -140,6 +142,8 @@ class PropertyDetailsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final canOpenDetails = onOpenDetails != null;
+
     final title =
         feature.name.trim().isEmpty ? 'Independent House' : feature.name;
 
@@ -159,29 +163,123 @@ class PropertyDetailsPanel extends StatelessWidget {
     final effectiveImageUrls =
         resolvedOverride.isNotEmpty ? resolvedOverride : extracted;
 
+    final imageBorderRadius = BorderRadius.circular(14);
+
+    Widget imagePanelChild() {
+      if (effectiveImageUrls.isNotEmpty) {
+        return PropertyImageCarousel(urls: effectiveImageUrls);
+      }
+
+      if (isLoadingImages) {
+        return const Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        );
+      }
+
+      if (imagesError != null) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              imagesError!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        );
+      }
+
+      return const Center(
+        child: Icon(
+          Icons.image_not_supported_outlined,
+          size: 22,
+          color: Color(0xFF64748B),
+        ),
+      );
+    }
+
     Widget infoLine(String label, String value) {
       return Padding(
-        padding: const EdgeInsets.only(top: 6),
+        padding: const EdgeInsets.only(top: 8),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final stackVertically = constraints.maxWidth < 220;
+
+            final labelWidget = Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF64748B),
+              ),
+            );
+
+            final valueWidget = Text(
+              value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF0F172A),
+              ),
+            );
+
+            if (stackVertically) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  labelWidget,
+                  const SizedBox(height: 2),
+                  valueWidget,
+                ],
+              );
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(width: 76, child: labelWidget),
+                const SizedBox(width: 8),
+                Expanded(child: valueWidget),
+              ],
+            );
+          },
+        ),
+      );
+    }
+
+    Widget iconLine(IconData icon, String value) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 10),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: 90,
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF64748B),
-                ),
+            Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Icon(
+                icon,
+                size: 16,
+                color: const Color(0xFF64748B),
               ),
             ),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 value,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                   color: Color(0xFF0F172A),
                 ),
               ),
@@ -191,223 +289,276 @@ class PropertyDetailsPanel extends StatelessWidget {
       );
     }
 
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(18),
-            topRight: Radius.circular(18),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x1F000000),
-              blurRadius: 16,
-              offset: Offset(0, -6),
-            ),
-          ],
+    Widget imagePanel(double aspectRatio) {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          borderRadius: imageBorderRadius,
         ),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: ClipRRect(
+          borderRadius: imageBorderRadius,
+          child: AspectRatio(
+            aspectRatio: aspectRatio,
+            child: imagePanelChild(),
+          ),
+        ),
+      );
+    }
+
+    Widget detailsPanel() {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              if (effectiveImageUrls.isNotEmpty)
-                ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(18),
-                    topRight: Radius.circular(18),
-                  ),
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: Image.network(
-                      effectiveImageUrls.first,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, _, __) {
-                        return const DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Color(0xFFE2E8F0),
-                          ),
-                          child: Center(
-                            child: Icon(
-                              Icons.image_not_supported_outlined,
-                              size: 22,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                        );
-                      },
-                      loadingBuilder: (context, child, progress) {
-                        if (progress == null) return child;
-                        return const DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Color(0xFFF1F5F9),
-                          ),
-                          child: Center(
-                            child: SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
+              Expanded(
+                child: GestureDetector(
+                  onTap: canOpenDetails ? onOpenDetails : null,
+                  behavior: HitTestBehavior.opaque,
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: canOpenDetails
+                          ? const Color(0xFF0F172A)
+                          : const Color(0xFF0F172A),
                     ),
                   ),
                 ),
-              if (effectiveImageUrls.isEmpty && isLoadingImages)
-                const ClipRRect(
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(18),
-                    topRight: Radius.circular(18),
-                  ),
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Color(0xFFF1F5F9),
-                      ),
-                      child: Center(
-                        child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              if (effectiveImageUrls.isEmpty &&
-                  !isLoadingImages &&
-                  imagesError != null)
-                ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(18),
-                    topRight: Radius.circular(18),
-                  ),
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: DecoratedBox(
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF1F5F9),
-                      ),
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            imagesError!,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Color(0xFF64748B),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF0F172A),
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          onPressed: onClose,
-                          icon: const Icon(Icons.close, size: 20),
-                          tooltip: 'Close',
-                        ),
-                      ],
-                    ),
-                    if (effectiveImageUrls.length > 1) ...[
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 58,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: effectiveImageUrls.length > 6
-                              ? 6
-                              : effectiveImageUrls.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 8),
-                          itemBuilder: (context, index) {
-                            final url = effectiveImageUrls[index];
-                            return ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: AspectRatio(
-                                aspectRatio: 1,
-                                child: Image.network(
-                                  url,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, _, __) {
-                                    return const DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        color: Color(0xFFE2E8F0),
-                                      ),
-                                      child: Center(
-                                        child: Icon(
-                                          Icons.image_not_supported_outlined,
-                                          size: 18,
-                                          color: Color(0xFF64748B),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  loadingBuilder: (context, child, progress) {
-                                    if (progress == null) return child;
-                                    return const DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        color: Color(0xFFF1F5F9),
-                                      ),
-                                      child: Center(
-                                        child: SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                    if (price != null) infoLine('Price', price),
-                    if (location != null) infoLine('Location', location),
-                    if (facing != null) infoLine('Facing', facing),
-                  ],
-                ),
+              ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                onPressed: onClose,
+                icon: const Icon(Icons.close, size: 20),
+                tooltip: 'Close',
               ),
             ],
           ),
+          if (price != null) iconLine(Icons.currency_rupee, price),
+          if (location != null) iconLine(Icons.location_on_outlined, location),
+          if (facing != null) infoLine('Facing', facing),
+          if (canOpenDetails)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: onOpenDetails,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: const Color(0xFF2563EB),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  child: const Text('View details →'),
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x1F000000),
+                    blurRadius: 16,
+                    offset: Offset(0, -6),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.all(Radius.circular(18)),
+                child: Material(
+                  color: Colors.white,
+                  child: InkWell(
+                    onTap: canOpenDetails ? onOpenDetails : null,
+                    child: SafeArea(
+                      top: false,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          // The panel itself is width-constrained; keep the left/right
+                          // layout for typical phone widths and only stack on very
+                          // small widths.
+                          final isNarrow = constraints.maxWidth < 340;
+
+                          return Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+                            child: isNarrow
+                                ? Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      imagePanel(16 / 9),
+                                      const SizedBox(height: 10),
+                                      detailsPanel(),
+                                    ],
+                                  )
+                                : Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(child: imagePanel(4 / 3)),
+                                      const SizedBox(width: 12),
+                                      Expanded(child: detailsPanel()),
+                                    ],
+                                  ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
+    );
+  }
+}
+
+class PropertyImageCarousel extends StatefulWidget {
+  const PropertyImageCarousel({super.key, required this.urls});
+
+  final List<String> urls;
+
+  @override
+  State<PropertyImageCarousel> createState() => _PropertyImageCarouselState();
+}
+
+class _PropertyImageCarouselState extends State<PropertyImageCarousel> {
+  late final PageController _controller;
+  int _activeIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final urls = widget.urls;
+    final hasMultiple = urls.length > 1;
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: PageView.builder(
+            controller: _controller,
+            itemCount: urls.length,
+            onPageChanged: (i) => setState(() => _activeIndex = i),
+            itemBuilder: (context, index) {
+              final url = urls[index];
+              return Image.network(
+                url,
+                fit: BoxFit.cover,
+                errorBuilder: (context, _, __) {
+                  return const DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Color(0xFFE2E8F0),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.image_not_supported_outlined,
+                        size: 22,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                  );
+                },
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  final expected = progress.expectedTotalBytes;
+                  final loaded = progress.cumulativeBytesLoaded;
+                  final value = expected != null && expected > 0
+                      ? loaded / expected
+                      : null;
+                  return DecoratedBox(
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF1F5F9),
+                    ),
+                    child: Center(
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          value: value,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        if (hasMultiple)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 8,
+            child: Center(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A).withOpacity(0.35),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(urls.length, (i) {
+                      final isActive = i == _activeIndex;
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: isActive ? 14 : 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(isActive ? 1 : 0.65),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

@@ -22,6 +22,7 @@ import '../widgets/search_overlay.dart';
 import '../widgets/toast_message.dart';
 import '../models/map_viewport_models.dart';
 import 'layout_detail_screen.dart';
+import 'property_detail_screen.dart';
 
 part 'home_map_screen.helpers.dart';
 
@@ -977,6 +978,23 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
     // Cancel any in-flight media fetch.
     _propertyMediaSeq++;
+  }
+
+  void _openSelectedPropertyDetails() {
+    final feature = _selectedProperty;
+    if (feature == null || !mounted) return;
+
+    _dismissKeyboard();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PropertyDetailScreen(
+          feature: feature,
+          imageUrls: _selectedPropertyMediaUrls,
+          isLoadingImages: _isSelectedPropertyMediaLoading,
+          imagesError: _selectedPropertyMediaError,
+        ),
+      ),
+    );
   }
 
   void _closeAnyPanel() {
@@ -2125,6 +2143,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                 imageUrls: _selectedPropertyMediaUrls,
                 isLoadingImages: _isSelectedPropertyMediaLoading,
                 imagesError: _selectedPropertyMediaError,
+                onOpenDetails: _openSelectedPropertyDetails,
                 onClose: _closePropertyPanel,
               ),
             ),
