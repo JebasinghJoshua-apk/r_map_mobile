@@ -13,6 +13,7 @@ class PropertyDetailsPanel extends StatelessWidget {
     this.isLoadingImages = false,
     this.imagesError,
     this.onOpenDetails,
+    this.outerPadding = const EdgeInsets.fromLTRB(12, 0, 12, 12),
     required this.onClose,
   });
 
@@ -21,6 +22,7 @@ class PropertyDetailsPanel extends StatelessWidget {
   final bool isLoadingImages;
   final String? imagesError;
   final VoidCallback? onOpenDetails;
+  final EdgeInsetsGeometry outerPadding;
   final VoidCallback onClose;
 
   static String resolveMediaUrl(String rawUrl) {
@@ -163,7 +165,7 @@ class PropertyDetailsPanel extends StatelessWidget {
     final effectiveImageUrls =
         resolvedOverride.isNotEmpty ? resolvedOverride : extracted;
 
-    final imageBorderRadius = BorderRadius.circular(14);
+    final imageBorderRadius = BorderRadius.circular(10);
 
     Widget imagePanelChild() {
       if (effectiveImageUrls.isNotEmpty) {
@@ -372,7 +374,7 @@ class PropertyDetailsPanel extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        padding: outerPadding,
         child: Align(
           alignment: Alignment.bottomCenter,
           child: ConstrainedBox(
@@ -388,7 +390,7 @@ class PropertyDetailsPanel extends StatelessWidget {
                 ],
               ),
               child: ClipRRect(
-                borderRadius: const BorderRadius.all(Radius.circular(18)),
+                borderRadius: const BorderRadius.all(Radius.circular(14)),
                 child: Material(
                   color: Colors.white,
                   child: InkWell(

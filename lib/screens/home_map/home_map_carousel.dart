@@ -1,7 +1,26 @@
 part of '../home_map_screen.dart';
 
 extension _HomeMapCarousel on _HomeMapScreenState {
+  int _carouselPageCount(int itemCount) => itemCount + 2;
+
+  int _itemIndexFromCarouselPage(int pageIndex, int itemCount) {
+    if (itemCount <= 0) return 0;
+    if (pageIndex <= 0) return itemCount - 1;
+    if (pageIndex >= itemCount + 1) return 0;
+    return pageIndex - 1;
+  }
+
+  bool get _isIndependentHouseCarouselRefreshSuppressed {
+    final until = _independentHouseCarouselRefreshSuppressedUntil;
+    if (until == null) return false;
+    return DateTime.now().isBefore(until);
+  }
+
   void _scheduleIndependentHouseCarouselRefresh() {
+    if (_isIndependentHouseCarouselRefreshSuppressed) {
+      return;
+    }
+
     _independentHouseCarouselDebounce?.cancel();
     _independentHouseCarouselDebounce = Timer(
       const Duration(milliseconds: 450),
@@ -92,7 +111,7 @@ extension _HomeMapCarousel on _HomeMapScreenState {
         final c = _independentHouseCarouselController;
         if (!mounted || c == null || !c.hasClients) return;
         final targetPage =
-            _activeIndependentHouseIndex.clamp(0, houses.length - 1);
+            (_activeIndependentHouseIndex.clamp(0, houses.length - 1)) + 1;
         if (c.page?.round() != targetPage) {
           c.jumpToPage(targetPage);
         }
@@ -138,8 +157,8 @@ extension _HomeMapCarousel on _HomeMapScreenState {
     // Ensure carousel controller exists and is aligned to selected item.
     _independentHouseCarouselController?.dispose();
     _independentHouseCarouselController = PageController(
-      initialPage: (nextIndex >= 0 ? nextIndex : 0),
-      viewportFraction: 0.88,
+      initialPage: (nextIndex >= 0 ? nextIndex : 0) + 1,
+      viewportFraction: 0.92,
     );
 
     _ensurePropertyMediaLoaded(feature);
@@ -158,10 +177,14 @@ extension _HomeMapCarousel on _HomeMapScreenState {
     if (items.isEmpty) {
       // Fallback for rare cases where selection exists but viewport list isn't ready.
       return PropertyDetailsPanel(
+        key: ValueKey(
+          'property:${_selectedProperty!.propertyType.trim()}:${_selectedProperty!.featureId.trim()}',
+        ),
         feature: _selectedProperty!,
         imageUrls: _selectedPropertyMediaUrls,
         isLoadingImages: _isSelectedPropertyMediaLoading,
         imagesError: _selectedPropertyMediaError,
+        outerPadding: const EdgeInsets.fromLTRB(6, 0, 6, 12),
         onOpenDetails: () => _openPropertyDetails(_selectedProperty!),
         onClose: _closePropertyPanel,
       );
@@ -172,10 +195,14 @@ extension _HomeMapCarousel on _HomeMapScreenState {
       final key = _propertyMediaCacheKey(feature);
       final cached = key == null ? null : _propertyMediaCache[key];
       return PropertyDetailsPanel(
+        key: ValueKey(
+          'property:${feature.propertyType.trim()}:${feature.featureId.trim()}',
+        ),
         feature: feature,
         imageUrls: cached?.urls,
         isLoadingImages: cached?.isLoading ?? false,
         imagesError: cached?.error,
+        outerPadding: const EdgeInsets.fromLTRB(6, 0, 6, 12),
         onOpenDetails: () => _openPropertyDetails(feature),
         onClose: _closePropertyPanel,
       );
@@ -183,22 +210,33 @@ extension _HomeMapCarousel on _HomeMapScreenState {
 
     final controller = _independentHouseCarouselController ??
         PageController(
-          initialPage: _activeIndependentHouseIndex.clamp(0, items.length - 1),
-          viewportFraction: 0.88,
+          initialPage:
+              (_activeIndependentHouseIndex.clamp(0, items.length - 1)) + 1,
+          viewportFraction: 0.92,
         );
     _independentHouseCarouselController ??= controller;
+
+    final pageCount = _carouselPageCount(items.length);
 
     return SizedBox(
       height: _propertyCarouselHeight(context),
       child: PageView.builder(
         controller: controller,
-        itemCount: items.length,
+        itemCount: pageCount,
         padEnds: true,
         onPageChanged: (index) {
           if (!mounted) return;
-          final next = items[index];
+
+          // Swiping focuses the map which triggers camera idle -> viewport fetch.
+          // Suppress carousel refresh briefly to avoid re-sorting/replacing the
+          // list mid-transition (can cause a one-frame mismatch/blink).
+          _independentHouseCarouselRefreshSuppressedUntil =
+              DateTime.now().add(const Duration(milliseconds: 900));
+
+          final itemIndex = _itemIndexFromCarouselPage(index, items.length);
+          final next = items[itemIndex];
           _updateState(() {
-            _activeIndependentHouseIndex = index;
+            _activeIndependentHouseIndex = itemIndex;
             _selectedProperty = next;
           });
 
@@ -208,26 +246,47 @@ extension _HomeMapCarousel on _HomeMapScreenState {
           if (center != null) {
             unawaited(_focusPropertyOnMap(target: center, zoom: 20.0));
           }
+
+          // Loop correction: when user swipes onto a sentinel page, jump to the
+          // corresponding real page without animation.
+          if (index == 0 || index == pageCount - 1) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              final c = _independentHouseCarouselController;
+              if (!mounted || c == null || !c.hasClients) return;
+              if (items.isEmpty) return;
+
+              final target = (index == 0) ? items.length : 1;
+              if (c.page?.round() != target) {
+                c.jumpToPage(target);
+              }
+            });
+          }
         },
         itemBuilder: (context, index) {
-          final feature = items[index];
+          final itemIndex = _itemIndexFromCarouselPage(index, items.length);
+          final feature = items[itemIndex];
           final key = _propertyMediaCacheKey(feature);
           final cached = key == null ? null : _propertyMediaCache[key];
 
           // Preload neighbors for smoother swiping.
-          if (index == _activeIndependentHouseIndex) {
+          if (itemIndex == _activeIndependentHouseIndex) {
             _ensurePropertyMediaLoaded(feature);
-            if (index - 1 >= 0) _ensurePropertyMediaLoaded(items[index - 1]);
-            if (index + 1 < items.length) {
-              _ensurePropertyMediaLoaded(items[index + 1]);
-            }
+            final n = items.length;
+            final prev = items[(itemIndex - 1 + n) % n];
+            final next = items[(itemIndex + 1) % n];
+            _ensurePropertyMediaLoaded(prev);
+            _ensurePropertyMediaLoaded(next);
           }
 
           return PropertyDetailsPanel(
+            key: ValueKey(
+              'property:${feature.propertyType.trim()}:${feature.featureId.trim()}',
+            ),
             feature: feature,
             imageUrls: cached?.urls,
             isLoadingImages: cached?.isLoading ?? false,
             imagesError: cached?.error,
+            outerPadding: const EdgeInsets.fromLTRB(6, 0, 6, 12),
             onOpenDetails: () => _openPropertyDetails(feature),
             onClose: _closePropertyPanel,
           );
