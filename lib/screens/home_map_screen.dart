@@ -26,6 +26,37 @@ import 'property_detail_screen.dart';
 import '../utils/route_observer.dart';
 
 part 'home_map_screen.helpers.dart';
+part 'home_map/home_map_filters.dart';
+part 'home_map/home_map_viewport.dart';
+part 'home_map/home_map_property_media.dart';
+part 'home_map/home_map_carousel.dart';
+
+class _PropertyMediaCacheEntry {
+  const _PropertyMediaCacheEntry({
+    required this.urls,
+    required this.isLoading,
+    required this.error,
+    required this.requestSeq,
+  });
+
+  final List<String>? urls;
+  final bool isLoading;
+  final String? error;
+  final int requestSeq;
+
+  _PropertyMediaCacheEntry copyWith({
+    List<String>? urls,
+    bool? isLoading,
+    String? error,
+  }) {
+    return _PropertyMediaCacheEntry(
+      urls: urls,
+      isLoading: isLoading ?? this.isLoading,
+      error: error,
+      requestSeq: requestSeq,
+    );
+  }
+}
 
 class HomeMapScreen extends StatefulWidget {
   const HomeMapScreen({super.key});
@@ -94,6 +125,16 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   String? _selectedPropertyMediaError;
   int _propertyMediaSeq = 0;
 
+  // Independent House carousel (viewport-only, sorted by distance to map center).
+  List<MapPropertyFeature> _independentHousesInView =
+      const <MapPropertyFeature>[];
+  int _activeIndependentHouseIndex = 0;
+  PageController? _independentHouseCarouselController;
+
+  // Media cache keyed by "<propertyType>:<featureId>".
+  final Map<String, _PropertyMediaCacheEntry> _propertyMediaCache =
+      <String, _PropertyMediaCacheEntry>{};
+
   // Mirrors web MapViewportLayer: only allow plot status edits for plots under
   // layouts owned by the current user (within the current viewport response).
   Set<String> _ownedLayoutIds = <String>{};
@@ -102,207 +143,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   // Used for opening layout details from plot panels.
   Map<String, MapPropertyFeature> _propertyByFeatureId =
       <String, MapPropertyFeature>{};
-
-  bool _isPriceFilterEligiblePropertyType(String? type) {
-    final t = type?.trim();
-    if (t == null || t.isEmpty) return false;
-    return const <String>{
-      'IndependentHouse',
-      'CommercialSpace',
-      'Land',
-      'ApartmentFlat',
-      'IndividualPlots',
-    }.contains(t);
-  }
-
-  String _clientFilterSignature() {
-    final type = _selectedPropertyType?.trim();
-    if (type == null || type.isEmpty) return '';
-    if (!_isPriceFilterEligiblePropertyType(type)) return '';
-    final f = _selectedPriceRange;
-    if (f == null) return '';
-    return '${f.minRupees ?? ''}-${f.maxRupees ?? ''}';
-  }
-
-  Future<void> _openFilters() async {
-    if (!mounted) return;
-
-    final initialType = _selectedPropertyType;
-    final initialPrice = _selectedPriceRange;
-
-    final result = await showModalBottomSheet<
-        ({
-          String? type,
-          _PriceRangeFilter? price,
-        })>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        var localType = initialType;
-        var localPrice = initialPrice;
-
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final showPrice = _isPriceFilterEligiblePropertyType(localType) &&
-                (localType?.trim() != 'Layout');
-            if (!showPrice) {
-              localPrice = null;
-            }
-
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Property Type',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF334155),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 8,
-                      children: [
-                        for (final option in _propertyTypeOptions)
-                          ChoiceChip(
-                            label: Text(option.label),
-                            selected: (localType == option.id),
-                            showCheckmark: false,
-                            selectedColor: const Color(0xFF0FAD97),
-                            backgroundColor: const Color(0xFFF1F5F9),
-                            side: const BorderSide(color: Color(0xFFCBD5E1)),
-                            labelStyle: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: (localType == option.id)
-                                  ? Colors.white
-                                  : const Color(0xFF0F172A),
-                            ),
-                            onSelected: (_) {
-                              setModalState(() {
-                                localType = option.id;
-                                if (!_isPriceFilterEligiblePropertyType(
-                                      localType,
-                                    ) ||
-                                    localType?.trim() == 'Layout') {
-                                  localPrice = null;
-                                }
-                              });
-                            },
-                          ),
-                      ],
-                    ),
-                    if (showPrice) ...[
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Price',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF334155),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 8,
-                        children: [
-                          for (final option in _priceRangeOptions)
-                            ChoiceChip(
-                              label: Text(option.label),
-                              selected: (localPrice == null
-                                  ? option == _anyPriceRange
-                                  : option.label == localPrice!.label),
-                              showCheckmark: false,
-                              selectedColor: const Color(0xFF0FAD97),
-                              backgroundColor: const Color(0xFFF1F5F9),
-                              side: const BorderSide(color: Color(0xFFCBD5E1)),
-                              labelStyle: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: (localPrice == null
-                                        ? option == _anyPriceRange
-                                        : option.label == localPrice!.label)
-                                    ? Colors.white
-                                    : const Color(0xFF0F172A),
-                              ),
-                              onSelected: (_) {
-                                setModalState(() {
-                                  localPrice =
-                                      option == _anyPriceRange ? null : option;
-                                });
-                              },
-                            ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: 18),
-                    Row(
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(context)
-                                .pop((type: null, price: null));
-                          },
-                          child: const Text(
-                            'Clear',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF0FAD97),
-                            ),
-                          ),
-                        ),
-                        const Spacer(),
-                        FilledButton(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF0FAD97),
-                            foregroundColor: Colors.white,
-                          ),
-                          onPressed: () {
-                            Navigator.of(context)
-                                .pop((type: localType, price: localPrice));
-                          },
-                          child: const Text(
-                            'Apply',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-
-    if (!mounted || result == null) return;
-
-    final nextType = result.type?.trim().isEmpty ?? true ? null : result.type;
-    final nextPrice = result.price;
-
-    final normalizedNextType = nextType?.trim();
-    final shouldAllowPrice =
-        _isPriceFilterEligiblePropertyType(normalizedNextType) &&
-            normalizedNextType != 'Layout';
-
-    setState(() {
-      _selectedPropertyType = nextType;
-      _selectedPriceRange = shouldAllowPrice ? nextPrice : null;
-    });
-
-    await _fetchViewport();
-  }
 
   List<String> _layoutContactNumbersForPlot(MapPlotFeature plot) {
     final layoutId = plot.layoutId?.trim();
@@ -443,6 +283,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     super.dispose();
   }
 
+  void _updateState(VoidCallback fn) {
+    if (!mounted) return;
+    setState(fn);
+  }
+
   void _dismissKeyboard() {
     FocusManager.instance.primaryFocus?.unfocus();
     SystemChannels.textInput.invokeMethod('TextInput.hide');
@@ -472,181 +317,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     _viewportDebounceTimer = Timer(const Duration(milliseconds: 350), () async {
       await _fetchViewport();
     });
-  }
-
-  void _setViewportLoading(bool value) {
-    if (!mounted) return;
-
-    // Small delay avoids spinner flicker on fast cache hits.
-    if (value) {
-      _viewportLoadingTimer?.cancel();
-      _viewportLoadingTimer = Timer(const Duration(milliseconds: 180), () {
-        if (!mounted) return;
-        setState(() => _isViewportLoading = true);
-      });
-      return;
-    }
-
-    _viewportLoadingTimer?.cancel();
-    if (_isViewportLoading) {
-      setState(() => _isViewportLoading = false);
-    }
-  }
-
-  _ViewportRenderCacheEntry? _tryGetCachedViewport(String signature) {
-    final entry = _viewportCache.remove(signature);
-    if (entry == null) return null;
-    final isFresh =
-        DateTime.now().difference(entry.createdAt) <= _viewportCacheTtl;
-    if (!isFresh) {
-      return null;
-    }
-
-    // Reinsert to mark as most recently used.
-    _viewportCache[signature] = entry;
-    return entry;
-  }
-
-  void _putCachedViewport(String signature, _ViewportRenderCacheEntry entry) {
-    _viewportCache.remove(signature);
-    _viewportCache[signature] = entry;
-
-    while (_viewportCache.length > _viewportCacheMaxEntries) {
-      _viewportCache.remove(_viewportCache.keys.first);
-    }
-  }
-
-  Future<void> _fetchViewport() async {
-    final controller = _mapController;
-    if (controller == null) return;
-
-    final token = AuthScope.of(context).session?.token;
-    final isAuthenticated = token != null && token.trim().isNotEmpty;
-
-    LatLngBounds bounds;
-    try {
-      bounds = await controller.getVisibleRegion();
-    } catch (_) {
-      return;
-    }
-
-    final zoom = _effectiveZoom ?? _lastCameraPosition.zoom;
-    final selectedType = _selectedPropertyType?.trim();
-    final propertyTypes = (selectedType == null || selectedType.isEmpty)
-        ? <String>[]
-        : <String>[selectedType];
-
-    final expandedBounds = _expandBounds(bounds, _overlayRetentionMultiplier);
-
-    final signature = _buildViewportSignature(
-      expandedBounds,
-      zoom,
-      propertyTypes,
-      isAuthenticated,
-      clientFilters: _clientFilterSignature(),
-    );
-    if (signature == _lastViewportSignature) {
-      return;
-    }
-    _lastViewportSignature = signature;
-
-    final cached = _tryGetCachedViewport(signature);
-    if (cached != null) {
-      setState(() {
-        _viewportMarkers = cached.markers;
-        _plotLabelMarkers = cached.plotLabelMarkers;
-        _roadLabelMarkers = cached.roadLabelMarkers;
-        _amenityLabelMarkers = cached.amenityLabelMarkers;
-        _layoutPolygons = cached.layoutPolygons;
-        _propertyPolygons = cached.propertyPolygons;
-        _plotPolygons = cached.plotPolygons;
-        _amenityPolygons = cached.amenityPolygons;
-        _roadPolygons = cached.roadPolygons;
-        _roadPolylines = cached.roadPolylines;
-        _ownedLayoutIds = cached.ownedLayoutIds;
-        _propertyByFeatureId = cached.propertyByFeatureId;
-      });
-      return;
-    }
-
-    final requestId = ++_viewportRequestSeq;
-
-    _setViewportLoading(true);
-
-    try {
-      final response = await _mapApi.getViewport(
-        bounds: expandedBounds,
-        zoom: zoom,
-        propertyTypes: propertyTypes,
-        bearerToken: token,
-      );
-
-      if (!mounted || requestId != _viewportRequestSeq) {
-        _setViewportLoading(false);
-        return;
-      }
-
-      final filteredResponse = _applyClientFilters(response);
-
-      final rendered = _renderViewport(
-        response: filteredResponse,
-        zoom: _lastCameraPosition.zoom,
-      );
-
-      final pixelRatio = MediaQuery.of(context).devicePixelRatio;
-      final propertyMarkers = await _buildPropertyMarkers(
-        response: filteredResponse,
-        zoom: _lastCameraPosition.zoom,
-        pixelRatio: pixelRatio,
-      );
-      final labels = await _buildLabelMarkers(
-        response: filteredResponse,
-        zoom: _lastCameraPosition.zoom,
-        pixelRatio: pixelRatio,
-      );
-
-      if (!mounted || requestId != _viewportRequestSeq) {
-        _setViewportLoading(false);
-        return;
-      }
-
-      final merged = rendered.copyWith(
-        markers: propertyMarkers,
-        plotLabelMarkers: labels.plotLabelMarkers,
-        roadLabelMarkers: labels.roadLabelMarkers,
-        amenityLabelMarkers: labels.amenityLabelMarkers,
-      );
-      _putCachedViewport(signature, merged);
-
-      setState(() {
-        _viewportMarkers = merged.markers;
-        _plotLabelMarkers = merged.plotLabelMarkers;
-        _roadLabelMarkers = merged.roadLabelMarkers;
-        _amenityLabelMarkers = merged.amenityLabelMarkers;
-        _layoutPolygons = merged.layoutPolygons;
-        _propertyPolygons = merged.propertyPolygons;
-        _plotPolygons = merged.plotPolygons;
-        _amenityPolygons = merged.amenityPolygons;
-        _roadPolygons = merged.roadPolygons;
-        _roadPolylines = merged.roadPolylines;
-        _ownedLayoutIds = merged.ownedLayoutIds;
-        _propertyByFeatureId = merged.propertyByFeatureId;
-      });
-      _setViewportLoading(false);
-    } catch (e) {
-      if (!mounted || requestId != _viewportRequestSeq) {
-        _setViewportLoading(false);
-        return;
-      }
-
-      _setViewportLoading(false);
-      final now = DateTime.now();
-      final lastError = _lastViewportErrorAt;
-      if (lastError == null || now.difference(lastError).inSeconds >= 8) {
-        _lastViewportErrorAt = now;
-        ToastMessage.show(context, e.toString());
-      }
-    }
   }
 
   MapViewportResponse _applyClientFilters(MapViewportResponse response) {
@@ -996,99 +666,19 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       _selectedPropertyMediaUrls = null;
       _isSelectedPropertyMediaLoading = false;
       _selectedPropertyMediaError = null;
+      _activeIndependentHouseIndex = 0;
     });
 
     // Cancel any in-flight media fetch.
     _propertyMediaSeq++;
-  }
 
-  void _openSelectedPropertyDetails() {
-    final feature = _selectedProperty;
-    if (feature == null || !mounted) return;
-
-    _dismissKeyboard();
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => PropertyDetailScreen(
-          feature: feature,
-          imageUrls: _selectedPropertyMediaUrls,
-          isLoadingImages: _isSelectedPropertyMediaLoading,
-          imagesError: _selectedPropertyMediaError,
-        ),
-      ),
-    );
+    _independentHouseCarouselController?.dispose();
+    _independentHouseCarouselController = null;
   }
 
   void _closeAnyPanel() {
     _closePlotPanel();
     _closePropertyPanel();
-  }
-
-  Future<void> _handleIndependentHouseTapped(
-    MapPropertyFeature feature, {
-    required LatLng target,
-    required double zoom,
-  }) async {
-    _closePlotPanel();
-
-    final mediaSeq = ++_propertyMediaSeq;
-    setState(() {
-      _selectedProperty = feature;
-      _selectedPropertyMediaUrls = null;
-      _isSelectedPropertyMediaLoading = true;
-      _selectedPropertyMediaError = null;
-    });
-
-    unawaited(_fetchSelectedPropertyMedia(feature, requestSeq: mediaSeq));
-    await _focusPropertyOnMap(target: target, zoom: zoom);
-  }
-
-  Future<void> _fetchSelectedPropertyMedia(
-    MapPropertyFeature feature, {
-    required int requestSeq,
-  }) async {
-    final propertyType = feature.propertyType.trim();
-    final entityId = feature.featureId.trim();
-    if (propertyType.isEmpty || entityId.isEmpty) {
-      if (!mounted || requestSeq != _propertyMediaSeq) return;
-      setState(() {
-        _isSelectedPropertyMediaLoading = false;
-        _selectedPropertyMediaError = 'Photos not available.';
-      });
-      return;
-    }
-
-    final token = AuthScope.of(context).session?.token;
-
-    try {
-      final images = await _mapApi.getPropertyMedia(
-        propertyType: propertyType,
-        entityId: entityId,
-        bearerToken: token,
-      );
-
-      if (!mounted || requestSeq != _propertyMediaSeq) return;
-
-      final urls = <String>[];
-      for (final img in images) {
-        final u = img.fileUrl.trim();
-        if (u.isEmpty) continue;
-        if (!urls.contains(u)) urls.add(u);
-      }
-
-      setState(() {
-        _selectedPropertyMediaUrls = urls;
-        _isSelectedPropertyMediaLoading = false;
-        _selectedPropertyMediaError = null;
-      });
-    } catch (e) {
-      if (!mounted || requestSeq != _propertyMediaSeq) return;
-      setState(() {
-        _selectedPropertyMediaUrls = const <String>[];
-        _isSelectedPropertyMediaLoading = false;
-        _selectedPropertyMediaError = e.toString();
-      });
-    }
   }
 
   Set<Polygon> _buildSelectedPlotHighlightPolygons(MapPlotFeature plot) {
@@ -2160,14 +1750,18 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
               left: 0,
               right: 0,
               bottom: 0,
-              child: PropertyDetailsPanel(
-                feature: _selectedProperty!,
-                imageUrls: _selectedPropertyMediaUrls,
-                isLoadingImages: _isSelectedPropertyMediaLoading,
-                imagesError: _selectedPropertyMediaError,
-                onOpenDetails: _openSelectedPropertyDetails,
-                onClose: _closePropertyPanel,
-              ),
+              child:
+                  _selectedProperty!.propertyType.trim() == 'IndependentHouse'
+                      ? _buildIndependentHouseCarouselPanel()
+                      : PropertyDetailsPanel(
+                          feature: _selectedProperty!,
+                          imageUrls: _selectedPropertyMediaUrls,
+                          isLoadingImages: _isSelectedPropertyMediaLoading,
+                          imagesError: _selectedPropertyMediaError,
+                          onOpenDetails: () =>
+                              _openPropertyDetails(_selectedProperty!),
+                          onClose: _closePropertyPanel,
+                        ),
             ),
         ],
       ),

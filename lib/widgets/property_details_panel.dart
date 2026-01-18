@@ -275,7 +275,7 @@ class PropertyDetailsPanel extends StatelessWidget {
             Expanded(
               child: Text(
                 value,
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 13,
