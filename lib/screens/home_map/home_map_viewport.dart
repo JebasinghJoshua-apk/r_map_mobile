@@ -115,9 +115,6 @@ extension _HomeMapViewport on _HomeMapScreenState {
 
       final filteredResponse = _applyClientFilters(response);
 
-      final nextIndependentHouses =
-          _sortedIndependentHousesForViewport(filteredResponse);
-
       final rendered = _renderViewport(
         response: filteredResponse,
         zoom: _lastCameraPosition.zoom,
@@ -161,44 +158,10 @@ extension _HomeMapViewport on _HomeMapScreenState {
         _roadPolylines = merged.roadPolylines;
         _ownedLayoutIds = merged.ownedLayoutIds;
         _propertyByFeatureId = merged.propertyByFeatureId;
-
-        _independentHousesInView = nextIndependentHouses;
-
-        // If the carousel is open, keep the active index aligned to the
-        // selected property if it still exists; otherwise close the panel.
-        final selected = _selectedProperty;
-        if (selected != null &&
-            selected.propertyType.trim() == 'IndependentHouse') {
-          final idx = nextIndependentHouses.indexWhere(
-            (p) => p.featureId.trim() == selected.featureId.trim(),
-          );
-          if (idx >= 0) {
-            _activeIndependentHouseIndex = idx;
-          } else {
-            _selectedProperty = null;
-            _selectedPropertyMediaUrls = null;
-            _isSelectedPropertyMediaLoading = false;
-            _selectedPropertyMediaError = null;
-            _activeIndependentHouseIndex = 0;
-          }
-        }
       });
 
-      // If the carousel is open and we still have items, sync controller.
-      if (mounted &&
-          _selectedProperty != null &&
-          _selectedProperty!.propertyType.trim() == 'IndependentHouse' &&
-          _independentHousesInView.length > 1) {
-        final controller = _independentHouseCarouselController;
-        if (controller == null ||
-            (controller.hasClients &&
-                controller.page?.round() != _activeIndependentHouseIndex)) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            final c = _independentHouseCarouselController;
-            if (!mounted || c == null || !c.hasClients) return;
-            c.jumpToPage(_activeIndependentHouseIndex);
-          });
-        }
+      if (_selectedProperty?.propertyType.trim() == 'IndependentHouse') {
+        _scheduleIndependentHouseCarouselRefresh();
       }
       _setViewportLoading(false);
     } catch (e) {

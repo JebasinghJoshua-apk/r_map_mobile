@@ -126,10 +126,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   int _propertyMediaSeq = 0;
 
   // Independent House carousel (viewport-only, sorted by distance to map center).
-  List<MapPropertyFeature> _independentHousesInView =
+  // Houses used ONLY for the bottom rotating panel (can be larger than viewport).
+  List<MapPropertyFeature> _independentHousesCarousel =
       const <MapPropertyFeature>[];
   int _activeIndependentHouseIndex = 0;
   PageController? _independentHouseCarouselController;
+  Timer? _independentHouseCarouselDebounce;
+  int _independentHouseCarouselRequestSeq = 0;
 
   // Media cache keyed by "<propertyType>:<featureId>".
   final Map<String, _PropertyMediaCacheEntry> _propertyMediaCache =
@@ -278,6 +281,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     _mapController?.dispose();
     _viewportDebounceTimer?.cancel();
     _viewportLoadingTimer?.cancel();
+    _independentHouseCarouselDebounce?.cancel();
     _connectivitySubscription?.cancel();
     _zoomNotifier.dispose();
     super.dispose();
@@ -317,6 +321,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     _viewportDebounceTimer = Timer(const Duration(milliseconds: 350), () async {
       await _fetchViewport();
     });
+
+    if (_selectedProperty?.propertyType.trim() == 'IndependentHouse') {
+      _scheduleIndependentHouseCarouselRefresh();
+    }
   }
 
   MapViewportResponse _applyClientFilters(MapViewportResponse response) {
@@ -666,11 +674,15 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       _selectedPropertyMediaUrls = null;
       _isSelectedPropertyMediaLoading = false;
       _selectedPropertyMediaError = null;
+      _independentHousesCarousel = const <MapPropertyFeature>[];
       _activeIndependentHouseIndex = 0;
     });
 
     // Cancel any in-flight media fetch.
     _propertyMediaSeq++;
+
+    _independentHouseCarouselDebounce?.cancel();
+    _independentHouseCarouselRequestSeq++;
 
     _independentHouseCarouselController?.dispose();
     _independentHouseCarouselController = null;
