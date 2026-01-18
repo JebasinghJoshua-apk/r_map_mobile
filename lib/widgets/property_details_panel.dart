@@ -372,7 +372,7 @@ class PropertyDetailsPanel extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         child: Align(
           alignment: Alignment.bottomCenter,
           child: ConstrainedBox(

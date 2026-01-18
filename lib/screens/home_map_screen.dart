@@ -23,6 +23,7 @@ import '../widgets/toast_message.dart';
 import '../models/map_viewport_models.dart';
 import 'layout_detail_screen.dart';
 import 'property_detail_screen.dart';
+import '../utils/route_observer.dart';
 
 part 'home_map_screen.helpers.dart';
 
@@ -33,7 +34,7 @@ class HomeMapScreen extends StatefulWidget {
   State<HomeMapScreen> createState() => _HomeMapScreenState();
 }
 
-class _HomeMapScreenState extends State<HomeMapScreen> {
+class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   GoogleMapController? _mapController;
   GooglePlace? _googlePlace;
   late final MobileBffMapApi _mapApi;
@@ -67,6 +68,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   _PriceRangeFilter? _selectedPriceRange; // null => Any
 
   String? _lastViewportAuthKey;
+
+  ModalRoute<void>? _routeSubscription;
 
   Set<Marker> _viewportMarkers = <Marker>{};
 
@@ -350,8 +353,25 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   }
 
   @override
+  void didPopNext() {
+    // Returning from a pushed screen (e.g. PropertyDetailScreen). Flutter may
+    // restore focus to the last-focused text field, which reopens the keyboard.
+    // Force-hide it for map UX.
+    _dismissKeyboard();
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
+    final route = ModalRoute.of(context);
+    if (route is PageRoute && route != _routeSubscription) {
+      if (_routeSubscription != null) {
+        routeObserver.unsubscribe(this);
+      }
+      _routeSubscription = route;
+      routeObserver.subscribe(this, route);
+    }
 
     final session = AuthScope.of(context).session;
     final token = session?.token.trim();
@@ -413,6 +433,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
   @override
   void dispose() {
+    routeObserver.unsubscribe(this);
+    _routeSubscription = null;
     _mapController?.dispose();
     _viewportDebounceTimer?.cancel();
     _viewportLoadingTimer?.cancel();
