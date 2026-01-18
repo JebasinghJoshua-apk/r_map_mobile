@@ -79,6 +79,15 @@ extension _HomeMapViewport on _HomeMapScreenState {
 
     final cached = _tryGetCachedViewport(signature);
     if (cached != null) {
+      final selected = _selectedProperty;
+      final nextSelectedHouseHighlight = (selected != null &&
+              selected.propertyType.trim() == 'IndependentHouse')
+          ? _buildSelectedIndependentHouseHighlightPolygons(
+              selected,
+              viewportPropertyByFeatureId: cached.propertyByFeatureId,
+            )
+          : const <Polygon>{};
+
       _updateState(() {
         _viewportMarkers = cached.markers;
         _plotLabelMarkers = cached.plotLabelMarkers;
@@ -92,6 +101,7 @@ extension _HomeMapViewport on _HomeMapScreenState {
         _roadPolylines = cached.roadPolylines;
         _ownedLayoutIds = cached.ownedLayoutIds;
         _propertyByFeatureId = cached.propertyByFeatureId;
+        _selectedIndependentHouseHighlightPolygons = nextSelectedHouseHighlight;
       });
       return;
     }
@@ -145,6 +155,15 @@ extension _HomeMapViewport on _HomeMapScreenState {
       );
       _putCachedViewport(signature, merged);
 
+      final selected = _selectedProperty;
+      final nextSelectedHouseHighlight = (selected != null &&
+              selected.propertyType.trim() == 'IndependentHouse')
+          ? _buildSelectedIndependentHouseHighlightPolygons(
+              selected,
+              viewportPropertyByFeatureId: merged.propertyByFeatureId,
+            )
+          : const <Polygon>{};
+
       _updateState(() {
         _viewportMarkers = merged.markers;
         _plotLabelMarkers = merged.plotLabelMarkers;
@@ -158,6 +177,7 @@ extension _HomeMapViewport on _HomeMapScreenState {
         _roadPolylines = merged.roadPolylines;
         _ownedLayoutIds = merged.ownedLayoutIds;
         _propertyByFeatureId = merged.propertyByFeatureId;
+        _selectedIndependentHouseHighlightPolygons = nextSelectedHouseHighlight;
       });
 
       if (_selectedProperty?.propertyType.trim() == 'IndependentHouse') {

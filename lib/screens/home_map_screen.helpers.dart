@@ -64,6 +64,12 @@ const Color _priceBadgePlotBackground = Color(0xFF22543D);
 const Color _priceBadgePlotStroke = Color(0xFFBAE6FD);
 const Color _priceBadgePlotText = Color(0xFFF8FAFC);
 
+// Selected badge marker (mobile-only): used when a property is actively selected
+// (e.g. independent house via bottom carousel) so its badge stands out.
+const Color _selectedPriceBadgeBackground = Color(0xFF2563EB);
+const Color _selectedPriceBadgeStroke = Color(0xFFEFF6FF);
+const Color _selectedPriceBadgeText = Color(0xFFFFFFFF);
+
 const Color _layoutBadgeBackground = Color(0xFF3730A3);
 const Color _layoutBadgeStroke = Color(0xFFEEF2FF);
 const Color _layoutBadgeTitle = Color(0xFFF8FAFC);
@@ -105,6 +111,16 @@ const double _selectedPlotStrokeOpacity = 1.0;
 const double _selectedPlotFillOpacity = 0.22;
 const int _selectedPlotStrokeWidthBump = 2;
 const int _selectedPlotZIndex = 999999;
+
+// Selected Independent House highlight overlay (mobile-only UX affordance).
+// Keep it clearly distinct from the default Independent House color scheme.
+const Color _selectedIndependentHouseStroke = Color(0xFF2563EB);
+const Color _selectedIndependentHouseFill = Color(0xFF60A5FA);
+const double _selectedIndependentHouseStrokeOpacity = 1.0;
+// Base value; final opacity is adjusted by zoom using `_adjustFillOpacityForZoom`.
+const double _selectedIndependentHouseFillOpacity = 0.18;
+const int _selectedIndependentHouseStrokeWidthBump = 2;
+const int _selectedIndependentHouseZIndex = 999998;
 
 // Camera behavior when selecting a plot.
 const double _selectedPlotMaxFocusZoom = 20.5;

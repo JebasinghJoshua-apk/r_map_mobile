@@ -142,7 +142,11 @@ extension _HomeMapCarousel on _HomeMapScreenState {
 
     _updateState(() {
       _selectedProperty = feature;
+      _selectedIndependentHouseHighlightPolygons =
+          _buildSelectedIndependentHouseHighlightPolygons(feature);
     });
+
+    unawaited(_refreshMarkerSelectionStyles());
 
     await _refreshIndependentHouseCarouselCandidates(anchor: feature);
 
@@ -238,7 +242,11 @@ extension _HomeMapCarousel on _HomeMapScreenState {
           _updateState(() {
             _activeIndependentHouseIndex = itemIndex;
             _selectedProperty = next;
+            _selectedIndependentHouseHighlightPolygons =
+                _buildSelectedIndependentHouseHighlightPolygons(next);
           });
+
+          unawaited(_refreshMarkerSelectionStyles());
 
           _ensurePropertyMediaLoaded(next);
 

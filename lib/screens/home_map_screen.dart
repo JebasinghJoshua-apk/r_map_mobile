@@ -112,6 +112,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   Set<Polygon> _propertyPolygons = <Polygon>{};
   Set<Polygon> _plotPolygons = <Polygon>{};
   Set<Polygon> _selectedPlotHighlightPolygons = <Polygon>{};
+  Set<Polygon> _selectedIndependentHouseHighlightPolygons = <Polygon>{};
   Set<Polygon> _amenityPolygons = <Polygon>{};
   Set<Polygon> _roadPolygons = <Polygon>{};
   Set<Polyline> _roadPolylines = <Polyline>{};
@@ -147,6 +148,35 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   // Used for opening layout details from plot panels.
   Map<String, MapPropertyFeature> _propertyByFeatureId =
       <String, MapPropertyFeature>{};
+
+  int _markerStyleSeq = 0;
+
+  Future<void> _refreshMarkerSelectionStyles() async {
+    if (!mounted) return;
+
+    final features = _propertyByFeatureId.values.toList(growable: false);
+    if (features.isEmpty) return;
+
+    final requestId = ++_markerStyleSeq;
+    final pixelRatio = MediaQuery.of(context).devicePixelRatio;
+
+    final markers = await _buildPropertyMarkers(
+      response: MapViewportResponse(
+        detailLevel: MapDetailLevel.minimal,
+        properties: features,
+        plots: const <MapPlotFeature>[],
+        roads: const <MapRoadFeature>[],
+        amenities: const <MapAmenityFeature>[],
+      ),
+      zoom: _lastCameraPosition.zoom,
+      pixelRatio: pixelRatio,
+    );
+
+    if (!mounted || requestId != _markerStyleSeq) return;
+    _updateState(() {
+      _viewportMarkers = markers;
+    });
+  }
 
   List<String> _layoutContactNumbersForPlot(MapPlotFeature plot) {
     final layoutId = plot.layoutId?.trim();
@@ -677,6 +707,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       _selectedPropertyMediaError = null;
       _independentHousesCarousel = const <MapPropertyFeature>[];
       _activeIndependentHouseIndex = 0;
+      _selectedIndependentHouseHighlightPolygons = const <Polygon>{};
     });
 
     // Cancel any in-flight media fetch.
@@ -687,6 +718,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
     _independentHouseCarouselController?.dispose();
     _independentHouseCarouselController = null;
+
+    // Update marker badge colors back to default.
+    unawaited(_refreshMarkerSelectionStyles());
   }
 
   void _closeAnyPanel() {
@@ -717,6 +751,52 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
           fillColor: _selectedPlotFill.withOpacity(_selectedPlotFillOpacity),
           consumeTapEvents: false,
           zIndex: _selectedPlotZIndex,
+        ),
+      );
+    }
+
+    return Set<Polygon>.unmodifiable(next);
+  }
+
+  Set<Polygon> _buildSelectedIndependentHouseHighlightPolygons(
+    MapPropertyFeature feature, {
+    Map<String, MapPropertyFeature>? viewportPropertyByFeatureId,
+  }) {
+    if (feature.propertyType.trim() != 'IndependentHouse') {
+      return const <Polygon>{};
+    }
+
+    final featureId = feature.featureId.trim();
+    final lookup = viewportPropertyByFeatureId ?? _propertyByFeatureId;
+    final source =
+        featureId.isNotEmpty ? (lookup[featureId] ?? feature) : feature;
+
+    final polygons = GeoJson.tryParsePolygons(source.boundaryGeoJson);
+    if (polygons.isEmpty) return const <Polygon>{};
+
+    final zoom = _effectiveZoom ?? _lastCameraPosition.zoom;
+    final baseStrokeWidth =
+        _adjustStrokeWidthForZoom(zoom, _propertyBaseStrokeWidth);
+    final strokeWidth =
+        baseStrokeWidth + _selectedIndependentHouseStrokeWidthBump;
+    final fillOpacity =
+        _adjustFillOpacityForZoom(zoom, _selectedIndependentHouseFillOpacity);
+
+    final id = source.featureId.trim();
+    final next = <Polygon>{};
+    for (var i = 0; i < polygons.length; i++) {
+      final points = polygons[i];
+      if (points.length < 3) continue;
+      next.add(
+        Polygon(
+          polygonId: PolygonId('prop-selected:IndependentHouse:$id:$i'),
+          points: points,
+          strokeWidth: strokeWidth,
+          strokeColor: _selectedIndependentHouseStroke
+              .withOpacity(_selectedIndependentHouseStrokeOpacity),
+          fillColor: _selectedIndependentHouseFill.withOpacity(fillOpacity),
+          consumeTapEvents: false,
+          zIndex: _selectedIndependentHouseZIndex,
         ),
       );
     }
@@ -883,6 +963,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       final center = feature.centerPoint;
       if (center == null) continue;
 
+      final selected = _selectedProperty;
+      final isSelected = selected != null &&
+          selected.propertyType.trim() == feature.propertyType.trim() &&
+          selected.featureId.trim() == feature.featureId.trim();
+
       final rawName = feature.name.trim();
       final title = rawName.isEmpty
           ? (feature.propertyType.trim().isEmpty
@@ -960,7 +1045,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         anchor = const Offset(0.5, 0.5);
         zIndex = 140;
       } else if (priceBadgeLabel != null) {
-        final colors = _priceBadgeColorsForPropertyType(feature.propertyType);
+        final colors = isSelected
+            ? const _PriceBadgeColors(
+                background: _selectedPriceBadgeBackground,
+                stroke: _selectedPriceBadgeStroke,
+                text: _selectedPriceBadgeText,
+              )
+            : _priceBadgeColorsForPropertyType(feature.propertyType);
         icon = await _iconFactory.getPriceBadgeIcon(
           label: priceBadgeLabel,
           zoom: zoom,
@@ -1594,6 +1685,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
             polygons: {
               ..._layoutPolygons,
               ..._propertyPolygons,
+              ..._selectedIndependentHouseHighlightPolygons,
               ..._plotPolygons,
               ..._selectedPlotHighlightPolygons,
               ..._amenityPolygons,
