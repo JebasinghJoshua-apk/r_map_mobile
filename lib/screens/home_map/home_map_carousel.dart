@@ -188,7 +188,7 @@ extension _HomeMapCarousel on _HomeMapScreenState {
         imageUrls: _selectedPropertyMediaUrls,
         isLoadingImages: _isSelectedPropertyMediaLoading,
         imagesError: _selectedPropertyMediaError,
-        outerPadding: const EdgeInsets.fromLTRB(6, 0, 6, 12),
+        outerPadding: const EdgeInsets.fromLTRB(4, 0, 6, 8),
         onOpenDetails: () => _openPropertyDetails(_selectedProperty!),
         onClose: _closePropertyPanel,
       );
@@ -206,7 +206,7 @@ extension _HomeMapCarousel on _HomeMapScreenState {
         imageUrls: cached?.urls,
         isLoadingImages: cached?.isLoading ?? false,
         imagesError: cached?.error,
-        outerPadding: const EdgeInsets.fromLTRB(6, 0, 6, 12),
+        outerPadding: const EdgeInsets.fromLTRB(4, 0, 6, 8),
         onOpenDetails: () => _openPropertyDetails(feature),
         onClose: _closePropertyPanel,
       );
@@ -294,7 +294,7 @@ extension _HomeMapCarousel on _HomeMapScreenState {
             imageUrls: cached?.urls,
             isLoadingImages: cached?.isLoading ?? false,
             imagesError: cached?.error,
-            outerPadding: const EdgeInsets.fromLTRB(6, 0, 6, 12),
+            outerPadding: const EdgeInsets.fromLTRB(4, 0, 6, 8),
             onOpenDetails: () => _openPropertyDetails(feature),
             onClose: _closePropertyPanel,
           );

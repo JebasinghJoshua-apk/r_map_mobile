@@ -405,7 +405,7 @@ class PropertyDetailsPanel extends StatelessWidget {
                           final isNarrow = constraints.maxWidth < 340;
 
                           return Padding(
-                            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+                            padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
                             child: isNarrow
                                 ? Column(
                                     mainAxisSize: MainAxisSize.min,
@@ -413,7 +413,7 @@ class PropertyDetailsPanel extends StatelessWidget {
                                         CrossAxisAlignment.start,
                                     children: [
                                       imagePanel(16 / 9),
-                                      const SizedBox(height: 10),
+                                      const SizedBox(height: 8),
                                       detailsPanel(),
                                     ],
                                   )
@@ -422,7 +422,7 @@ class PropertyDetailsPanel extends StatelessWidget {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Expanded(child: imagePanel(4 / 3)),
-                                      const SizedBox(width: 12),
+                                      const SizedBox(width: 10),
                                       Expanded(child: detailsPanel()),
                                     ],
                                   ),
