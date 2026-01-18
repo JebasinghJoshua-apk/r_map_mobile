@@ -119,8 +119,16 @@ const Color _selectedIndependentHouseFill = Color(0xFF60A5FA);
 const double _selectedIndependentHouseStrokeOpacity = 1.0;
 // Base value; final opacity is adjusted by zoom using `_adjustFillOpacityForZoom`.
 const double _selectedIndependentHouseFillOpacity = 0.18;
-const int _selectedIndependentHouseStrokeWidthBump = 2;
+const int _selectedIndependentHouseStrokeWidthBump = 1;
 const int _selectedIndependentHouseZIndex = 999998;
+
+// "Glow" stroke behind the selected independent house outline.
+// (Google Maps polygons don't support blur, so we emulate glow with a second,
+// wider, semi-transparent stroke below the main stroke.)
+const Color _selectedIndependentHouseGlowStroke = Color(0xFF93C5FD);
+const double _selectedIndependentHouseGlowStrokeOpacity = 0.55;
+const int _selectedIndependentHouseGlowStrokeWidthExtra = 3;
+const int _selectedIndependentHouseGlowZIndex = 999997;
 
 // Camera behavior when selecting a plot.
 const double _selectedPlotMaxFocusZoom = 20.5;
@@ -602,6 +610,7 @@ class _HomeMapIconFactory {
     required Color background,
     required Color stroke,
     required Color text,
+    bool emphasize = false,
   }) async {
     final fontSize = zoom >= 18.2
         ? 14.0
@@ -629,6 +638,7 @@ class _HomeMapIconFactory {
       background.value.toRadixString(16),
       stroke.value.toRadixString(16),
       text.value.toRadixString(16),
+      emphasize ? '1' : '0',
     ].join('|');
 
     final cached = _badgeIconCache.remove(cacheKey);
@@ -657,7 +667,13 @@ class _HomeMapIconFactory {
       ..quadraticBezierTo(0, 0, radius, 0)
       ..close();
 
+    // Default subtle shadow.
     canvas.drawShadow(bubblePath, _badgeShadowColor, 4.0, true);
+    // Selected badge: add a slightly stronger, bluish glow.
+    if (emphasize) {
+      const glow = Color(0x802563EB);
+      canvas.drawShadow(bubblePath, glow, 7.0, true);
+    }
 
     final fillPaint = ui.Paint()
       ..style = ui.PaintingStyle.fill
@@ -666,6 +682,14 @@ class _HomeMapIconFactory {
       ..style = ui.PaintingStyle.stroke
       ..strokeWidth = borderWidth
       ..color = stroke;
+
+    if (emphasize) {
+      final glowStrokePaint = ui.Paint()
+        ..style = ui.PaintingStyle.stroke
+        ..strokeWidth = borderWidth + 1.8
+        ..color = const Color(0xFF93C5FD).withOpacity(0.85);
+      canvas.drawPath(bubblePath, glowStrokePaint);
+    }
 
     canvas.drawPath(bubblePath, fillPaint);
     canvas.drawPath(bubblePath, strokePaint);

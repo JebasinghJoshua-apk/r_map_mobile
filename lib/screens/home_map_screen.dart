@@ -779,6 +779,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         _adjustStrokeWidthForZoom(zoom, _propertyBaseStrokeWidth);
     final strokeWidth =
         baseStrokeWidth + _selectedIndependentHouseStrokeWidthBump;
+    final glowStrokeWidth =
+        strokeWidth + _selectedIndependentHouseGlowStrokeWidthExtra;
     final fillOpacity =
         _adjustFillOpacityForZoom(zoom, _selectedIndependentHouseFillOpacity);
 
@@ -787,6 +789,21 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     for (var i = 0; i < polygons.length; i++) {
       final points = polygons[i];
       if (points.length < 3) continue;
+
+      // Glow/outline beneath the main highlight.
+      next.add(
+        Polygon(
+          polygonId: PolygonId('prop-selected-glow:IndependentHouse:$id:$i'),
+          points: points,
+          strokeWidth: glowStrokeWidth,
+          strokeColor: _selectedIndependentHouseGlowStroke
+              .withOpacity(_selectedIndependentHouseGlowStrokeOpacity),
+          fillColor: Colors.transparent,
+          consumeTapEvents: false,
+          zIndex: _selectedIndependentHouseGlowZIndex,
+        ),
+      );
+
       next.add(
         Polygon(
           polygonId: PolygonId('prop-selected:IndependentHouse:$id:$i'),
@@ -1059,6 +1076,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
           background: colors.background,
           stroke: colors.stroke,
           text: colors.text,
+          emphasize: isSelected,
         );
         anchor = const Offset(0.5, 1.0);
         zIndex = 200;
