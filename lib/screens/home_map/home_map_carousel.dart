@@ -140,6 +140,9 @@ extension _HomeMapCarousel on _HomeMapScreenState {
   }) async {
     _closePlotPanel();
 
+    // Save the pre-tap camera so closing the panel can restore it.
+    await _captureCameraBeforePropertyFocus();
+
     _updateState(() {
       _selectedProperty = feature;
       _selectedPropertyHighlightPolygons =

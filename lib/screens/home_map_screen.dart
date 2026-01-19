@@ -71,6 +71,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   late final MobileBffMapApi _mapApi;
   late final MobileBffPlotsApi _plotsApi;
 
+  // Camera restore behavior for property selection:
+  // If a property tap zooms the map + opens the bottom panel, and the user does
+  // not manually move/zoom the map afterwards, closing the panel restores the
+  // previous camera position.
+  CameraPosition? _cameraBeforePropertyFocus;
+  bool _userMovedCameraSincePropertyFocus = false;
+  bool _isProgrammaticCameraMove = false;
+
   final _HomeMapIconFactory _iconFactory = _HomeMapIconFactory();
 
   final Connectivity _connectivity = Connectivity();
@@ -330,7 +338,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
   Future<void> _moveCameraTo(LatLng target, String label, double zoom) async {
     if (_mapController == null) return;
-    await _mapController!.animateCamera(
+    await _animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(target: target, zoom: zoom),
       ),
@@ -348,6 +356,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   void _onCameraIdle() {
     if (_mapController == null) return;
 
+    // Camera movement finished; treat subsequent gestures as user-driven.
+    _isProgrammaticCameraMove = false;
+
     _viewportDebounceTimer?.cancel();
     _viewportDebounceTimer = Timer(const Duration(milliseconds: 350), () async {
       await _fetchViewport();
@@ -356,6 +367,49 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     if (_selectedProperty?.propertyType.trim() == 'IndependentHouse') {
       _scheduleIndependentHouseCarouselRefresh();
     }
+  }
+
+  void _onCameraMoveStarted() {
+    // `onCameraMoveStarted` fires for both programmatic and user-gesture moves.
+    // We only care about detecting manual camera changes after a property tap.
+    if (_isProgrammaticCameraMove) return;
+    if (_selectedProperty == null) return;
+    if (_cameraBeforePropertyFocus == null) return;
+    _userMovedCameraSincePropertyFocus = true;
+  }
+
+  Future<void> _captureCameraBeforePropertyFocus() async {
+    final controller = _mapController;
+    final base = _lastCameraPosition;
+
+    double zoom;
+    try {
+      zoom = controller == null ? base.zoom : await controller.getZoomLevel();
+    } catch (_) {
+      zoom = base.zoom;
+    }
+
+    _cameraBeforePropertyFocus = CameraPosition(
+      target: base.target,
+      zoom: zoom,
+      bearing: base.bearing,
+      tilt: base.tilt,
+    );
+    _userMovedCameraSincePropertyFocus = false;
+  }
+
+  Future<void> _animateCamera(CameraUpdate update) async {
+    final controller = _mapController;
+    if (controller == null) return;
+    _isProgrammaticCameraMove = true;
+    await controller.animateCamera(update);
+  }
+
+  Future<void> _moveCamera(CameraUpdate update) async {
+    final controller = _mapController;
+    if (controller == null) return;
+    _isProgrammaticCameraMove = true;
+    await controller.moveCamera(update);
   }
 
   MapViewportResponse _applyClientFilters(MapViewportResponse response) {
@@ -700,6 +754,21 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   void _closePropertyPanel() {
     if (!mounted) return;
     if (_selectedProperty == null) return;
+
+    final shouldRestoreCamera = _cameraBeforePropertyFocus != null &&
+        !_userMovedCameraSincePropertyFocus;
+    final restoreCameraPosition =
+        shouldRestoreCamera ? _cameraBeforePropertyFocus : null;
+
+    assert(() {
+      debugPrint(
+        'HomeMap: closePropertyPanel restore=$shouldRestoreCamera '
+        'hadBefore=${_cameraBeforePropertyFocus != null} '
+        'userMoved=$_userMovedCameraSincePropertyFocus',
+      );
+      return true;
+    }());
+
     setState(() {
       _selectedProperty = null;
       _selectedPropertyMediaUrls = null;
@@ -708,6 +777,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       _independentHousesCarousel = const <MapPropertyFeature>[];
       _activeIndependentHouseIndex = 0;
       _selectedPropertyHighlightPolygons = const <Polygon>{};
+
+      // Reset restore tracking.
+      _cameraBeforePropertyFocus = null;
+      _userMovedCameraSincePropertyFocus = false;
     });
 
     // Cancel any in-flight media fetch.
@@ -721,6 +794,18 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
     // Update marker badge colors back to default.
     unawaited(_refreshMarkerSelectionStyles());
+
+    if (restoreCameraPosition != null && _mapController != null) {
+      // Defer until after rebuild so the map is ready to animate.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _mapController == null) return;
+        unawaited(
+          _moveCamera(
+            CameraUpdate.newCameraPosition(restoreCameraPosition),
+          ),
+        );
+      });
+    }
   }
 
   void _closeAnyPanel() {
@@ -734,6 +819,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     required double zoom,
   }) async {
     _closePlotPanel();
+
+    // Save the pre-tap camera so closing the panel can restore it.
+    await _captureCameraBeforePropertyFocus();
 
     _updateState(() {
       _selectedProperty = feature;
@@ -1185,7 +1273,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     final controller = _mapController;
     if (controller == null) return;
 
-    await controller.animateCamera(
+    await _animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(target: target, zoom: zoom),
       ),
@@ -1714,6 +1802,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
             initialCameraPosition: _initialCameraPosition,
             onMapCreated: _onMapCreated,
             onTap: (_) => _closeAnyPanel(),
+            onCameraMoveStarted: _onCameraMoveStarted,
             onCameraMove: (position) {
               _lastCameraPosition = position;
               if (_effectiveZoom == null ||
