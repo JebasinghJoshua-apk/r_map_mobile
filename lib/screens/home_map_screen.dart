@@ -112,7 +112,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   Set<Polygon> _propertyPolygons = <Polygon>{};
   Set<Polygon> _plotPolygons = <Polygon>{};
   Set<Polygon> _selectedPlotHighlightPolygons = <Polygon>{};
-  Set<Polygon> _selectedIndependentHouseHighlightPolygons = <Polygon>{};
+  Set<Polygon> _selectedPropertyHighlightPolygons = <Polygon>{};
   Set<Polygon> _amenityPolygons = <Polygon>{};
   Set<Polygon> _roadPolygons = <Polygon>{};
   Set<Polyline> _roadPolylines = <Polyline>{};
@@ -707,7 +707,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       _selectedPropertyMediaError = null;
       _independentHousesCarousel = const <MapPropertyFeature>[];
       _activeIndependentHouseIndex = 0;
-      _selectedIndependentHouseHighlightPolygons = const <Polygon>{};
+      _selectedPropertyHighlightPolygons = const <Polygon>{};
     });
 
     // Cancel any in-flight media fetch.
@@ -726,6 +726,34 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   void _closeAnyPanel() {
     _closePlotPanel();
     _closePropertyPanel();
+  }
+
+  Future<void> _handlePropertyTapped(
+    MapPropertyFeature feature, {
+    required LatLng target,
+    required double zoom,
+  }) async {
+    _closePlotPanel();
+
+    _updateState(() {
+      _selectedProperty = feature;
+      _selectedPropertyHighlightPolygons =
+          _buildSelectedPropertyHighlightPolygons(feature);
+
+      // Only IndependentHouse uses the special carousel panel.
+      if (feature.propertyType.trim() != 'IndependentHouse') {
+        _independentHousesCarousel = const <MapPropertyFeature>[];
+        _activeIndependentHouseIndex = 0;
+        _independentHouseCarouselDebounce?.cancel();
+        _independentHouseCarouselRequestSeq++;
+        _independentHouseCarouselController?.dispose();
+        _independentHouseCarouselController = null;
+      }
+    });
+
+    unawaited(_refreshMarkerSelectionStyles());
+    _ensurePropertyMediaLoaded(feature);
+    await _focusPropertyOnMap(target: target, zoom: zoom);
   }
 
   Set<Polygon> _buildSelectedPlotHighlightPolygons(MapPlotFeature plot) {
@@ -758,11 +786,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     return Set<Polygon>.unmodifiable(next);
   }
 
-  Set<Polygon> _buildSelectedIndependentHouseHighlightPolygons(
+  Set<Polygon> _buildSelectedPropertyHighlightPolygons(
     MapPropertyFeature feature, {
     Map<String, MapPropertyFeature>? viewportPropertyByFeatureId,
   }) {
-    if (feature.propertyType.trim() != 'IndependentHouse') {
+    final type = feature.propertyType.trim();
+    if (type.isEmpty || type == 'Layout') {
       return const <Polygon>{};
     }
 
@@ -793,7 +822,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       // Glow/outline beneath the main highlight.
       next.add(
         Polygon(
-          polygonId: PolygonId('prop-selected-glow:IndependentHouse:$id:$i'),
+          polygonId: PolygonId('prop-selected-glow:$type:$id:$i'),
           points: points,
           strokeWidth: glowStrokeWidth,
           strokeColor: _selectedIndependentHouseGlowStroke
@@ -806,7 +835,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
       next.add(
         Polygon(
-          polygonId: PolygonId('prop-selected:IndependentHouse:$id:$i'),
+          polygonId: PolygonId('prop-selected:$type:$id:$i'),
           points: points,
           strokeWidth: strokeWidth,
           strokeColor: _selectedIndependentHouseStroke
@@ -1027,6 +1056,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
             : _priceBadgeFocusZoomTarget(feature.propertyType);
       }
 
+      if (!isLayout && focusZoom == null) {
+        focusCenter = center;
+        focusZoom = _priceBadgeFocusZoomTarget(feature.propertyType);
+      }
+
       final shouldShowLayoutBadge = isLayout && zoom <= _layoutBadgeMaxZoom;
       final layoutLocation = shouldShowLayoutBadge
           ? _getMetadataValue(
@@ -1095,12 +1129,17 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                     target: focusCenter ?? center,
                     zoom: focusZoom ?? 20.0,
                   )
-              : (!isLayout && priceBadgeLabel == null)
-                  ? null
-                  : () => _focusPropertyOnMap(
+              : isLayout
+                  ? () => _focusPropertyOnMap(
                         target: focusCenter ?? center,
-                        zoom: focusZoom ??
-                            (isLayout ? _layoutFocusZoomTarget : 20.0),
+                        zoom: focusZoom ?? _layoutFocusZoomTarget,
+                      )
+                  : () => unawaited(
+                        _handlePropertyTapped(
+                          feature,
+                          target: focusCenter ?? center,
+                          zoom: focusZoom ?? 20.0,
+                        ),
                       ),
           // Disable default Google Maps tooltip/infowindow (web UX doesn't show it).
           infoWindow: InfoWindow.noText,
@@ -1703,7 +1742,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
             polygons: {
               ..._layoutPolygons,
               ..._propertyPolygons,
-              ..._selectedIndependentHouseHighlightPolygons,
+              ..._selectedPropertyHighlightPolygons,
               ..._plotPolygons,
               ..._selectedPlotHighlightPolygons,
               ..._amenityPolygons,
@@ -1876,14 +1915,17 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
               child:
                   _selectedProperty!.propertyType.trim() == 'IndependentHouse'
                       ? _buildIndependentHouseCarouselPanel()
-                      : PropertyDetailsPanel(
-                          feature: _selectedProperty!,
-                          imageUrls: _selectedPropertyMediaUrls,
-                          isLoadingImages: _isSelectedPropertyMediaLoading,
-                          imagesError: _selectedPropertyMediaError,
-                          onOpenDetails: () =>
-                              _openPropertyDetails(_selectedProperty!),
-                          onClose: _closePropertyPanel,
+                      : SizedBox(
+                          height: _propertyCarouselHeight(context),
+                          child: PropertyDetailsPanel(
+                            feature: _selectedProperty!,
+                            imageUrls: _selectedPropertyMediaUrls,
+                            isLoadingImages: _isSelectedPropertyMediaLoading,
+                            imagesError: _selectedPropertyMediaError,
+                            onOpenDetails: () =>
+                                _openPropertyDetails(_selectedProperty!),
+                            onClose: _closePropertyPanel,
+                          ),
                         ),
             ),
         ],

@@ -142,8 +142,8 @@ extension _HomeMapCarousel on _HomeMapScreenState {
 
     _updateState(() {
       _selectedProperty = feature;
-      _selectedIndependentHouseHighlightPolygons =
-          _buildSelectedIndependentHouseHighlightPolygons(feature);
+      _selectedPropertyHighlightPolygons =
+          _buildSelectedPropertyHighlightPolygons(feature);
     });
 
     unawaited(_refreshMarkerSelectionStyles());
@@ -172,8 +172,8 @@ extension _HomeMapCarousel on _HomeMapScreenState {
   double _propertyCarouselHeight(BuildContext context) {
     final h = MediaQuery.of(context).size.height;
     // Keep it compact so the map remains usable.
-    final target = h * 0.28;
-    return target.clamp(210.0, 280.0);
+    final target = h * 0.36;
+    return target.clamp(270.0, 380.0);
   }
 
   Widget _buildIndependentHouseCarouselPanel() {
@@ -242,8 +242,8 @@ extension _HomeMapCarousel on _HomeMapScreenState {
           _updateState(() {
             _activeIndependentHouseIndex = itemIndex;
             _selectedProperty = next;
-            _selectedIndependentHouseHighlightPolygons =
-                _buildSelectedIndependentHouseHighlightPolygons(next);
+            _selectedPropertyHighlightPolygons =
+                _buildSelectedPropertyHighlightPolygons(next);
           });
 
           unawaited(_refreshMarkerSelectionStyles());

@@ -80,13 +80,12 @@ extension _HomeMapViewport on _HomeMapScreenState {
     final cached = _tryGetCachedViewport(signature);
     if (cached != null) {
       final selected = _selectedProperty;
-      final nextSelectedHouseHighlight = (selected != null &&
-              selected.propertyType.trim() == 'IndependentHouse')
-          ? _buildSelectedIndependentHouseHighlightPolygons(
+      final nextSelectedHighlight = selected == null
+          ? const <Polygon>{}
+          : _buildSelectedPropertyHighlightPolygons(
               selected,
               viewportPropertyByFeatureId: cached.propertyByFeatureId,
-            )
-          : const <Polygon>{};
+            );
 
       _updateState(() {
         _viewportMarkers = cached.markers;
@@ -101,7 +100,7 @@ extension _HomeMapViewport on _HomeMapScreenState {
         _roadPolylines = cached.roadPolylines;
         _ownedLayoutIds = cached.ownedLayoutIds;
         _propertyByFeatureId = cached.propertyByFeatureId;
-        _selectedIndependentHouseHighlightPolygons = nextSelectedHouseHighlight;
+        _selectedPropertyHighlightPolygons = nextSelectedHighlight;
       });
       return;
     }
@@ -156,13 +155,12 @@ extension _HomeMapViewport on _HomeMapScreenState {
       _putCachedViewport(signature, merged);
 
       final selected = _selectedProperty;
-      final nextSelectedHouseHighlight = (selected != null &&
-              selected.propertyType.trim() == 'IndependentHouse')
-          ? _buildSelectedIndependentHouseHighlightPolygons(
+      final nextSelectedHighlight = selected == null
+          ? const <Polygon>{}
+          : _buildSelectedPropertyHighlightPolygons(
               selected,
               viewportPropertyByFeatureId: merged.propertyByFeatureId,
-            )
-          : const <Polygon>{};
+            );
 
       _updateState(() {
         _viewportMarkers = merged.markers;
@@ -177,7 +175,7 @@ extension _HomeMapViewport on _HomeMapScreenState {
         _roadPolylines = merged.roadPolylines;
         _ownedLayoutIds = merged.ownedLayoutIds;
         _propertyByFeatureId = merged.propertyByFeatureId;
-        _selectedIndependentHouseHighlightPolygons = nextSelectedHouseHighlight;
+        _selectedPropertyHighlightPolygons = nextSelectedHighlight;
       });
 
       if (_selectedProperty?.propertyType.trim() == 'IndependentHouse') {

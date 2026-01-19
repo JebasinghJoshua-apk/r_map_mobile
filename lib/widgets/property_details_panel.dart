@@ -412,7 +412,9 @@ class PropertyDetailsPanel extends StatelessWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      imagePanel(16 / 9),
+                                      // Slightly taller than 16:9 to give the panel
+                                      // more presence without adding extra padding.
+                                      imagePanel(3 / 2),
                                       const SizedBox(height: 8),
                                       detailsPanel(),
                                     ],
@@ -421,7 +423,8 @@ class PropertyDetailsPanel extends StatelessWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Expanded(child: imagePanel(4 / 3)),
+                                      // Make the side thumbnail a bit taller.
+                                      Expanded(child: imagePanel(5 / 4)),
                                       const SizedBox(width: 10),
                                       Expanded(child: detailsPanel()),
                                     ],
