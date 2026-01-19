@@ -1995,17 +1995,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
               child:
                   _selectedProperty!.propertyType.trim() == 'IndependentHouse'
                       ? _buildIndependentHouseCarouselPanel()
-                      : SizedBox(
-                          height: _propertyCarouselHeight(context),
-                          child: PropertyDetailsPanel(
-                            feature: _selectedProperty!,
-                            imageUrls: _selectedPropertyMediaUrls,
-                            isLoadingImages: _isSelectedPropertyMediaLoading,
-                            imagesError: _selectedPropertyMediaError,
-                            onOpenDetails: () =>
-                                _openPropertyDetails(_selectedProperty!),
-                            onClose: _closePropertyPanel,
-                          ),
+                      : PropertyDetailsPanel(
+                          feature: _selectedProperty!,
+                          imageUrls: _selectedPropertyMediaUrls,
+                          isLoadingImages: _isSelectedPropertyMediaLoading,
+                          imagesError: _selectedPropertyMediaError,
+                          onOpenDetails: () =>
+                              _openPropertyDetails(_selectedProperty!),
+                          onClose: _closePropertyPanel,
                         ),
             ),
         ],

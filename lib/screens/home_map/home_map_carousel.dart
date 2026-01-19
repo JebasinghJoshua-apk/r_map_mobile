@@ -174,9 +174,10 @@ extension _HomeMapCarousel on _HomeMapScreenState {
 
   double _propertyCarouselHeight(BuildContext context) {
     final h = MediaQuery.of(context).size.height;
-    // Keep it compact so the map remains usable.
-    final target = h * 0.36;
-    return target.clamp(270.0, 380.0);
+    // Keep it compact so the map remains usable and markers above the card
+    // remain tappable.
+    final target = h * 0.24;
+    return target.clamp(190.0, 250.0);
   }
 
   Widget _buildIndependentHouseCarouselPanel() {
