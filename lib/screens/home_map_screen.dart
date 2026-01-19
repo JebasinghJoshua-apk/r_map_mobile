@@ -760,15 +760,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     final restoreCameraPosition =
         shouldRestoreCamera ? _cameraBeforePropertyFocus : null;
 
-    assert(() {
-      debugPrint(
-        'HomeMap: closePropertyPanel restore=$shouldRestoreCamera '
-        'hadBefore=${_cameraBeforePropertyFocus != null} '
-        'userMoved=$_userMovedCameraSincePropertyFocus',
-      );
-      return true;
-    }());
-
     setState(() {
       _selectedProperty = null;
       _selectedPropertyMediaUrls = null;
