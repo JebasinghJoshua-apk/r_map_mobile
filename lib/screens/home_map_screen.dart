@@ -888,7 +888,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         _adjustStrokeWidthForZoom(zoom, _propertyBaseStrokeWidth);
     final strokeWidth = baseStrokeWidth + _selectedPropertyStrokeWidthBump;
     final outlineStrokeWidth =
-      strokeWidth + _selectedPropertyOutlineStrokeWidthExtra;
+        strokeWidth + _selectedPropertyOutlineStrokeWidthExtra;
     final fillOpacity = _adjustFillOpacityForZoom(
       zoom,
       (_propertyBaseFillOpacity + _selectedPropertyFillOpacityBump),
