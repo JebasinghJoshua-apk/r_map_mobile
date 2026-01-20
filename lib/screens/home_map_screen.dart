@@ -883,14 +883,16 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     if (polygons.isEmpty) return const <Polygon>{};
 
     final zoom = _effectiveZoom ?? _lastCameraPosition.zoom;
+    final style = _propertyStyleForType(type);
     final baseStrokeWidth =
         _adjustStrokeWidthForZoom(zoom, _propertyBaseStrokeWidth);
-    final strokeWidth =
-        baseStrokeWidth + _selectedIndependentHouseStrokeWidthBump;
-    final glowStrokeWidth =
-        strokeWidth + _selectedIndependentHouseGlowStrokeWidthExtra;
-    final fillOpacity =
-        _adjustFillOpacityForZoom(zoom, _selectedIndependentHouseFillOpacity);
+    final strokeWidth = baseStrokeWidth + _selectedPropertyStrokeWidthBump;
+    final outlineStrokeWidth =
+      strokeWidth + _selectedPropertyOutlineStrokeWidthExtra;
+    final fillOpacity = _adjustFillOpacityForZoom(
+      zoom,
+      (_propertyBaseFillOpacity + _selectedPropertyFillOpacityBump),
+    );
 
     final id = source.featureId.trim();
     final next = <Polygon>{};
@@ -903,12 +905,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         Polygon(
           polygonId: PolygonId('prop-selected-glow:$type:$id:$i'),
           points: points,
-          strokeWidth: glowStrokeWidth,
-          strokeColor: _selectedIndependentHouseGlowStroke
-              .withOpacity(_selectedIndependentHouseGlowStrokeOpacity),
+          strokeWidth: outlineStrokeWidth,
+          strokeColor: _selectedPropertyOutlineStroke
+              .withOpacity(_selectedPropertyOutlineOpacity),
           fillColor: Colors.transparent,
           consumeTapEvents: false,
-          zIndex: _selectedIndependentHouseGlowZIndex,
+          zIndex: _selectedPropertyOutlineZIndex,
         ),
       );
 
@@ -917,11 +919,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
           polygonId: PolygonId('prop-selected:$type:$id:$i'),
           points: points,
           strokeWidth: strokeWidth,
-          strokeColor: _selectedIndependentHouseStroke
-              .withOpacity(_selectedIndependentHouseStrokeOpacity),
-          fillColor: _selectedIndependentHouseFill.withOpacity(fillOpacity),
+          strokeColor: style.stroke.withOpacity(_selectedPropertyStrokeOpacity),
+          fillColor: style.fill.withOpacity(fillOpacity),
           consumeTapEvents: false,
-          zIndex: _selectedIndependentHouseZIndex,
+          zIndex: _selectedPropertyZIndex,
         ),
       );
     }
@@ -1175,13 +1176,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         anchor = const Offset(0.5, 0.5);
         zIndex = 140;
       } else if (priceBadgeLabel != null) {
-        final colors = isSelected
-            ? const _PriceBadgeColors(
-                background: _selectedPriceBadgeBackground,
-                stroke: _selectedPriceBadgeStroke,
-                text: _selectedPriceBadgeText,
-              )
-            : _priceBadgeColorsForPropertyType(feature.propertyType);
+        final colors = _priceBadgeColorsForPropertyType(feature.propertyType);
         icon = await _iconFactory.getPriceBadgeIcon(
           label: priceBadgeLabel,
           zoom: zoom,

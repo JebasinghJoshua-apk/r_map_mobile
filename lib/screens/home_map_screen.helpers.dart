@@ -66,9 +66,6 @@ const Color _priceBadgePlotText = Color(0xFFF8FAFC);
 
 // Selected badge marker (mobile-only): used when a property is actively selected
 // (e.g. independent house via bottom carousel) so its badge stands out.
-const Color _selectedPriceBadgeBackground = Color(0xFF2563EB);
-const Color _selectedPriceBadgeStroke = Color(0xFFEFF6FF);
-const Color _selectedPriceBadgeText = Color(0xFFFFFFFF);
 
 const Color _layoutBadgeBackground = Color(0xFF3730A3);
 const Color _layoutBadgeStroke = Color(0xFFEEF2FF);
@@ -112,23 +109,17 @@ const double _selectedPlotFillOpacity = 0.22;
 const int _selectedPlotStrokeWidthBump = 2;
 const int _selectedPlotZIndex = 999999;
 
-// Selected Independent House highlight overlay (mobile-only UX affordance).
-// Keep it clearly distinct from the default Independent House color scheme.
-const Color _selectedIndependentHouseStroke = Color(0xFF2563EB);
-const Color _selectedIndependentHouseFill = Color(0xFF60A5FA);
-const double _selectedIndependentHouseStrokeOpacity = 1.0;
-// Base value; final opacity is adjusted by zoom using `_adjustFillOpacityForZoom`.
-const double _selectedIndependentHouseFillOpacity = 0.18;
-const int _selectedIndependentHouseStrokeWidthBump = 1;
-const int _selectedIndependentHouseZIndex = 999998;
-
-// "Glow" stroke behind the selected independent house outline.
-// (Google Maps polygons don't support blur, so we emulate glow with a second,
-// wider, semi-transparent stroke below the main stroke.)
-const Color _selectedIndependentHouseGlowStroke = Color(0xFF93C5FD);
-const double _selectedIndependentHouseGlowStrokeOpacity = 0.55;
-const int _selectedIndependentHouseGlowStrokeWidthExtra = 3;
-const int _selectedIndependentHouseGlowZIndex = 999997;
+// Selected property highlight overlay (mobile-only UX affordance).
+// Keep the same color as the property type, but increase stroke width and add
+// a white outline so the selection is obvious without changing the palette.
+const Color _selectedPropertyOutlineStroke = Color(0xFFFFFFFF);
+const double _selectedPropertyOutlineOpacity = 0.95;
+const double _selectedPropertyStrokeOpacity = 1.0;
+const double _selectedPropertyFillOpacityBump = 0.06;
+const int _selectedPropertyStrokeWidthBump = 2;
+const int _selectedPropertyOutlineStrokeWidthExtra = 3;
+const int _selectedPropertyZIndex = 999998;
+const int _selectedPropertyOutlineZIndex = 999997;
 
 // Camera behavior when selecting a plot.
 const double _selectedPlotMaxFocusZoom = 20.5;
@@ -612,23 +603,26 @@ class _HomeMapIconFactory {
     required Color text,
     bool emphasize = false,
   }) async {
-    final fontSize = zoom >= 18.2
-        ? 14.0
-        : zoom >= 17.0
-            ? 12.0
-            : 10.0;
+    final scale = emphasize ? 1.18 : 1.0;
+
+    final fontSize = (zoom >= 18.2
+            ? 14.0
+            : zoom >= 17.0
+                ? 12.0
+                : 10.0) *
+        scale;
     final charWidth = fontSize * 0.52;
-    final paddingX = math.max(8.0, fontSize * 0.6);
+    final paddingX = math.max(8.0 * scale, fontSize * 0.6);
     final minWidth = (fontSize * 2.6).ceilToDouble();
     final badgeWidth =
         math.max(minWidth, label.length * charWidth + paddingX * 2);
-    final paddingY = math.max(4.0, fontSize * 0.35);
+    final paddingY = math.max(4.0 * scale, fontSize * 0.35);
     final badgeHeight = (fontSize + paddingY * 2);
-    const pointerHeight = 6.0;
+    final pointerHeight = 6.0 * scale;
     final totalHeight = badgeHeight + pointerHeight;
-    const radius = 6.0;
-    final triangleHalfWidth = math.max(6.0, fontSize * 0.55);
-    final borderWidth = math.max(0.9, fontSize * 0.1);
+    final radius = 6.0 * scale;
+    final triangleHalfWidth = math.max(6.0 * scale, fontSize * 0.55);
+    final borderWidth = math.max(0.9 * scale, fontSize * 0.1);
 
     final cacheKey = [
       'price',
@@ -669,10 +663,9 @@ class _HomeMapIconFactory {
 
     // Default subtle shadow.
     canvas.drawShadow(bubblePath, _badgeShadowColor, 4.0, true);
-    // Selected badge: add a slightly stronger, bluish glow.
+    // Selected badge: slightly stronger shadow using the same badge color.
     if (emphasize) {
-      const glow = Color(0x802563EB);
-      canvas.drawShadow(bubblePath, glow, 7.0, true);
+      canvas.drawShadow(bubblePath, background.withOpacity(0.55), 7.0, true);
     }
 
     final fillPaint = ui.Paint()
@@ -684,11 +677,11 @@ class _HomeMapIconFactory {
       ..color = stroke;
 
     if (emphasize) {
-      final glowStrokePaint = ui.Paint()
+      final outlinePaint = ui.Paint()
         ..style = ui.PaintingStyle.stroke
-        ..strokeWidth = borderWidth + 1.8
-        ..color = const Color(0xFF93C5FD).withOpacity(0.85);
-      canvas.drawPath(bubblePath, glowStrokePaint);
+        ..strokeWidth = borderWidth + 1.9
+        ..color = const Color(0xFFFFFFFF).withOpacity(0.92);
+      canvas.drawPath(bubblePath, outlinePaint);
     }
 
     canvas.drawPath(bubblePath, fillPaint);
