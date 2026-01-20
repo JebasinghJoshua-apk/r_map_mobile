@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import '../constants/api_constants.dart';
 import '../models/image_summary.dart';
 import '../models/map_viewport_models.dart';
+import '../models/nearby_property_card.dart';
 
 class MobileBffMapApi {
   MobileBffMapApi({http.Client? client}) : _client = client ?? http.Client();
@@ -211,6 +212,69 @@ class MobileBffMapApi {
     throw MapApiException(
       _tryMessage(response.body) ??
           'Property media fetch failed (${response.statusCode})',
+    );
+  }
+
+  Future<List<NearbyPropertyCard>> getNearbyLayouts({
+    required LatLng anchor,
+    int limit = 15,
+    String? bearerToken,
+  }) async {
+    final uri = _uri(
+      '/mobile/properties/nearby',
+      {
+        'lat': anchor.latitude,
+        'lng': anchor.longitude,
+        'propertyType': 'Layout',
+        'limit': limit,
+      },
+    );
+
+    http.Response response;
+    try {
+      final headers = <String, String>{};
+      if (bearerToken != null && bearerToken.trim().isNotEmpty) {
+        final token = bearerToken.toLowerCase().startsWith('bearer ')
+            ? bearerToken.substring('bearer '.length)
+            : bearerToken;
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      response = await _client
+          .get(uri, headers: headers.isEmpty ? null : headers)
+          .timeout(_timeout);
+    } on SocketException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException(
+        'Cannot connect to the server. Please check your network and try again.',
+      );
+    } on HttpException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException('Network error. Please try again.');
+    } on FormatException {
+      throw const MapApiException('Unexpected response from server');
+    } on TimeoutException {
+      throw const MapApiException('Request timed out. Please try again.');
+    }
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List) {
+        throw const MapApiException('Unexpected response from server');
+      }
+
+      return decoded
+          .whereType<Map>()
+          .map((e) => NearbyPropertyCard.fromJson(e.cast<String, dynamic>()))
+          .where((e) => e.id.trim().isNotEmpty)
+          .toList(growable: false);
+    }
+
+    throw MapApiException(
+      _tryMessage(response.body) ??
+          'Nearby layouts fetch failed (${response.statusCode})',
     );
   }
 

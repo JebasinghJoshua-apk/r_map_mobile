@@ -21,6 +21,7 @@ import '../widgets/property_details_panel.dart';
 import '../widgets/search_overlay.dart';
 import '../widgets/toast_message.dart';
 import '../models/map_viewport_models.dart';
+import '../models/nearby_property_card.dart';
 import 'layout_detail_screen.dart';
 import 'property_detail_screen.dart';
 import '../utils/route_observer.dart';
@@ -158,6 +159,344 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       <String, MapPropertyFeature>{};
 
   int _markerStyleSeq = 0;
+
+  LatLng? _nearbyLayoutsAnchor;
+  List<NearbyPropertyCard>? _nearbyLayouts;
+  bool _isNearbyLayoutsLoading = false;
+  String? _nearbyLayoutsError;
+
+  static const Duration _nearbyNewThreshold = Duration(days: 7);
+
+  bool _isNearbyNew(DateTime createdAt) {
+    final now = DateTime.now();
+    return now.difference(createdAt).abs() <= _nearbyNewThreshold;
+  }
+
+  Future<void> _loadNearbyLayouts(LatLng anchor) async {
+    final token = AuthScope.of(context).session?.token;
+    _updateState(() {
+      _isNearbyLayoutsLoading = true;
+      _nearbyLayoutsError = null;
+    });
+
+    try {
+      final results = await _mapApi.getNearbyLayouts(
+        anchor: anchor,
+        limit: 15,
+        bearerToken: token,
+      );
+      if (!mounted) return;
+      _updateState(() {
+        _nearbyLayouts = results;
+      });
+    } on MapApiException catch (ex) {
+      if (!mounted) return;
+      _updateState(() {
+        _nearbyLayoutsError = ex.message;
+        _nearbyLayouts = const <NearbyPropertyCard>[];
+      });
+    } catch (ex) {
+      if (!mounted) return;
+      _updateState(() {
+        _nearbyLayoutsError = 'Failed to load nearby layouts.';
+        _nearbyLayouts = const <NearbyPropertyCard>[];
+      });
+    } finally {
+      if (mounted) {
+        _updateState(() {
+          _isNearbyLayoutsLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _openNearbyLayoutsSheet({required LatLng anchor}) async {
+    _dismissKeyboard();
+    _closeAnyPanel();
+
+    _updateState(() {
+      _nearbyLayoutsAnchor = anchor;
+    });
+
+    await _loadNearbyLayouts(anchor);
+    if (!mounted) return;
+
+    final items = _nearbyLayouts ?? const <NearbyPropertyCard>[];
+    final error = _nearbyLayoutsError;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: DraggableScrollableSheet(
+              expand: false,
+              initialChildSize: 0.5,
+              minChildSize: 0.25,
+              maxChildSize: 0.9,
+              builder: (context, scrollController) {
+                final title = items.isEmpty
+                    ? 'Nearby layouts'
+                    : 'Nearby layouts (${items.length})';
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Refresh',
+                            onPressed: _isNearbyLayoutsLoading
+                                ? null
+                                : () async {
+                                    final current = _nearbyLayoutsAnchor;
+                                    if (current == null) return;
+                                    Navigator.of(context).pop();
+                                    await _openNearbyLayoutsSheet(
+                                        anchor: current);
+                                  },
+                            icon: const Icon(Icons.refresh),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_isNearbyLayoutsLoading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: LinearProgressIndicator(minHeight: 2),
+                      )
+                    else if (error != null && error.trim().isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        child: Text(
+                          error,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    Expanded(
+                      child: items.isEmpty
+                          ? ListView(
+                              controller: scrollController,
+                              children: const [
+                                SizedBox(height: 20),
+                                Center(
+                                  child: Text(
+                                    'No layouts found near this point.',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : ListView.separated(
+                              controller: scrollController,
+                              padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+                              itemCount: items.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 8),
+                              itemBuilder: (context, index) {
+                                final item = items[index];
+                                final isNew = _isNearbyNew(item.createdAt);
+                                final locationMissing = !item.hasLocation;
+
+                                final subtitleParts = <String>[];
+                                final city = item.city.trim();
+                                final addr = item.address.trim();
+                                if (addr.isNotEmpty) subtitleParts.add(addr);
+                                if (city.isNotEmpty &&
+                                    !subtitleParts.contains(city)) {
+                                  subtitleParts.add(city);
+                                }
+                                if (locationMissing) {
+                                  subtitleParts.add('Location not added');
+                                }
+
+                                final subtitle = subtitleParts.join(' • ');
+
+                                return Material(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(12),
+                                    onTap: () async {
+                                      Navigator.of(context).pop();
+                                      final zoom = item.focusZoomLevel ??
+                                          _layoutFocusZoomTarget;
+                                      await _focusPropertyOnMap(
+                                        target: LatLng(
+                                            item.latitude, item.longitude),
+                                        zoom: zoom,
+                                      );
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 12,
+                                      ),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Padding(
+                                            padding: EdgeInsets.only(top: 2),
+                                            child: Icon(
+                                              Icons.map_outlined,
+                                              size: 20,
+                                              color: Color(0xFF0F766E),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(
+                                                        item.name.trim().isEmpty
+                                                            ? 'Layout'
+                                                            : item.name.trim(),
+                                                        style: const TextStyle(
+                                                          fontSize: 16,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          color:
+                                                              Color(0xFF0F766E),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    if (isNew)
+                                                      DecoratedBox(
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: const Color(
+                                                              0xFFDBEAFE),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      999),
+                                                        ),
+                                                        child: const Padding(
+                                                          padding: EdgeInsets
+                                                              .symmetric(
+                                                            horizontal: 10,
+                                                            vertical: 4,
+                                                          ),
+                                                          child: Text(
+                                                            'NEW',
+                                                            style: TextStyle(
+                                                              color: Color(
+                                                                  0xFF1D4ED8),
+                                                              fontSize: 12,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w800,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
+                                                if (subtitle.isNotEmpty)
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                      top: 6,
+                                                    ),
+                                                    child: Text(
+                                                      subtitle,
+                                                      style: TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: locationMissing
+                                                            ? const Color(
+                                                                0xFFDC2626)
+                                                            : const Color(
+                                                                0xFF475569,
+                                                              ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _zoomIn() async {
+    await _animateCamera(CameraUpdate.zoomIn());
+  }
+
+  Future<void> _zoomOut() async {
+    await _animateCamera(CameraUpdate.zoomOut());
+  }
+
+  Widget _mapControlButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    const radius = 8.0;
+    const size = 36.0;
+
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.white,
+        elevation: 4,
+        shadowColor: Colors.black26,
+        borderRadius: BorderRadius.circular(radius),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Icon(
+              icon,
+              size: 18,
+              color: const Color(0xFF1F2937),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   Future<void> _refreshMarkerSelectionStyles() async {
     if (!mounted) return;
@@ -1774,11 +2113,21 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   @override
   Widget build(BuildContext context) {
     final selectedPlot = _selectedPlot;
+    final nearbyAnchor = _nearbyLayoutsAnchor;
     final markers = <Marker>{
       ..._viewportMarkers,
       ..._plotLabelMarkers,
       ..._roadLabelMarkers,
       ..._amenityLabelMarkers,
+      if (nearbyAnchor != null)
+        Marker(
+          markerId: const MarkerId('nearby-anchor'),
+          position: nearbyAnchor,
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueAzure,
+          ),
+          infoWindow: InfoWindow.noText,
+        ),
     };
 
     return Scaffold(
@@ -1828,7 +2177,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
             tiltGesturesEnabled: false,
             compassEnabled: false,
             myLocationButtonEnabled: true,
-            zoomControlsEnabled: true,
+            zoomControlsEnabled: false,
           ),
           Positioned(
             top: 48,
@@ -1855,46 +2204,44 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
           Positioned(
             left: 16,
             bottom: 24,
-            child: FloatingActionButton.small(
-              heroTag: 'satellite-toggle',
-              onPressed: _toggleSatelliteMode,
+            child: _mapControlButton(
+              icon: _mapType == MapType.hybrid
+                  ? Icons.map_outlined
+                  : Icons.satellite_alt_outlined,
               tooltip: _mapType == MapType.hybrid
                   ? 'Switch to map view'
                   : 'Switch to satellite view',
-              child: Icon(
-                _mapType == MapType.hybrid
-                    ? Icons.map_outlined
-                    : Icons.satellite_alt_outlined,
-              ),
+              onPressed: _toggleSatelliteMode,
             ),
           ),
           Positioned(
             right: 16,
             bottom: 24,
-            child: ValueListenableBuilder<double>(
-              valueListenable: _zoomNotifier,
-              builder: (context, zoom, _) {
-                return DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    child: Text(
-                      'Zoom: ${zoom.toStringAsFixed(1)}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                );
-              },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _mapControlButton(
+                  icon: Icons.list_alt_outlined,
+                  tooltip: 'Nearby layouts',
+                  onPressed: () {
+                    final anchor = _lastCameraPosition.target;
+                    unawaited(_openNearbyLayoutsSheet(anchor: anchor));
+                  },
+                ),
+                const SizedBox(height: 10),
+                _mapControlButton(
+                  icon: Icons.add,
+                  tooltip: 'Zoom in',
+                  onPressed: _zoomIn,
+                ),
+                const SizedBox(height: 10),
+                _mapControlButton(
+                  icon: Icons.remove,
+                  tooltip: 'Zoom out',
+                  onPressed: _zoomOut,
+                ),
+              ],
             ),
           ),
           if (_isViewportLoading)
