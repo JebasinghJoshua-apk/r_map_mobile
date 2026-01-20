@@ -2113,21 +2113,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   @override
   Widget build(BuildContext context) {
     final selectedPlot = _selectedPlot;
-    final nearbyAnchor = _nearbyLayoutsAnchor;
     final markers = <Marker>{
       ..._viewportMarkers,
       ..._plotLabelMarkers,
       ..._roadLabelMarkers,
       ..._amenityLabelMarkers,
-      if (nearbyAnchor != null)
-        Marker(
-          markerId: const MarkerId('nearby-anchor'),
-          position: nearbyAnchor,
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueAzure,
-          ),
-          infoWindow: InfoWindow.noText,
-        ),
     };
 
     return Scaffold(
