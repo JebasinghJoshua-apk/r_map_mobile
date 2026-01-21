@@ -153,7 +153,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
             final size = MediaQuery.of(context).size;
             final maxWidth = size.width - 24;
             final dialogWidth = maxWidth < 460 ? maxWidth : 460.0;
-            final dialogHeight = (size.height * 0.7).clamp(340.0, 560.0);
+            final dialogHeight = (size.height * 0.82).clamp(360.0, 680.0);
 
             final sorted = items.toList(growable: false)
               ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
@@ -317,73 +317,69 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                                   Row(
                                                     children: [
                                                       Expanded(
-                                                        child: Text(
-                                                          name,
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                          style:
-                                                              const TextStyle(
-                                                            fontSize: 15,
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                            color: Color(
-                                                                0xFF0F766E),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      if (isNew)
-                                                        DecoratedBox(
-                                                          decoration:
-                                                              BoxDecoration(
-                                                            color: const Color(
-                                                                0xFFECFDF5),
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        999),
-                                                            border: Border.all(
-                                                              color: const Color(
-                                                                  0xFF34D399),
-                                                            ),
-                                                          ),
-                                                          child: const Padding(
-                                                            padding: EdgeInsets
-                                                                .symmetric(
-                                                              horizontal: 10,
-                                                              vertical: 4,
-                                                            ),
-                                                            child: Row(
-                                                              mainAxisSize:
-                                                                  MainAxisSize
-                                                                      .min,
-                                                              children: [
-                                                                Icon(
-                                                                  Icons
-                                                                      .auto_awesome,
-                                                                  size: 14,
+                                                        child: isNew
+                                                            ? Text.rich(
+                                                                TextSpan(
+                                                                  children: [
+                                                                    TextSpan(text: name),
+                                                                    WidgetSpan(
+                                                                      alignment: PlaceholderAlignment.middle,
+                                                                      child: Padding(
+                                                                        padding: const EdgeInsets.only(left: 8),
+                                                                        child: DecoratedBox(
+                                                                          decoration: BoxDecoration(
+                                                                            color: const Color(0xFFECFDF5),
+                                                                            borderRadius: BorderRadius.circular(6),
+                                                                            border: Border.all(
+                                                                              color: const Color(0xFF34D399),
+                                                                            ),
+                                                                          ),
+                                                                          child: const Padding(
+                                                                            padding: EdgeInsets.symmetric(
+                                                                              horizontal: 8,
+                                                                              vertical: 2,
+                                                                            ),
+                                                                            child: Text(
+                                                                              'NEW',
+                                                                              style: TextStyle(
+                                                                                color: Color(0xFF059669),
+                                                                                fontSize: 10,
+                                                                                fontWeight: FontWeight.w800,
+                                                                              ),
+                                                                            ),
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                                maxLines: 1,
+                                                                overflow:
+                                                                    TextOverflow.ellipsis,
+                                                                style:
+                                                                    const TextStyle(
+                                                                  fontSize: 15,
+                                                                  fontWeight:
+                                                                      FontWeight.w700,
                                                                   color: Color(
-                                                                      0xFF059669),
+                                                                      0xFF0F766E),
                                                                 ),
-                                                                SizedBox(
-                                                                    width: 6),
-                                                                Text(
-                                                                  'NEW',
-                                                                  style:
-                                                                      TextStyle(
-                                                                    color: Color(
-                                                                        0xFF059669),
-                                                                    fontSize:
-                                                                        12,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w800,
-                                                                  ),
+                                                              )
+                                                            : Text(
+                                                                name,
+                                                                maxLines: 1,
+                                                                overflow:
+                                                                    TextOverflow.ellipsis,
+                                                                style:
+                                                                    const TextStyle(
+                                                                  fontSize: 15,
+                                                                  fontWeight:
+                                                                      FontWeight.w700,
+                                                                  color: Color(
+                                                                      0xFF0F766E),
                                                                 ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                        ),
+                                                              ),
+                                                      ),
                                                     ],
                                                   ),
                                                   const SizedBox(height: 8),
