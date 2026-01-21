@@ -118,11 +118,6 @@ class _SearchOverlayState extends State<SearchOverlay> {
               }
             }
 
-            Future<void> refresh() async {
-              if (isLoading) return;
-              await load();
-            }
-
             if (!started) {
               started = true;
               unawaited(load());
@@ -202,10 +197,37 @@ class _SearchOverlayState extends State<SearchOverlay> {
                             ),
                           ),
                           const Spacer(),
-                          IconButton(
-                            tooltip: 'Refresh',
-                            onPressed: isLoading ? null : refresh,
-                            icon: const Icon(Icons.refresh),
+                          OutlinedButton(
+                            onPressed: () {
+                              ToastMessage.show(
+                                context,
+                                'Add property coming soon.',
+                              );
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF0FAD97),
+                              side: const BorderSide(color: Color(0xFF0FAD97)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              minimumSize: const Size(0, 36),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.add, size: 16),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Add',
+                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                              ],
+                            ),
                           ),
                           IconButton(
                             tooltip: 'Close',
