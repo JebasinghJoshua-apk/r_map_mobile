@@ -166,6 +166,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
   bool _isNearbyLayoutsDialogOpen = false;
   BuildContext? _nearbyLayoutsDialogContext;
+  bool _isNearbyLayoutsReopenHintOn = false;
+  Timer? _nearbyLayoutsReopenHintTimer;
 
   static const Duration _nearbyNewThreshold = Duration(days: 7);
 
@@ -651,7 +653,26 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     } finally {
       _isNearbyLayoutsDialogOpen = false;
       _nearbyLayoutsDialogContext = null;
+      _triggerNearbyLayoutsReopenHint();
     }
+  }
+
+  void _triggerNearbyLayoutsReopenHint() {
+    _nearbyLayoutsReopenHintTimer?.cancel();
+
+    // Single slow blink (on, then off).
+    _updateState(() {
+      _isNearbyLayoutsReopenHintOn = true;
+    });
+
+    _nearbyLayoutsReopenHintTimer =
+        Timer(const Duration(milliseconds: 900), () {
+      if (!mounted) return;
+      _nearbyLayoutsReopenHintTimer = null;
+      _updateState(() {
+        _isNearbyLayoutsReopenHintOn = false;
+      });
+    });
   }
 
   Future<void> _zoomIn() async {
@@ -666,29 +687,58 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     required IconData icon,
     required String tooltip,
     required VoidCallback onPressed,
+    bool highlight = false,
   }) {
     const radius = 8.0;
     const size = 36.0;
 
     return Tooltip(
       message: tooltip,
-      child: Material(
-        color: Colors.white,
-        elevation: 4,
-        shadowColor: Colors.black26,
-        borderRadius: BorderRadius.circular(radius),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onPressed,
-          child: SizedBox(
-            width: size,
-            height: size,
-            child: Icon(
-              icon,
-              size: 18,
-              color: const Color(0xFF1F2937),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Material(
+              color: Colors.white,
+              elevation: 4,
+              shadowColor: Colors.black26,
+              borderRadius: BorderRadius.circular(radius),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: onPressed,
+                child: Icon(
+                  icon,
+                  size: 18,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
             ),
-          ),
+            IgnorePointer(
+              child: AnimatedOpacity(
+                opacity: highlight ? 1 : 0,
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(radius),
+                    border: Border.all(
+                      color: const Color(0xFF14B8A6),
+                      width: 2,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x3314B8A6),
+                        blurRadius: 14,
+                        offset: Offset(0, 0),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -858,6 +908,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     _independentHouseCarouselDebounce?.cancel();
     _connectivitySubscription?.cancel();
     _zoomNotifier.dispose();
+    _nearbyLayoutsReopenHintTimer?.cancel();
     super.dispose();
   }
 
@@ -1017,32 +1068,27 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     required double zoom,
   }) {
     final propertyByFeatureId = <String, MapPropertyFeature>{};
+    final ownedLayoutIds = <String>{};
+    final nextLayoutPolygons = <Polygon>{};
+    final nextPropertyPolygons = <Polygon>{};
+    final styleZoom = zoom;
+
+    var layoutFeatureCount = 0;
+    var layoutPolygonCount = 0;
+
     for (final feature in response.properties) {
       final id = feature.featureId.trim();
       if (id.isNotEmpty) {
         propertyByFeatureId[id] = feature;
       }
-    }
 
-    final ownedLayoutIds = <String>{};
-    for (final feature in response.properties) {
-      final normalizedType = feature.propertyType.trim().toLowerCase();
-      if (normalizedType == 'layout' && feature.isOwnedByCurrentUser) {
-        final id = feature.featureId.trim();
-        if (id.isNotEmpty) {
-          ownedLayoutIds.add(id);
+      if (feature.propertyType.trim() == 'Layout' &&
+          feature.isOwnedByCurrentUser) {
+        final layoutId = feature.propertyId.trim();
+        if (layoutId.isNotEmpty) {
+          ownedLayoutIds.add(layoutId);
         }
       }
-    }
-
-    final nextLayoutPolygons = <Polygon>{};
-    final nextPropertyPolygons = <Polygon>{};
-    var layoutFeatureCount = 0;
-    var layoutPolygonCount = 0;
-    final styleZoom = _effectiveZoom ?? zoom;
-    for (final feature in response.properties) {
-      final center = feature.centerPoint;
-      if (center == null) continue;
 
       final normalizedType = feature.propertyType.trim().toLowerCase();
       final isLayout = normalizedType == 'layout';
@@ -2413,7 +2459,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                 _mapControlButton(
                   icon: Icons.list_alt_outlined,
                   tooltip: 'Nearby layouts',
+                  highlight: _isNearbyLayoutsReopenHintOn,
                   onPressed: () {
+                    _nearbyLayoutsReopenHintTimer?.cancel();
+                    _nearbyLayoutsReopenHintTimer = null;
+                    _updateState(() {
+                      _isNearbyLayoutsReopenHintOn = false;
+                    });
+
                     final anchor = _lastCameraPosition.target;
                     unawaited(_openNearbyLayoutsPopup(anchor: anchor));
                   },
