@@ -162,7 +162,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
               insetPadding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: SizedBox(
                 width: dialogWidth,
@@ -170,7 +170,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
                 child: Column(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 8, 10),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
                       child: Row(
                         children: [
                           const Text(
@@ -278,6 +278,40 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                   Navigator.of(context).pop();
                                   if (!mounted) return;
                                   widget.onMyPropertySelected?.call(item);
+                                }
+
+                                Widget actionIcon({
+                                  required IconData icon,
+                                  required String tooltip,
+                                  required VoidCallback onTap,
+                                }) {
+                                  return Tooltip(
+                                    message: tooltip,
+                                    child: Material(
+                                      color: const Color(0xFFF8FAFC),
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(10),
+                                        onTap: onTap,
+                                        child: Container(
+                                          width: 32,
+                                          height: 32,
+                                          decoration: BoxDecoration(
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                            border: Border.all(
+                                              color: const Color(0xFFE2E8F0),
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            icon,
+                                            size: 16,
+                                            color: const Color(0xFF64748B),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
                                 }
 
                                 return Material(
@@ -462,34 +496,28 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                                 ],
                                               ),
                                             ),
-                                            const SizedBox(width: 10),
-                                            Material(
-                                              color: const Color(0xFFF8FAFC),
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              child: InkWell(
-                                                borderRadius:
-                                                    BorderRadius.circular(10),
-                                                onTap: focus,
-                                                child: Container(
-                                                  width: 36,
-                                                  height: 36,
-                                                  decoration: BoxDecoration(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            10),
-                                                    border: Border.all(
-                                                      color: const Color(
-                                                          0xFFE2E8F0),
-                                                    ),
-                                                  ),
-                                                  child: const Icon(
-                                                    Icons.near_me_outlined,
-                                                    size: 18,
-                                                    color: Color(0xFF64748B),
-                                                  ),
+                                            const SizedBox(width: 8),
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                actionIcon(
+                                                  icon:
+                                                      Icons.visibility_outlined,
+                                                  tooltip: 'View',
+                                                  onTap: focus,
                                                 ),
-                                              ),
+                                                const SizedBox(width: 6),
+                                                actionIcon(
+                                                  icon: Icons.edit_outlined,
+                                                  tooltip: 'Edit',
+                                                  onTap: () {
+                                                    ToastMessage.show(
+                                                      context,
+                                                      'Edit coming soon.',
+                                                    );
+                                                  },
+                                                ),
+                                              ],
                                             ),
                                           ],
                                         ),

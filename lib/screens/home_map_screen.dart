@@ -319,7 +319,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                 insetPadding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: SizedBox(
                   width: dialogWidth,
@@ -327,7 +327,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                   child: Column(
                     children: [
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 8, 10),
+                        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
                         child: Row(
                           children: [
                             const Text(
