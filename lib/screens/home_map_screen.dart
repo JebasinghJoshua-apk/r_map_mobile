@@ -160,12 +160,40 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
   int _markerStyleSeq = 0;
 
-  LatLng? _nearbyLayoutsAnchor;
   List<NearbyPropertyCard>? _nearbyLayouts;
   bool _isNearbyLayoutsLoading = false;
   String? _nearbyLayoutsError;
 
+  bool _isNearbyLayoutsDialogOpen = false;
+  BuildContext? _nearbyLayoutsDialogContext;
+
   static const Duration _nearbyNewThreshold = Duration(days: 7);
+
+  String _formatNearbyDate(DateTime dt) {
+    final d = dt.toLocal();
+    return '${d.day}/${d.month}/${d.year}';
+  }
+
+  String? _layoutLocationLabel(NearbyPropertyCard item) {
+    final addr = item.address.trim();
+    final city = item.city.trim();
+
+    if (addr.isNotEmpty) return addr;
+    if (city.isNotEmpty) return city;
+    return null;
+  }
+
+  String? _layoutAreaLabel(NearbyPropertyCard item) {
+    final area = item.area?.trim();
+    if (area != null && area.isNotEmpty) return area;
+    return null;
+  }
+
+  String? _layoutPlotsLabel(NearbyPropertyCard item) {
+    final count = item.plotsCount;
+    if (count == null) return null;
+    return '$count plots';
+  }
 
   bool _isNearbyNew(DateTime createdAt) {
     final now = DateTime.now();
@@ -210,252 +238,420 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     }
   }
 
-  Future<void> _openNearbyLayoutsSheet({required LatLng anchor}) async {
+  Future<void> _openNearbyLayoutsPopup({required LatLng anchor}) async {
+    if (_isNearbyLayoutsDialogOpen) {
+      final dialogContext = _nearbyLayoutsDialogContext;
+      if (dialogContext != null) {
+        Navigator.of(dialogContext).pop();
+        await Future<void>.delayed(Duration.zero);
+        if (!mounted) return;
+      }
+    }
+
     _dismissKeyboard();
     _closeAnyPanel();
 
-    _updateState(() {
-      _nearbyLayoutsAnchor = anchor;
-    });
+    _isNearbyLayoutsDialogOpen = true;
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (dialogContext) {
+          _nearbyLayoutsDialogContext = dialogContext;
+          var started = false;
 
-    await _loadNearbyLayouts(anchor);
-    if (!mounted) return;
+          return StatefulBuilder(
+            builder: (context, setModalState) {
+              Future<void> refresh() async {
+                if (_isNearbyLayoutsLoading) return;
+                await _loadNearbyLayouts(anchor);
+                if (!mounted) return;
+                setModalState(() {});
+              }
 
-    final items = _nearbyLayouts ?? const <NearbyPropertyCard>[];
-    final error = _nearbyLayoutsError;
+              if (!started) {
+                started = true;
+                // Load after first frame so the dialog appears immediately.
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  unawaited(refresh());
+                });
+              }
 
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: DraggableScrollableSheet(
-              expand: false,
-              initialChildSize: 0.5,
-              minChildSize: 0.25,
-              maxChildSize: 0.9,
-              builder: (context, scrollController) {
-                final title = items.isEmpty
-                    ? 'Nearby layouts'
-                    : 'Nearby layouts (${items.length})';
+              final items = _nearbyLayouts ?? const <NearbyPropertyCard>[];
+              final error = _nearbyLayoutsError;
 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              Widget metaChip(IconData icon, String text) {
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: const TextStyle(
+                    Icon(
+                      icon,
+                      size: 14,
+                      color: const Color(0xFF64748B),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      text,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              final size = MediaQuery.of(context).size;
+              final maxWidth = size.width - 24;
+              final dialogWidth = maxWidth < 460 ? maxWidth : 460.0;
+              final dialogHeight = (size.height * 0.7).clamp(340.0, 560.0);
+
+              return Dialog(
+                insetPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: SizedBox(
+                  width: dialogWidth,
+                  height: dialogHeight,
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 8, 10),
+                        child: Row(
+                          children: [
+                            const Text(
+                              'Nearby layouts',
+                              style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                          ),
-                          IconButton(
-                            tooltip: 'Refresh',
-                            onPressed: _isNearbyLayoutsLoading
-                                ? null
-                                : () async {
-                                    final current = _nearbyLayoutsAnchor;
-                                    if (current == null) return;
-                                    Navigator.of(context).pop();
-                                    await _openNearbyLayoutsSheet(
-                                        anchor: current);
-                                  },
-                            icon: const Icon(Icons.refresh),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (_isNearbyLayoutsLoading)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: LinearProgressIndicator(minHeight: 2),
-                      )
-                    else if (error != null && error.trim().isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                        child: Text(
-                          error,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    Expanded(
-                      child: items.isEmpty
-                          ? ListView(
-                              controller: scrollController,
-                              children: const [
-                                SizedBox(height: 20),
-                                Center(
-                                  child: Text(
-                                    'No layouts found near this point.',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.w600),
+                            const SizedBox(width: 10),
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                child: Text(
+                                  '${items.length}',
+                                  style: const TextStyle(
+                                    color: Color(0xFF475569),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                              ],
-                            )
-                          : ListView.separated(
-                              controller: scrollController,
-                              padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-                              itemCount: items.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(height: 8),
-                              itemBuilder: (context, index) {
-                                final item = items[index];
-                                final isNew = _isNearbyNew(item.createdAt);
-                                final locationMissing = !item.hasLocation;
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              tooltip: 'Refresh',
+                              onPressed:
+                                  _isNearbyLayoutsLoading ? null : refresh,
+                              icon: const Icon(Icons.refresh),
+                            ),
+                            IconButton(
+                              tooltip: 'Close',
+                              onPressed: () => Navigator.of(context).pop(),
+                              icon: const Icon(Icons.close),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_isNearbyLayoutsLoading)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: LinearProgressIndicator(minHeight: 2),
+                        )
+                      else if (error != null && error.trim().isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                          child: Text(
+                            error,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        )
+                      else
+                        const Divider(height: 1),
+                      Expanded(
+                        child: items.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'No layouts found near this point.',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF475569),
+                                  ),
+                                ),
+                              )
+                            : ListView.separated(
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                                itemCount: items.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 10),
+                                itemBuilder: (context, index) {
+                                  final item = items[index];
+                                  final isNew = _isNearbyNew(item.createdAt);
+                                  final locationMissing = !item.hasLocation;
 
-                                final subtitleParts = <String>[];
-                                final city = item.city.trim();
-                                final addr = item.address.trim();
-                                if (addr.isNotEmpty) subtitleParts.add(addr);
-                                if (city.isNotEmpty &&
-                                    !subtitleParts.contains(city)) {
-                                  subtitleParts.add(city);
-                                }
-                                if (locationMissing) {
-                                  subtitleParts.add('Location not added');
-                                }
+                                  final name = item.name.trim().isEmpty
+                                      ? 'Layout'
+                                      : item.name.trim();
+                                  final locationLabel =
+                                      _layoutLocationLabel(item);
+                                  final plotsLabel = _layoutPlotsLabel(item);
+                                  final areaLabel = _layoutAreaLabel(item);
+                                  final dateLabel =
+                                      _formatNearbyDate(item.createdAt);
 
-                                final subtitle = subtitleParts.join(' • ');
+                                  Future<void> focus() async {
+                                    Navigator.of(context).pop();
+                                    final zoom = item.focusZoomLevel ??
+                                        _layoutFocusZoomTarget;
+                                    await _focusPropertyOnMap(
+                                      target:
+                                          LatLng(item.latitude, item.longitude),
+                                      zoom: zoom,
+                                    );
+                                  }
 
-                                return Material(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(12),
-                                    onTap: () async {
-                                      Navigator.of(context).pop();
-                                      final zoom = item.focusZoomLevel ??
-                                          _layoutFocusZoomTarget;
-                                      await _focusPropertyOnMap(
-                                        target: LatLng(
-                                            item.latitude, item.longitude),
-                                        zoom: zoom,
-                                      );
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 12,
-                                      ),
-                                      child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          const Padding(
-                                            padding: EdgeInsets.only(top: 2),
-                                            child: Icon(
-                                              Icons.map_outlined,
-                                              size: 20,
-                                              color: Color(0xFF0F766E),
-                                            ),
+                                  return Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(12),
+                                      onTap: focus,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: const Color(0xFFE2E8F0),
                                           ),
-                                          const SizedBox(width: 10),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Row(
+                                          boxShadow: const [
+                                            BoxShadow(
+                                              color: Color(0x14000000),
+                                              blurRadius: 10,
+                                              offset: Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 12,
+                                          ),
+                                          child: Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
                                                   children: [
-                                                    Expanded(
-                                                      child: Text(
-                                                        item.name.trim().isEmpty
-                                                            ? 'Layout'
-                                                            : item.name.trim(),
-                                                        style: const TextStyle(
-                                                          fontSize: 16,
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                          color:
-                                                              Color(0xFF0F766E),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    if (isNew)
-                                                      DecoratedBox(
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          color: const Color(
-                                                              0xFFDBEAFE),
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(
-                                                                      999),
-                                                        ),
-                                                        child: const Padding(
-                                                          padding: EdgeInsets
-                                                              .symmetric(
-                                                            horizontal: 10,
-                                                            vertical: 4,
-                                                          ),
+                                                    Row(
+                                                      children: [
+                                                        Expanded(
                                                           child: Text(
-                                                            'NEW',
-                                                            style: TextStyle(
-                                                              color: Color(
-                                                                  0xFF1D4ED8),
-                                                              fontSize: 12,
+                                                            name,
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style:
+                                                                const TextStyle(
+                                                              fontSize: 15,
                                                               fontWeight:
                                                                   FontWeight
-                                                                      .w800,
+                                                                      .w700,
+                                                              color: Color(
+                                                                  0xFF0F766E),
                                                             ),
                                                           ),
                                                         ),
-                                                      ),
+                                                        if (isNew)
+                                                          DecoratedBox(
+                                                            decoration:
+                                                                BoxDecoration(
+                                                              color: const Color(
+                                                                  0xFFECFDF5),
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          999),
+                                                              border:
+                                                                  Border.all(
+                                                                color: const Color(
+                                                                    0xFF34D399),
+                                                              ),
+                                                            ),
+                                                            child:
+                                                                const Padding(
+                                                              padding: EdgeInsets
+                                                                  .symmetric(
+                                                                horizontal: 10,
+                                                                vertical: 4,
+                                                              ),
+                                                              child: Row(
+                                                                mainAxisSize:
+                                                                    MainAxisSize
+                                                                        .min,
+                                                                children: [
+                                                                  Icon(
+                                                                    Icons
+                                                                        .auto_awesome,
+                                                                    size: 14,
+                                                                    color: Color(
+                                                                        0xFF059669),
+                                                                  ),
+                                                                  SizedBox(
+                                                                      width: 6),
+                                                                  Text(
+                                                                    'NEW',
+                                                                    style:
+                                                                        TextStyle(
+                                                                      color: Color(
+                                                                          0xFF059669),
+                                                                      fontSize:
+                                                                          12,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w800,
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    Row(
+                                                      children: [
+                                                        Icon(
+                                                          Icons
+                                                              .location_on_outlined,
+                                                          size: 16,
+                                                          color: locationMissing
+                                                              ? const Color(
+                                                                  0xFFDC2626)
+                                                              : const Color(
+                                                                  0xFF64748B),
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 6),
+                                                        Expanded(
+                                                          child: Text(
+                                                            locationLabel ??
+                                                                'Location not added',
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style: TextStyle(
+                                                              fontSize: 13,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              color: locationMissing
+                                                                  ? const Color(
+                                                                      0xFFDC2626)
+                                                                  : const Color(
+                                                                      0xFF475569),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    Wrap(
+                                                      spacing: 14,
+                                                      runSpacing: 8,
+                                                      children: [
+                                                        if (plotsLabel != null)
+                                                          metaChip(
+                                                            Icons
+                                                                .grid_on_outlined,
+                                                            plotsLabel,
+                                                          ),
+                                                        if (areaLabel != null)
+                                                          metaChip(
+                                                            Icons
+                                                                .straighten_outlined,
+                                                            areaLabel,
+                                                          ),
+                                                        metaChip(
+                                                          Icons.schedule,
+                                                          dateLabel,
+                                                        ),
+                                                      ],
+                                                    ),
                                                   ],
                                                 ),
-                                                if (subtitle.isNotEmpty)
-                                                  Padding(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                      top: 6,
-                                                    ),
-                                                    child: Text(
-                                                      subtitle,
-                                                      style: TextStyle(
-                                                        fontSize: 13,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        color: locationMissing
-                                                            ? const Color(
-                                                                0xFFDC2626)
-                                                            : const Color(
-                                                                0xFF475569,
-                                                              ),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Material(
+                                                color: const Color(0xFFF8FAFC),
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                                child: InkWell(
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                  onTap: focus,
+                                                  child: Container(
+                                                    width: 36,
+                                                    height: 36,
+                                                    decoration: BoxDecoration(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              10),
+                                                      border: Border.all(
+                                                        color: const Color(
+                                                            0xFFE2E8F0),
                                                       ),
                                                     ),
+                                                    child: const Icon(
+                                                      Icons.near_me_outlined,
+                                                      size: 18,
+                                                      color: Color(0xFF64748B),
+                                                    ),
                                                   ),
-                                              ],
-                                            ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                        ],
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      _isNearbyLayoutsDialogOpen = false;
+      _nearbyLayoutsDialogContext = null;
+    }
   }
 
   Future<void> _zoomIn() async {
@@ -686,6 +882,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     if (!mounted) return;
     final safeLabel = label.trim().isEmpty ? 'Selected place' : label.trim();
     ToastMessage.show(context, safeLabel);
+
+    // Auto popup nearby layouts after selecting a place (match web behavior).
+    unawaited(_openNearbyLayoutsPopup(anchor: target));
   }
 
   void _onMapCreated(GoogleMapController controller) {
@@ -2216,7 +2415,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                   tooltip: 'Nearby layouts',
                   onPressed: () {
                     final anchor = _lastCameraPosition.target;
-                    unawaited(_openNearbyLayoutsSheet(anchor: anchor));
+                    unawaited(_openNearbyLayoutsPopup(anchor: anchor));
                   },
                 ),
                 const SizedBox(height: 10),
