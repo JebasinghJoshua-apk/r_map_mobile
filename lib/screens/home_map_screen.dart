@@ -32,6 +32,10 @@ part 'home_map/home_map_viewport.dart';
 part 'home_map/home_map_property_media.dart';
 part 'home_map/home_map_carousel.dart';
 
+enum _NearbyLayoutsDialogCloseReason {
+  manual,
+}
+
 class _PropertyMediaCacheEntry {
   const _PropertyMediaCacheEntry({
     required this.urls,
@@ -253,14 +257,23 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     _dismissKeyboard();
     _closeAnyPanel();
 
-    _isNearbyLayoutsDialogOpen = true;
+    // Fetch first; only show the popup after we have a response.
+    await _loadNearbyLayouts(anchor);
+    if (!mounted) return;
+    final initialError = _nearbyLayoutsError;
+    if (initialError != null && initialError.trim().isNotEmpty) {
+      ToastMessage.show(context, initialError);
+      return;
+    }
+
+    _NearbyLayoutsDialogCloseReason? closeReason;
     try {
-      await showDialog<void>(
+      _isNearbyLayoutsDialogOpen = true;
+      closeReason = await showDialog<_NearbyLayoutsDialogCloseReason>(
         context: context,
         barrierDismissible: true,
         builder: (dialogContext) {
           _nearbyLayoutsDialogContext = dialogContext;
-          var started = false;
 
           return StatefulBuilder(
             builder: (context, setModalState) {
@@ -269,15 +282,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                 await _loadNearbyLayouts(anchor);
                 if (!mounted) return;
                 setModalState(() {});
-              }
-
-              if (!started) {
-                started = true;
-                // Load after first frame so the dialog appears immediately.
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (!mounted) return;
-                  unawaited(refresh());
-                });
               }
 
               final items = _nearbyLayouts ?? const <NearbyPropertyCard>[];
@@ -362,7 +366,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                             ),
                             IconButton(
                               tooltip: 'Close',
-                              onPressed: () => Navigator.of(context).pop(),
+                              onPressed: () => Navigator.of(context).pop(
+                                _NearbyLayoutsDialogCloseReason.manual,
+                              ),
                               icon: const Icon(Icons.close),
                             ),
                           ],
@@ -653,6 +659,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     } finally {
       _isNearbyLayoutsDialogOpen = false;
       _nearbyLayoutsDialogContext = null;
+    }
+
+    if (closeReason == _NearbyLayoutsDialogCloseReason.manual) {
       _triggerNearbyLayoutsReopenHint();
     }
   }
@@ -681,6 +690,79 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
   Future<void> _zoomOut() async {
     await _animateCamera(CameraUpdate.zoomOut());
+  }
+
+  Widget _mapZoomControl() {
+    const radius = 8.0;
+    const size = 36.0;
+    const borderColor = Color(0xFFE2E8F0);
+
+    Widget segment({
+      required IconData icon,
+      required String tooltip,
+      required VoidCallback onPressed,
+      required BorderRadius borderRadius,
+    }) {
+      return Tooltip(
+        message: tooltip,
+        child: Material(
+          color: Colors.white,
+          borderRadius: borderRadius,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onPressed,
+            child: SizedBox(
+              width: size,
+              height: size,
+              child: Icon(
+                icon,
+                size: 18,
+                color: const Color(0xFF1F2937),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Material(
+      color: Colors.transparent,
+      elevation: 4,
+      shadowColor: Colors.black26,
+      borderRadius: BorderRadius.circular(radius),
+      child: Container(
+        width: size,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(radius),
+          border: Border.all(color: borderColor),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            segment(
+              icon: Icons.add,
+              tooltip: 'Zoom in',
+              onPressed: _zoomIn,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(radius),
+                topRight: Radius.circular(radius),
+              ),
+            ),
+            const Divider(height: 1, thickness: 1, color: borderColor),
+            segment(
+              icon: Icons.remove,
+              tooltip: 'Zoom out',
+              onPressed: _zoomOut,
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(radius),
+                bottomRight: Radius.circular(radius),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _mapControlButton({
@@ -2472,17 +2554,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                   },
                 ),
                 const SizedBox(height: 10),
-                _mapControlButton(
-                  icon: Icons.add,
-                  tooltip: 'Zoom in',
-                  onPressed: _zoomIn,
-                ),
-                const SizedBox(height: 10),
-                _mapControlButton(
-                  icon: Icons.remove,
-                  tooltip: 'Zoom out',
-                  onPressed: _zoomOut,
-                ),
+                _mapZoomControl(),
               ],
             ),
           ),

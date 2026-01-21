@@ -773,6 +773,8 @@ class _CompactProfileButton extends StatelessWidget {
                 return const <PopupMenuEntry<_ProfileMenuAction>>[
                   PopupMenuItem<_ProfileMenuAction>(
                     value: _ProfileMenuAction.login,
+                    height: 40,
+                    padding: EdgeInsets.symmetric(horizontal: 14),
                     child: Row(
                       children: [
                         Icon(Icons.login, size: 18),
@@ -792,21 +794,26 @@ class _CompactProfileButton extends StatelessWidget {
               return <PopupMenuEntry<_ProfileMenuAction>>[
                 PopupMenuItem<_ProfileMenuAction>(
                   enabled: false,
+                  height: 44,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Hi, $displayName',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF334155),
+                        ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(session.user.phoneNumber),
                     ],
                   ),
                 ),
-                const PopupMenuDivider(),
+                const PopupMenuDivider(height: 8),
                 const PopupMenuItem<_ProfileMenuAction>(
                   value: _ProfileMenuAction.myProperties,
+                  height: 40,
+                  padding: EdgeInsets.symmetric(horizontal: 14),
                   child: Row(
                     children: [
                       Icon(Icons.business_outlined, size: 18),
@@ -817,6 +824,8 @@ class _CompactProfileButton extends StatelessWidget {
                 ),
                 const PopupMenuItem<_ProfileMenuAction>(
                   value: _ProfileMenuAction.logout,
+                  height: 40,
+                  padding: EdgeInsets.symmetric(horizontal: 14),
                   child: Row(
                     children: [
                       Icon(Icons.logout, size: 18),
