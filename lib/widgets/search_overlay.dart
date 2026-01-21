@@ -7,7 +7,9 @@ import 'package:google_place/google_place.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/search_constants.dart';
+import '../models/my_property_list_item.dart';
 import '../models/recent_place.dart';
+import '../services/mobile_bff_map_api.dart';
 import '../state/auth_scope.dart';
 import 'auth_dialog.dart';
 import 'toast_message.dart';
@@ -25,6 +27,7 @@ class SearchOverlay extends StatefulWidget {
   final VoidCallback? onSearchTap;
   final VoidCallback? onFilterTap;
   final bool hasActiveFilters;
+  final ValueChanged<MyPropertyListItem>? onMyPropertySelected;
 
   const SearchOverlay({
     super.key,
@@ -33,6 +36,7 @@ class SearchOverlay extends StatefulWidget {
     this.onSearchTap,
     this.onFilterTap,
     this.hasActiveFilters = false,
+    this.onMyPropertySelected,
   });
 
   @override
@@ -40,6 +44,8 @@ class SearchOverlay extends StatefulWidget {
 }
 
 class _SearchOverlayState extends State<SearchOverlay> {
+  final MobileBffMapApi _mapApi = MobileBffMapApi();
+
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   final List<AutocompletePrediction> _predictions = [];
@@ -49,8 +55,444 @@ class _SearchOverlayState extends State<SearchOverlay> {
   bool _isLoading = false;
   bool _isCompactMode = false;
 
+  static const Duration _newThreshold = Duration(days: 7);
+
   bool get _shouldShowRecents =>
       _controller.text.isEmpty && _recentPlaces.isNotEmpty;
+
+  bool _isNew(DateTime createdAt) {
+    if (createdAt == DateTime.fromMillisecondsSinceEpoch(0)) return false;
+    return DateTime.now().difference(createdAt) <= _newThreshold;
+  }
+
+  Future<void> showMyPropertiesPopup() async {
+    final token = AuthScope.of(context).session?.token;
+    if (token == null || token.trim().isEmpty) {
+      ToastMessage.show(context, 'Please login to view your properties.');
+      return;
+    }
+
+    String formatDate(DateTime dt) {
+      final d = dt.toLocal();
+      return '${d.day}/${d.month}/${d.year}';
+    }
+
+    List<MyPropertyListItem> items = const <MyPropertyListItem>[];
+    bool isLoading = true;
+    String? error;
+    bool started = false;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            Future<void> load() async {
+              setModalState(() {
+                isLoading = true;
+                error = null;
+              });
+
+              try {
+                final results = await _mapApi.getMyProperties(
+                  bearerToken: token,
+                );
+                setModalState(() {
+                  items = results;
+                });
+              } on MapApiException catch (ex) {
+                setModalState(() {
+                  items = const <MyPropertyListItem>[];
+                  error = ex.message;
+                });
+              } catch (_) {
+                setModalState(() {
+                  items = const <MyPropertyListItem>[];
+                  error = 'Failed to load your properties.';
+                });
+              } finally {
+                setModalState(() {
+                  isLoading = false;
+                });
+              }
+            }
+
+            Future<void> refresh() async {
+              if (isLoading) return;
+              await load();
+            }
+
+            if (!started) {
+              started = true;
+              unawaited(load());
+            }
+
+            Widget metaChip(IconData icon, String text) {
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    size: 14,
+                    color: const Color(0xFF64748B),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    text,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            final size = MediaQuery.of(context).size;
+            final maxWidth = size.width - 24;
+            final dialogWidth = maxWidth < 460 ? maxWidth : 460.0;
+            final dialogHeight = (size.height * 0.7).clamp(340.0, 560.0);
+
+            final sorted = items.toList(growable: false)
+              ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+            return Dialog(
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: SizedBox(
+                width: dialogWidth,
+                height: dialogHeight,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 8, 10),
+                      child: Row(
+                        children: [
+                          const Text(
+                            'My properties',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              child: Text(
+                                '${sorted.length}',
+                                style: const TextStyle(
+                                  color: Color(0xFF475569),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            tooltip: 'Refresh',
+                            onPressed: isLoading ? null : refresh,
+                            icon: const Icon(Icons.refresh),
+                          ),
+                          IconButton(
+                            tooltip: 'Close',
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (isLoading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: LinearProgressIndicator(minHeight: 2),
+                      )
+                    else if (error != null && error!.trim().isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        child: Text(
+                          error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      )
+                    else
+                      const Divider(height: 1),
+                    Expanded(
+                      child: sorted.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No properties found.',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF475569),
+                                ),
+                              ),
+                            )
+                          : ListView.separated(
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                              itemCount: sorted.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 10),
+                              itemBuilder: (context, index) {
+                                final item = sorted[index];
+                                final isNew = _isNew(item.createdAt);
+
+                                final name = item.name.trim().isEmpty
+                                    ? (item.propertyType.trim().isEmpty
+                                        ? 'Property'
+                                        : item.propertyType.trim())
+                                    : item.name.trim();
+
+                                final locationLabel = item.locationLabel.trim();
+                                final locationMissing = locationLabel.isEmpty;
+
+                                final typeLabel =
+                                    item.propertyType.trim().isEmpty
+                                        ? 'Property'
+                                        : item.propertyType.trim();
+
+                                final dateSource = item.createdAt ==
+                                        DateTime.fromMillisecondsSinceEpoch(0)
+                                    ? item.updatedAt
+                                    : item.createdAt;
+                                final dateLabel = formatDate(dateSource);
+
+                                Future<void> focus() async {
+                                  Navigator.of(context).pop();
+                                  if (!mounted) return;
+                                  widget.onMyPropertySelected?.call(item);
+                                }
+
+                                return Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(12),
+                                    onTap: focus,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: const Color(0xFFE2E8F0),
+                                        ),
+                                        boxShadow: const [
+                                          BoxShadow(
+                                            color: Color(0x14000000),
+                                            blurRadius: 10,
+                                            offset: Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 12,
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: Text(
+                                                          name,
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          style:
+                                                              const TextStyle(
+                                                            fontSize: 15,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                            color: Color(
+                                                                0xFF0F766E),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      if (isNew)
+                                                        DecoratedBox(
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            color: const Color(
+                                                                0xFFECFDF5),
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        999),
+                                                            border: Border.all(
+                                                              color: const Color(
+                                                                  0xFF34D399),
+                                                            ),
+                                                          ),
+                                                          child: const Padding(
+                                                            padding: EdgeInsets
+                                                                .symmetric(
+                                                              horizontal: 10,
+                                                              vertical: 4,
+                                                            ),
+                                                            child: Row(
+                                                              mainAxisSize:
+                                                                  MainAxisSize
+                                                                      .min,
+                                                              children: [
+                                                                Icon(
+                                                                  Icons
+                                                                      .auto_awesome,
+                                                                  size: 14,
+                                                                  color: Color(
+                                                                      0xFF059669),
+                                                                ),
+                                                                SizedBox(
+                                                                    width: 6),
+                                                                Text(
+                                                                  'NEW',
+                                                                  style:
+                                                                      TextStyle(
+                                                                    color: Color(
+                                                                        0xFF059669),
+                                                                    fontSize:
+                                                                        12,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w800,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Row(
+                                                    children: [
+                                                      Icon(
+                                                        Icons
+                                                            .location_on_outlined,
+                                                        size: 16,
+                                                        color: locationMissing
+                                                            ? const Color(
+                                                                0xFFDC2626)
+                                                            : const Color(
+                                                                0xFF64748B),
+                                                      ),
+                                                      const SizedBox(width: 6),
+                                                      Expanded(
+                                                        child: Text(
+                                                          locationMissing
+                                                              ? 'Location not added'
+                                                              : locationLabel,
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          style: TextStyle(
+                                                            fontSize: 13,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            color: locationMissing
+                                                                ? const Color(
+                                                                    0xFFDC2626)
+                                                                : const Color(
+                                                                    0xFF475569),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 10),
+                                                  Wrap(
+                                                    spacing: 14,
+                                                    runSpacing: 8,
+                                                    children: [
+                                                      metaChip(
+                                                        Icons.category_outlined,
+                                                        typeLabel,
+                                                      ),
+                                                      metaChip(
+                                                        Icons.schedule,
+                                                        dateLabel,
+                                                      ),
+                                                      if (!item.isApproved)
+                                                        metaChip(
+                                                          Icons
+                                                              .pending_actions_outlined,
+                                                          'Pending',
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Material(
+                                              color: const Color(0xFFF8FAFC),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              child: InkWell(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                                onTap: focus,
+                                                child: Container(
+                                                  width: 36,
+                                                  height: 36,
+                                                  decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            10),
+                                                    border: Border.all(
+                                                      color: const Color(
+                                                          0xFFE2E8F0),
+                                                    ),
+                                                  ),
+                                                  child: const Icon(
+                                                    Icons.near_me_outlined,
+                                                    size: 18,
+                                                    color: Color(0xFF64748B),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   void initState() {
@@ -753,7 +1195,11 @@ class _CompactProfileButton extends StatelessWidget {
                   AuthDialog.showLogin(context);
                   break;
                 case _ProfileMenuAction.myProperties:
-                  ToastMessage.show(context, 'My Properties: TODO');
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  SystemChannels.textInput.invokeMethod('TextInput.hide');
+                  final overlayState =
+                      context.findAncestorStateOfType<_SearchOverlayState>();
+                  overlayState?.showMyPropertiesPopup();
                   break;
                 case _ProfileMenuAction.logout:
                   FocusManager.instance.primaryFocus?.unfocus();

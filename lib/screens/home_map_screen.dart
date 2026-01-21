@@ -21,6 +21,7 @@ import '../widgets/property_details_panel.dart';
 import '../widgets/search_overlay.dart';
 import '../widgets/toast_message.dart';
 import '../models/map_viewport_models.dart';
+import '../models/my_property_list_item.dart';
 import '../models/nearby_property_card.dart';
 import 'layout_detail_screen.dart';
 import 'property_detail_screen.dart';
@@ -1018,6 +1019,24 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
     // Auto popup nearby layouts after selecting a place (match web behavior).
     unawaited(_openNearbyLayoutsPopup(anchor: target));
+  }
+
+  Future<void> _onMyPropertySelected(MyPropertyListItem item) async {
+    final center = item.centerPoint;
+    if (center == null) {
+      if (!mounted) return;
+      ToastMessage.show(context, 'Location not available for this property');
+      return;
+    }
+
+    _closeAnyPanel();
+    await _focusPropertyOnMap(target: center, zoom: 18.0);
+
+    if (!mounted) return;
+    final title = item.name.trim().isEmpty
+        ? (item.propertyType.trim().isEmpty ? 'Property' : item.propertyType)
+        : item.name.trim();
+    ToastMessage.show(context, title);
   }
 
   void _onMapCreated(GoogleMapController controller) {
@@ -2510,6 +2529,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                     : SearchOverlay(
                         googlePlace: _googlePlace!,
                         onPlaceSelected: _moveCameraTo,
+                        onMyPropertySelected: _onMyPropertySelected,
                         onSearchTap: _closeAnyPanel,
                         onFilterTap: _openFilters,
                         hasActiveFilters: _selectedPropertyType != null ||
