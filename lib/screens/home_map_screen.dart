@@ -2537,6 +2537,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                         googlePlace: _googlePlace!,
                         onPlaceSelected: _moveCameraTo,
                         onMyPropertySelected: _onMyPropertySelected,
+                        getMapCenter: () => _lastCameraPosition.target,
                         onSearchTap: _closeAnyPanel,
                         onFilterTap: _openFilters,
                         hasActiveFilters: _selectedPropertyType != null ||

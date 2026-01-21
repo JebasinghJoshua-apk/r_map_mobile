@@ -9,10 +9,38 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/search_constants.dart';
 import '../models/my_property_list_item.dart';
 import '../models/recent_place.dart';
+import '../screens/property_polygon_editor_screen.dart';
 import '../services/mobile_bff_map_api.dart';
 import '../state/auth_scope.dart';
 import 'auth_dialog.dart';
 import 'toast_message.dart';
+
+class SearchOverlay extends StatefulWidget {
+  const SearchOverlay({
+    super.key,
+    required this.googlePlace,
+    required this.onPlaceSelected,
+    this.onMyPropertySelected,
+    this.getMapCenter,
+    this.onSearchTap,
+    this.onFilterTap,
+    this.hasActiveFilters = false,
+  });
+
+  final GooglePlace googlePlace;
+  final Future<void> Function(LatLng target, String label, double zoom)
+      onPlaceSelected;
+
+  final Future<void> Function(MyPropertyListItem item)? onMyPropertySelected;
+  final LatLng? Function()? getMapCenter;
+
+  final VoidCallback? onSearchTap;
+  final VoidCallback? onFilterTap;
+  final bool hasActiveFilters;
+
+  @override
+  State<SearchOverlay> createState() => _SearchOverlayState();
+}
 
 enum _ProfileMenuAction {
   login,
@@ -20,49 +48,29 @@ enum _ProfileMenuAction {
   logout,
 }
 
-class SearchOverlay extends StatefulWidget {
-  final GooglePlace googlePlace;
-  final void Function(LatLng position, String label, double zoom)
-      onPlaceSelected;
-  final VoidCallback? onSearchTap;
-  final VoidCallback? onFilterTap;
-  final bool hasActiveFilters;
-  final ValueChanged<MyPropertyListItem>? onMyPropertySelected;
-
-  const SearchOverlay({
-    super.key,
-    required this.googlePlace,
-    required this.onPlaceSelected,
-    this.onSearchTap,
-    this.onFilterTap,
-    this.hasActiveFilters = false,
-    this.onMyPropertySelected,
-  });
-
-  @override
-  State<SearchOverlay> createState() => _SearchOverlayState();
-}
-
 class _SearchOverlayState extends State<SearchOverlay> {
   final MobileBffMapApi _mapApi = MobileBffMapApi();
-
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  final List<AutocompletePrediction> _predictions = [];
-  List<RecentPlace> _recentPlaces = [];
+
   Timer? _debounce;
   Timer? _keyboardShowTimer;
+
+  final List<AutocompletePrediction> _predictions = <AutocompletePrediction>[];
+  List<RecentPlace> _recentPlaces = <RecentPlace>[];
+
   bool _isLoading = false;
   bool _isCompactMode = false;
 
-  static const Duration _newThreshold = Duration(days: 7);
-
-  bool get _shouldShowRecents =>
-      _controller.text.isEmpty && _recentPlaces.isNotEmpty;
+  bool get _shouldShowRecents {
+    return !_isCompactMode &&
+        _controller.text.trim().isEmpty &&
+        _recentPlaces.isNotEmpty;
+  }
 
   bool _isNew(DateTime createdAt) {
-    if (createdAt == DateTime.fromMillisecondsSinceEpoch(0)) return false;
-    return DateTime.now().difference(createdAt) <= _newThreshold;
+    final now = DateTime.now();
+    return now.difference(createdAt).inDays < 7;
   }
 
   Future<void> showMyPropertiesPopup() async {
@@ -115,6 +123,35 @@ class _SearchOverlayState extends State<SearchOverlay> {
                 setModalState(() {
                   isLoading = false;
                 });
+              }
+            }
+
+            Future<void> openEditor({
+              required PropertyPolygonEditorMode mode,
+              LatLng? center,
+            }) async {
+              Navigator.of(dialogContext).pop();
+              await Future<void>.delayed(Duration.zero);
+              if (!mounted) return;
+
+              final points =
+                  await Navigator.of(this.context).push<List<LatLng>>(
+                MaterialPageRoute(
+                  builder: (_) => PropertyPolygonEditorScreen(
+                    mode: mode,
+                    initialCenter: center,
+                  ),
+                ),
+              );
+
+              if (!mounted) return;
+              if (points != null && points.length >= 3) {
+                ToastMessage.show(
+                  this.context,
+                  mode == PropertyPolygonEditorMode.add
+                      ? 'Polygon captured. Next step coming soon.'
+                      : 'Polygon updated. Next step coming soon.',
+                );
               }
             }
 
@@ -198,10 +235,11 @@ class _SearchOverlayState extends State<SearchOverlay> {
                           ),
                           const Spacer(),
                           OutlinedButton(
-                            onPressed: () {
-                              ToastMessage.show(
-                                context,
-                                'Add property coming soon.',
+                            onPressed: () async {
+                              final center = widget.getMapCenter?.call();
+                              await openEditor(
+                                mode: PropertyPolygonEditorMode.add,
+                                center: center,
                               );
                             },
                             style: OutlinedButton.styleFrom(
@@ -300,6 +338,15 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                   Navigator.of(context).pop();
                                   if (!mounted) return;
                                   widget.onMyPropertySelected?.call(item);
+                                }
+
+                                Future<void> edit() async {
+                                  final center = item.centerPoint ??
+                                      widget.getMapCenter?.call();
+                                  await openEditor(
+                                    mode: PropertyPolygonEditorMode.edit,
+                                    center: center,
+                                  );
                                 }
 
                                 Widget actionIcon({
@@ -532,12 +579,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                                 actionIcon(
                                                   icon: Icons.edit_outlined,
                                                   tooltip: 'Edit',
-                                                  onTap: () {
-                                                    ToastMessage.show(
-                                                      context,
-                                                      'Edit coming soon.',
-                                                    );
-                                                  },
+                                                  onTap: edit,
                                                 ),
                                               ],
                                             ),
@@ -559,6 +601,529 @@ class _SearchOverlayState extends State<SearchOverlay> {
       },
     );
   }
+/*
+                                                  ),
+                                                  const SizedBox(height: 10),
+                                                  Wrap(
+                                                    spacing: 14,
+                                                    runSpacing: 8,
+                                                    children: [
+                                                      metaChip(
+                                                        Icons.category_outlined,
+                                                        typeLabel,
+                                                      ),
+                                                      metaChip(
+                                                        Icons.schedule,
+                                                        dateLabel,
+                                                      ),
+                                                      if (!item.isApproved)
+                                                        metaChip(
+                                                          Icons
+                                                              .pending_actions_outlined,
+                                                          'Pending',
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                actionIcon(
+                                                  icon: Icons.visibility_outlined,
+                                                  tooltip: 'View',
+                                                  onTap: focus,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                actionIcon(
+                                                  icon: Icons.edit_outlined,
+                                                  tooltip: 'Edit',
+                                                  onTap: edit,
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+            if (!started) {
+              started = true;
+              unawaited(load());
+            }
+
+            Widget metaChip(IconData icon, String text) {
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    size: 14,
+                    color: const Color(0xFF64748B),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    text,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            final size = MediaQuery.of(context).size;
+            final maxWidth = size.width - 24;
+            final dialogWidth = maxWidth < 460 ? maxWidth : 460.0;
+            final dialogHeight = (size.height * 0.82).clamp(360.0, 680.0);
+
+            final sorted = items.toList(growable: false)
+              ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+            return Dialog(
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: SizedBox(
+                width: dialogWidth,
+                height: dialogHeight,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                      child: Row(
+                        children: [
+                          const Text(
+                            'My properties',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              child: Text(
+                                '${sorted.length}',
+                                style: const TextStyle(
+                                  color: Color(0xFF475569),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          OutlinedButton(
+                            onPressed: () {
+                              ToastMessage.show(
+                                context,
+                                'Add property coming soon.',
+                              );
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF0FAD97),
+                              side: const BorderSide(color: Color(0xFF0FAD97)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              minimumSize: const Size(0, 36),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.add, size: 16),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Add',
+                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Close',
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (isLoading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: LinearProgressIndicator(minHeight: 2),
+                      )
+                    else if (error != null && error!.trim().isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        child: Text(
+                          error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      )
+                    else
+                      const Divider(height: 1),
+                    Expanded(
+                      child: sorted.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No properties found.',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF475569),
+                                ),
+                              ),
+                            )
+                          : ListView.separated(
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                              itemCount: sorted.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 10),
+                              itemBuilder: (context, index) {
+                                final item = sorted[index];
+                                final isNew = _isNew(item.createdAt);
+
+                                final name = item.name.trim().isEmpty
+                                    ? (item.propertyType.trim().isEmpty
+                                        ? 'Property'
+                                        : item.propertyType.trim())
+                                    : item.name.trim();
+
+                                final locationLabel = item.locationLabel.trim();
+                                final locationMissing = locationLabel.isEmpty;
+
+                                final typeLabel =
+                                    item.propertyType.trim().isEmpty
+                                        ? 'Property'
+                                        : item.propertyType.trim();
+
+                                final dateSource = item.createdAt ==
+                                        DateTime.fromMillisecondsSinceEpoch(0)
+                                    ? item.updatedAt
+                                    : item.createdAt;
+                                final dateLabel = formatDate(dateSource);
+
+                                Future<void> focus() async {
+                                  Navigator.of(context).pop();
+                                  if (!mounted) return;
+                                  widget.onMyPropertySelected?.call(item);
+                                }
+
+                                Future<void> edit() async {
+                                  final center = item.centerPoint ?? widget.getMapCenter?.call();
+                                  Navigator.of(context).pop();
+                                  await Future<void>.delayed(Duration.zero);
+                                  if (!mounted) return;
+
+                                  final points = await Navigator.of(context).push<List<LatLng>>(
+                                    MaterialPageRoute(
+                                      builder: (_) => PropertyPolygonEditorScreen(
+                                        mode: PropertyPolygonEditorMode.edit,
+                                        initialCenter: center,
+                                      ),
+                                    ),
+                                  );
+
+                                  if (!mounted) return;
+                                  if (points != null && points.length >= 3) {
+                                    ToastMessage.show(
+                                      context,
+                                      'Polygon updated. Next step coming soon.',
+                                    );
+                                  }
+                                }
+
+                                Widget actionIcon({
+                                  required IconData icon,
+                                  required String tooltip,
+                                  required VoidCallback onTap,
+                                }) {
+                                  return Tooltip(
+                                    message: tooltip,
+                                    child: Material(
+                                      color: const Color(0xFFF8FAFC),
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(10),
+                                        onTap: onTap,
+                                        child: Container(
+                                          width: 32,
+                                          height: 32,
+                                          decoration: BoxDecoration(
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                            border: Border.all(
+                                              color: const Color(0xFFE2E8F0),
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            icon,
+                                            size: 16,
+                                            color: const Color(0xFF64748B),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                return Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(12),
+                                    onTap: focus,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: const Color(0xFFE2E8F0),
+                                        ),
+                                        boxShadow: const [
+                                          BoxShadow(
+                                            color: Color(0x14000000),
+                                            blurRadius: 10,
+                                            offset: Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 12,
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: isNew
+                                                            ? Text.rich(
+                                                                TextSpan(
+                                                                  children: [
+                                                                    TextSpan(
+                                                                        text:
+                                                                            name),
+                                                                    WidgetSpan(
+                                                                      alignment:
+                                                                          PlaceholderAlignment
+                                                                              .middle,
+                                                                      child:
+                                                                          Padding(
+                                                                        padding: const EdgeInsets
+                                                                            .only(
+                                                                            left:
+                                                                                8),
+                                                                        child:
+                                                                            DecoratedBox(
+                                                                          decoration:
+                                                                              BoxDecoration(
+                                                                            color:
+                                                                                const Color(0xFFECFDF5),
+                                                                            borderRadius:
+                                                                                BorderRadius.circular(6),
+                                                                            border:
+                                                                                Border.all(
+                                                                              color: const Color(0xFF34D399),
+                                                                            ),
+                                                                          ),
+                                                                          child:
+                                                                              const Padding(
+                                                                            padding:
+                                                                                EdgeInsets.symmetric(
+                                                                              horizontal: 8,
+                                                                              vertical: 2,
+                                                                            ),
+                                                                            child:
+                                                                                Text(
+                                                                              'NEW',
+                                                                              style: TextStyle(
+                                                                                color: Color(0xFF059669),
+                                                                                fontSize: 10,
+                                                                                fontWeight: FontWeight.w800,
+                                                                              ),
+                                                                            ),
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                                maxLines: 1,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                                style:
+                                                                    const TextStyle(
+                                                                  fontSize: 15,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w700,
+                                                                  color: Color(
+                                                                      0xFF0F766E),
+                                                                ),
+                                                              )
+                                                            : Text(
+                                                                name,
+                                                                maxLines: 1,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                                style:
+                                                                    const TextStyle(
+                                                                  fontSize: 15,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w700,
+                                                                  color: Color(
+                                                                      0xFF0F766E),
+                                                                ),
+                                                              ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Row(
+                                                    children: [
+                                                      Icon(
+                                                        Icons
+                                                            .location_on_outlined,
+                                                        size: 16,
+                                                        color: locationMissing
+                                                            ? const Color(
+                                                                0xFFDC2626)
+                                                            : const Color(
+                                                                0xFF64748B),
+                                                      ),
+                                                      const SizedBox(width: 6),
+                                                      Expanded(
+                                                        child: Text(
+                                                          locationMissing
+                                                              ? 'Location not added'
+                                                              : locationLabel,
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          style: TextStyle(
+                                                            fontSize: 13,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            color: locationMissing
+                                                                ? const Color(
+                                                                    0xFFDC2626)
+                                                                : const Color(
+                                                                    0xFF475569),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 10),
+                                                  Wrap(
+                                                    spacing: 14,
+                                                    runSpacing: 8,
+                                                    children: [
+                                                      metaChip(
+                                                        Icons.category_outlined,
+                                                        typeLabel,
+                                                      ),
+                                                      metaChip(
+                                                        Icons.schedule,
+                                                        dateLabel,
+                                                      ),
+                                                      if (!item.isApproved)
+                                                        metaChip(
+                                                          Icons
+                                                              .pending_actions_outlined,
+                                                          'Pending',
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                actionIcon(
+                                                  icon:
+                                                      Icons.visibility_outlined,
+                                                  tooltip: 'View',
+                                                  onTap: focus,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                actionIcon(
+                                                  icon: Icons.edit_outlined,
+                                                  tooltip: 'Edit',
+                                                  onTap: edit,
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+*/
 
   @override
   void initState() {
