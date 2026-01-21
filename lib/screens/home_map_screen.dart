@@ -478,20 +478,29 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                                                               ? Text.rich(
                                                                   TextSpan(
                                                                     children: [
-                                                                      TextSpan(text: name),
+                                                                      TextSpan(
+                                                                          text:
+                                                                              name),
                                                                       WidgetSpan(
-                                                                        alignment: PlaceholderAlignment.middle,
-                                                                        child: Padding(
-                                                                          padding: const EdgeInsets.only(left: 8),
-                                                                          child: DecoratedBox(
-                                                                            decoration: BoxDecoration(
+                                                                        alignment:
+                                                                            PlaceholderAlignment.middle,
+                                                                        child:
+                                                                            Padding(
+                                                                          padding: const EdgeInsets
+                                                                              .only(
+                                                                              left: 8),
+                                                                          child:
+                                                                              DecoratedBox(
+                                                                            decoration:
+                                                                                BoxDecoration(
                                                                               color: const Color(0xFFECFDF5),
                                                                               borderRadius: BorderRadius.circular(6),
                                                                               border: Border.all(
                                                                                 color: const Color(0xFF34D399),
                                                                               ),
                                                                             ),
-                                                                            child: const Padding(
+                                                                            child:
+                                                                                const Padding(
                                                                               padding: EdgeInsets.symmetric(
                                                                                 horizontal: 8,
                                                                                 vertical: 2,
@@ -511,21 +520,35 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                                                                     ],
                                                                   ),
                                                                   maxLines: 1,
-                                                                  overflow: TextOverflow.ellipsis,
-                                                                  style: const TextStyle(
-                                                                    fontSize: 15,
-                                                                    fontWeight: FontWeight.w700,
-                                                                    color: Color(0xFF0F766E),
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  style:
+                                                                      const TextStyle(
+                                                                    fontSize:
+                                                                        15,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w700,
+                                                                    color: Color(
+                                                                        0xFF0F766E),
                                                                   ),
                                                                 )
                                                               : Text(
                                                                   name,
                                                                   maxLines: 1,
-                                                                  overflow: TextOverflow.ellipsis,
-                                                                  style: const TextStyle(
-                                                                    fontSize: 15,
-                                                                    fontWeight: FontWeight.w700,
-                                                                    color: Color(0xFF0F766E),
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  style:
+                                                                      const TextStyle(
+                                                                    fontSize:
+                                                                        15,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w700,
+                                                                    color: Color(
+                                                                        0xFF0F766E),
                                                                   ),
                                                                 ),
                                                         ),
