@@ -16,6 +16,7 @@ class PlotDetailsPanel extends StatefulWidget {
     required this.isSold,
     required this.areaLabel,
     required this.tags,
+    this.outerPadding = const EdgeInsets.fromLTRB(12, 0, 12, 12),
     required this.onClose,
     this.contactNumbers,
     this.onLayoutDetails,
@@ -26,6 +27,7 @@ class PlotDetailsPanel extends StatefulWidget {
   final bool isSold;
   final String? areaLabel;
   final List<String> tags;
+  final EdgeInsetsGeometry outerPadding;
   final VoidCallback onClose;
   final List<String>? contactNumbers;
   final VoidCallback? onLayoutDetails;
@@ -133,7 +135,6 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
     final plotNumber =
         widget.plot.plotNumber.trim().isEmpty ? '—' : widget.plot.plotNumber;
 
@@ -158,355 +159,388 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
 
     return Material(
       color: Colors.transparent,
-      child: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(18),
-            topRight: Radius.circular(18),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x1F000000),
-              blurRadius: 16,
-              offset: Offset(0, -6),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(18),
-            topRight: Radius.circular(18),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: double.infinity,
-                color: const Color(0xFFEFF6FF),
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-                child: Stack(
-                  children: [
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        const gap = 12.0;
-                        const leftFlex = 3.0;
-                        const rightFlex = 2.0;
-                        const sketchAspectRatio = 152 / 112;
-
-                        final contentWidth = constraints.maxWidth;
-                        final leftWidth = (contentWidth - gap) *
-                            (leftFlex / (leftFlex + rightFlex));
-                        final sketchHeight = leftWidth / sketchAspectRatio;
-
-                        return SizedBox(
-                          height: sketchHeight,
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Padding(
+        padding: widget.outerPadding,
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x1F000000),
+                    blurRadius: 16,
+                    offset: Offset(0, -6),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.all(Radius.circular(14)),
+                child: Material(
+                  color: Colors.white,
+                  child: SafeArea(
+                    top: false,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          color: const Color(0xFFEFF6FF),
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                          child: Stack(
                             children: [
-                              Expanded(
-                                flex: 3,
-                                child: _PlotSketchCard(
-                                  borderColor: const Color(0xFF15803D),
-                                  dimensions: dimensions,
-                                  boundaryRing: plotRing,
-                                ),
-                              ),
-                              const SizedBox(width: gap),
-                              Expanded(
-                                flex: 2,
-                                child: Padding(
-                                  // Leave a touch of breathing room from the top.
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    mainAxisAlignment: MainAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.max,
-                                    children: [
-                                      Text(
-                                        'Plot #$plotNumber',
-                                        textAlign: TextAlign.center,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w800,
-                                          color: Color(0xFF111827),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        totalSqftText,
-                                        textAlign: TextAlign.center,
-                                        style: const TextStyle(
-                                          color: Color(0xFF4B5563),
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 5,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: statusTheme.bg,
-                                          border: Border.all(
-                                            color: statusTheme.border,
-                                          ),
-                                          borderRadius:
-                                              BorderRadius.circular(999),
-                                        ),
-                                        child: Text(
-                                          statusText,
-                                          style: TextStyle(
-                                            color: statusTheme.color,
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 11,
-                                            letterSpacing: 0.8,
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  const gap = 12.0;
+                                  const leftFlex = 3.0;
+                                  const rightFlex = 2.0;
+                                  const sketchAspectRatio = 152 / 112;
+
+                                  final contentWidth = constraints.maxWidth;
+                                  final leftWidth = (contentWidth - gap) *
+                                      (leftFlex / (leftFlex + rightFlex));
+                                  final sketchHeight =
+                                      leftWidth / sketchAspectRatio;
+
+                                  return SizedBox(
+                                    height: sketchHeight,
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        Expanded(
+                                          flex: 3,
+                                          child: _PlotSketchCard(
+                                            borderColor:
+                                                const Color(0xFF15803D),
+                                            dimensions: dimensions,
+                                            boundaryRing: plotRing,
                                           ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 14),
-                                      TextButton.icon(
-                                        onPressed: _showShareSheet,
-                                        style: TextButton.styleFrom(
-                                          backgroundColor:
-                                              const Color(0xFF2563EB)
-                                                  .withOpacity(0.10),
-                                          side: const BorderSide(
-                                            color: Color(0xFF93C5FD),
-                                            width: 1,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(8),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 8,
-                                          ),
-                                          minimumSize: const Size(0, 32),
-                                          tapTargetSize:
-                                              MaterialTapTargetSize.shrinkWrap,
-                                          visualDensity: VisualDensity.compact,
-                                        ),
-                                        icon: const Icon(
-                                          Icons.share_outlined,
-                                          size: 14,
-                                          color: Color(0xFF1D4ED8),
-                                        ),
-                                        label: const Text(
-                                          'Share',
-                                          style: TextStyle(
-                                            color: Color(0xFF1D4ED8),
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w500,
-                                            height: 1,
-                                          ),
-                                        ),
-                                      ),
-                                      if (showLayoutDetailsLink) ...[
-                                        const SizedBox(height: 16),
-                                        Center(
-                                          child: TextButton(
-                                            onPressed:
-                                                _handleLayoutDetailsPressed,
-                                            style: TextButton.styleFrom(
-                                              padding: EdgeInsets.zero,
-                                              minimumSize: const Size(0, 0),
-                                              tapTargetSize:
-                                                  MaterialTapTargetSize
-                                                      .shrinkWrap,
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                            ),
-                                            child: const Text(
-                                              'Layout Details →',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                color: Color(0xFF1D4ED8),
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                                height: 1,
-                                              ),
+                                        const SizedBox(width: gap),
+                                        Expanded(
+                                          flex: 2,
+                                          child: Padding(
+                                            // Leave a touch of breathing room from the top.
+                                            padding:
+                                                const EdgeInsets.only(top: 6),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.center,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.start,
+                                              mainAxisSize: MainAxisSize.max,
+                                              children: [
+                                                Text(
+                                                  'Plot #$plotNumber',
+                                                  textAlign: TextAlign.center,
+                                                  style: const TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: Color(0xFF111827),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  totalSqftText,
+                                                  textAlign: TextAlign.center,
+                                                  style: const TextStyle(
+                                                    color: Color(0xFF4B5563),
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 5,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: statusTheme.bg,
+                                                    border: Border.all(
+                                                      color: statusTheme.border,
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            999),
+                                                  ),
+                                                  child: Text(
+                                                    statusText,
+                                                    style: TextStyle(
+                                                      color: statusTheme.color,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      fontSize: 11,
+                                                      letterSpacing: 0.8,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 14),
+                                                TextButton.icon(
+                                                  onPressed: _showShareSheet,
+                                                  style: TextButton.styleFrom(
+                                                    backgroundColor:
+                                                        const Color(0xFF2563EB)
+                                                            .withOpacity(0.10),
+                                                    side: const BorderSide(
+                                                      color: Color(0xFF93C5FD),
+                                                      width: 1,
+                                                    ),
+                                                    shape:
+                                                        RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8),
+                                                    ),
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 8,
+                                                    ),
+                                                    minimumSize:
+                                                        const Size(0, 32),
+                                                    tapTargetSize:
+                                                        MaterialTapTargetSize
+                                                            .shrinkWrap,
+                                                    visualDensity:
+                                                        VisualDensity.compact,
+                                                  ),
+                                                  icon: const Icon(
+                                                    Icons.share_outlined,
+                                                    size: 14,
+                                                    color: Color(0xFF1D4ED8),
+                                                  ),
+                                                  label: const Text(
+                                                    'Share',
+                                                    style: TextStyle(
+                                                      color: Color(0xFF1D4ED8),
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                      height: 1,
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (showLayoutDetailsLink) ...[
+                                                  const SizedBox(height: 16),
+                                                  Center(
+                                                    child: TextButton(
+                                                      onPressed:
+                                                          _handleLayoutDetailsPressed,
+                                                      style:
+                                                          TextButton.styleFrom(
+                                                        padding:
+                                                            EdgeInsets.zero,
+                                                        minimumSize:
+                                                            const Size(0, 0),
+                                                        tapTargetSize:
+                                                            MaterialTapTargetSize
+                                                                .shrinkWrap,
+                                                        visualDensity:
+                                                            VisualDensity
+                                                                .compact,
+                                                      ),
+                                                      child: const Text(
+                                                        'Layout Details →',
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        style: TextStyle(
+                                                          color:
+                                                              Color(0xFF1D4ED8),
+                                                          fontSize: 14,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          height: 1,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
                                             ),
                                           ),
                                         ),
                                       ],
-                                    ],
-                                  ),
-                                ),
+                                    ),
+                                  );
+                                },
+                              ),
+                              Positioned(
+                                top: 0,
+                                right: 0,
+                                child:
+                                    _CloseIconButton(onPressed: widget.onClose),
                               ),
                             ],
-                          ),
-                        );
-                      },
-                    ),
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      child: _CloseIconButton(onPressed: widget.onClose),
-                    ),
-                  ],
-                ),
-              ),
-              if (showInfoRow)
-                Container(
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    border: Border(
-                      top: BorderSide(color: Color(0xFFE5E7EB)),
-                    ),
-                  ),
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                  child: Text(
-                    tagsLine,
-                    style: const TextStyle(
-                      color: Color(0xFF111827),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      height: 1.15,
-                    ),
-                  ),
-                ),
-              if (!canEditStatus) SizedBox(height: bottomInset + 12),
-              if (canEditStatus)
-                Container(
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    border: Border(
-                      top: BorderSide(color: Color(0xFFE5E7EB)),
-                    ),
-                  ),
-                  padding: EdgeInsets.fromLTRB(12, 10, 12, 12 + bottomInset),
-                  child: Row(
-                    children: [
-                      const Flexible(
-                        flex: 2,
-                        child: Text(
-                          'Update Status',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Color(0xFF111827),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.6,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 3,
-                        child: SizedBox(
-                          height: 40,
-                          child: DropdownButtonFormField<String>(
-                            value: _statusValue,
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'Available',
-                                child: Padding(
-                                  padding: EdgeInsets.only(left: 8),
-                                  child: Text('Available'),
-                                ),
+                        if (showInfoRow)
+                          Container(
+                            width: double.infinity,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              border: Border(
+                                top: BorderSide(color: Color(0xFFE5E7EB)),
                               ),
-                              DropdownMenuItem(
-                                value: 'Booked',
-                                child: Padding(
-                                  padding: EdgeInsets.only(left: 8),
-                                  child: Text('Booked'),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'Sold',
-                                child: Padding(
-                                  padding: EdgeInsets.only(left: 8),
-                                  child: Text('Sold'),
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'Blocked',
-                                child: Padding(
-                                  padding: EdgeInsets.only(left: 8),
-                                  child: Text('Blocked'),
-                                ),
-                              ),
-                            ],
-                            onChanged: (widget.onUpdateStatus == null ||
-                                    _isUpdatingStatus)
-                                ? null
-                                : (v) async {
-                                    if (v == null) return;
-
-                                    _dismissKeyboard();
-
-                                    final previous = _statusValue;
-                                    final messenger =
-                                        ScaffoldMessenger.of(context);
-                                    setState(() {
-                                      _statusValue = v;
-                                      _isUpdatingStatus = true;
-                                    });
-
-                                    try {
-                                      await widget.onUpdateStatus?.call(v);
-                                    } catch (e) {
-                                      debugPrint(
-                                          'Failed to update plot status: $e');
-                                      if (mounted) {
-                                        setState(() {
-                                          _statusValue = previous;
-                                        });
-                                      }
-
-                                      final message = e.toString().trim();
-                                      messenger.showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            message.isEmpty
-                                                ? 'Failed to update status. Please try again.'
-                                                : message,
-                                          ),
-                                        ),
-                                      );
-                                    } finally {
-                                      _dismissKeyboard();
-                                      if (mounted) {
-                                        setState(() {
-                                          _isUpdatingStatus = false;
-                                        });
-                                      }
-                                    }
-                                  },
-                            decoration: InputDecoration(
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                vertical: 10,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFD1D5DB),
-                                ),
+                            ),
+                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                            child: Text(
+                              tagsLine,
+                              style: const TextStyle(
+                                color: Color(0xFF111827),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                height: 1.15,
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                    ],
+                        if (!canEditStatus) const SizedBox(height: 12),
+                        if (canEditStatus)
+                          Container(
+                            width: double.infinity,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              border: Border(
+                                top: BorderSide(color: Color(0xFFE5E7EB)),
+                              ),
+                            ),
+                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                            child: Row(
+                              children: [
+                                const Flexible(
+                                  flex: 2,
+                                  child: Text(
+                                    'Update Status',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: Color(0xFF111827),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.6,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  flex: 3,
+                                  child: SizedBox(
+                                    height: 40,
+                                    child: DropdownButtonFormField<String>(
+                                      value: _statusValue,
+                                      items: const [
+                                        DropdownMenuItem(
+                                          value: 'Available',
+                                          child: Padding(
+                                            padding: EdgeInsets.only(left: 8),
+                                            child: Text('Available'),
+                                          ),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: 'Booked',
+                                          child: Padding(
+                                            padding: EdgeInsets.only(left: 8),
+                                            child: Text('Booked'),
+                                          ),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: 'Sold',
+                                          child: Padding(
+                                            padding: EdgeInsets.only(left: 8),
+                                            child: Text('Sold'),
+                                          ),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: 'Blocked',
+                                          child: Padding(
+                                            padding: EdgeInsets.only(left: 8),
+                                            child: Text('Blocked'),
+                                          ),
+                                        ),
+                                      ],
+                                      onChanged: (widget.onUpdateStatus ==
+                                                  null ||
+                                              _isUpdatingStatus)
+                                          ? null
+                                          : (v) async {
+                                              if (v == null) return;
+
+                                              _dismissKeyboard();
+
+                                              final previous = _statusValue;
+                                              final messenger =
+                                                  ScaffoldMessenger.of(context);
+                                              setState(() {
+                                                _statusValue = v;
+                                                _isUpdatingStatus = true;
+                                              });
+
+                                              try {
+                                                await widget.onUpdateStatus
+                                                    ?.call(v);
+                                              } catch (e) {
+                                                debugPrint(
+                                                    'Failed to update plot status: $e');
+                                                if (mounted) {
+                                                  setState(() {
+                                                    _statusValue = previous;
+                                                  });
+                                                }
+
+                                                final message =
+                                                    e.toString().trim();
+                                                messenger.showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      message.isEmpty
+                                                          ? 'Failed to update status. Please try again.'
+                                                          : message,
+                                                    ),
+                                                  ),
+                                                );
+                                              } finally {
+                                                _dismissKeyboard();
+                                                if (mounted) {
+                                                  setState(() {
+                                                    _isUpdatingStatus = false;
+                                                  });
+                                                }
+                                              }
+                                            },
+                                      decoration: InputDecoration(
+                                        isDense: true,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                          vertical: 10,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          borderSide: const BorderSide(
+                                            color: Color(0xFFD1D5DB),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                )
-              else
-                SizedBox(height: bottomInset),
-            ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
