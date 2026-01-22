@@ -375,6 +375,92 @@ class _PropertyPolygonEditorScreenState
     );
   }
 
+  Widget _mapEditControl() {
+    const radius = 8.0;
+    const size = 36.0;
+    const borderColor = Color(0xFFE2E8F0);
+
+    Widget segment({
+      required IconData icon,
+      required String tooltip,
+      required VoidCallback onPressed,
+      required bool enabled,
+      required BorderRadius borderRadius,
+    }) {
+      return Tooltip(
+        message: tooltip,
+        child: Material(
+          color: Colors.white,
+          borderRadius: borderRadius,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: enabled ? onPressed : null,
+            child: SizedBox(
+              width: size,
+              height: size,
+              child: Icon(
+                icon,
+                size: 18,
+                color:
+                    enabled ? const Color(0xFF1F2937) : const Color(0xFF94A3B8),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final canUndo = _points.isNotEmpty;
+    final canClear = _points.isNotEmpty;
+
+    return Material(
+      color: Colors.transparent,
+      elevation: 4,
+      shadowColor: Colors.black26,
+      borderRadius: BorderRadius.circular(radius),
+      child: Container(
+        width: size,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(radius),
+          border: Border.all(color: borderColor),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            segment(
+              icon: Icons.undo,
+              tooltip: 'Undo last point',
+              enabled: canUndo,
+              onPressed: () {
+                _closeSearchSuggestions(dismissKeyboard: true);
+                _undo();
+              },
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(radius),
+                topRight: Radius.circular(radius),
+              ),
+            ),
+            const Divider(height: 1, thickness: 1, color: borderColor),
+            segment(
+              icon: Icons.delete_outline,
+              tooltip: 'Clear',
+              enabled: canClear,
+              onPressed: () {
+                _closeSearchSuggestions(dismissKeyboard: true);
+                _clear();
+              },
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(radius),
+                bottomRight: Radius.circular(radius),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _mapControlButton({
     required IconData icon,
     required String tooltip,
@@ -772,26 +858,20 @@ class _PropertyPolygonEditorScreenState
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF0F172A),
+            color: Color(0xFF0FAD97),
           ),
         ),
+        foregroundColor: const Color(0xFF0FAD97),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-            tooltip: 'Undo last point',
-            onPressed: _points.isEmpty ? null : _undo,
-            icon: const Icon(Icons.undo),
-          ),
-          IconButton(
-            tooltip: 'Clear',
-            onPressed: _points.isEmpty ? null : _clear,
-            icon: const Icon(Icons.delete_outline),
-          ),
           TextButton(
             onPressed:
                 _canFinish ? () => Navigator.of(context).pop(_points) : null,
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF0FAD97),
+            ),
             child: const Text(
               'Next',
               style: TextStyle(fontWeight: FontWeight.w700),
@@ -849,6 +929,11 @@ class _PropertyPolygonEditorScreenState
               ),
             ),
           Positioned(
+            right: 16,
+            top: widget.mode == PropertyPolygonEditorMode.add ? 84 : 16,
+            child: _mapEditControl(),
+          ),
+          Positioned(
             left: 16,
             right: 16,
             bottom: 16,
@@ -864,7 +949,7 @@ class _PropertyPolygonEditorScreenState
                       : 'Switch to satellite view',
                   onPressed: _toggleMapType,
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Align(
                     alignment: Alignment.bottomCenter,
@@ -918,7 +1003,7 @@ class _PropertyPolygonEditorScreenState
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 _mapZoomControl(),
               ],
             ),
