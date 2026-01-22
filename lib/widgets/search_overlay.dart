@@ -132,12 +132,11 @@ class _SearchOverlayState extends State<SearchOverlay> {
               LatLng? center,
               List<LatLng>? initialPoints,
             }) async {
-              Navigator.of(dialogContext).pop();
-              await Future<void>.delayed(Duration.zero);
               if (!mounted) return;
 
               final points =
-                  await Navigator.of(this.context).push<List<LatLng>>(
+                  await Navigator.of(this.context, rootNavigator: true)
+                      .push<List<LatLng>>(
                 MaterialPageRoute(
                   builder: (_) => PropertyPolygonEditorScreen(
                     mode: mode,
@@ -945,27 +944,11 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                     );
                                   }
 
-                                  Navigator.of(context).pop();
-                                  await Future<void>.delayed(Duration.zero);
-                                  if (!mounted) return;
-
-                                  final points = await Navigator.of(context).push<List<LatLng>>(
-                                    MaterialPageRoute(
-                                      builder: (_) => PropertyPolygonEditorScreen(
-                                        mode: PropertyPolygonEditorMode.edit,
-                                        initialCenter: center,
-                                        initialPoints: initialPoints,
-                                      ),
-                                    ),
+                                  await openEditor(
+                                    mode: PropertyPolygonEditorMode.edit,
+                                    center: center,
+                                    initialPoints: initialPoints,
                                   );
-
-                                  if (!mounted) return;
-                                  if (points != null && points.length >= 3) {
-                                    ToastMessage.show(
-                                      context,
-                                      'Polygon updated. Next step coming soon.',
-                                    );
-                                  }
                                 }
 
                                 Widget actionIcon({
