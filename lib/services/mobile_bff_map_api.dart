@@ -11,6 +11,7 @@ import '../models/image_summary.dart';
 import '../models/map_viewport_models.dart';
 import '../models/my_property_list_item.dart';
 import '../models/nearby_property_card.dart';
+import '../models/property_detail.dart';
 
 class MobileBffMapApi {
   MobileBffMapApi({http.Client? client}) : _client = client ?? http.Client();
@@ -332,6 +333,60 @@ class MobileBffMapApi {
     throw MapApiException(
       _tryMessage(response.body) ??
           'My properties fetch failed (${response.statusCode})',
+    );
+  }
+
+  Future<PropertyDetail> getPropertyDetail({
+    required String propertyId,
+    String? bearerToken,
+  }) async {
+    final uri = _uri('/mobile/properties/$propertyId');
+
+    http.Response response;
+    try {
+      final headers = <String, String>{};
+      if (bearerToken != null && bearerToken.trim().isNotEmpty) {
+        final token = bearerToken.toLowerCase().startsWith('bearer ')
+            ? bearerToken.substring('bearer '.length)
+            : bearerToken;
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      response = await _client
+          .get(uri, headers: headers.isEmpty ? null : headers)
+          .timeout(_timeout);
+    } on SocketException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException(
+        'Cannot connect to the server. Please check your network and try again.',
+      );
+    } on HttpException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException('Network error. Please try again.');
+    } on FormatException {
+      throw const MapApiException('Unexpected response from server');
+    } on TimeoutException {
+      throw const MapApiException('Request timed out. Please try again.');
+    }
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map) {
+        throw const MapApiException('Unexpected response from server');
+      }
+
+      return PropertyDetail.fromJson(decoded.cast<String, dynamic>());
+    }
+
+    if (response.statusCode == 401) {
+      throw const MapApiException('Please login to view your property.');
+    }
+
+    throw MapApiException(
+      _tryMessage(response.body) ??
+          'Property detail fetch failed (${response.statusCode})',
     );
   }
 

@@ -12,6 +12,7 @@ import '../models/recent_place.dart';
 import '../screens/property_polygon_editor_screen.dart';
 import '../services/mobile_bff_map_api.dart';
 import '../state/auth_scope.dart';
+import '../utils/geojson.dart';
 import 'auth_dialog.dart';
 import 'toast_message.dart';
 
@@ -129,6 +130,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
             Future<void> openEditor({
               required PropertyPolygonEditorMode mode,
               LatLng? center,
+              List<LatLng>? initialPoints,
             }) async {
               Navigator.of(dialogContext).pop();
               await Future<void>.delayed(Duration.zero);
@@ -140,6 +142,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
                   builder: (_) => PropertyPolygonEditorScreen(
                     mode: mode,
                     initialCenter: center,
+                    initialPoints: initialPoints,
                   ),
                 ),
               );
@@ -327,6 +330,19 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                     item.propertyType.trim().isEmpty
                                         ? 'Property'
                                         : item.propertyType.trim();
+                                final normalizedType =
+                                    item.propertyType.trim().toLowerCase();
+                                final normalizedCompact = normalizedType
+                                    .replaceAll(RegExp(r'\s+'), '');
+                                final isLayoutProperty =
+                                    normalizedType.contains('layout');
+                                final isEditableProperty = const <String>{
+                                  'plot',
+                                  'apartment',
+                                  'independenthouse',
+                                  'commercialspace',
+                                  'land',
+                                }.contains(normalizedCompact);
 
                                 final dateSource = item.createdAt ==
                                         DateTime.fromMillisecondsSinceEpoch(0)
@@ -341,11 +357,40 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                 }
 
                                 Future<void> edit() async {
-                                  final center = item.centerPoint ??
+                                  if (!isEditableProperty || isLayoutProperty) {
+                                    return;
+                                  }
+                                  LatLng? center = item.centerPoint ??
                                       widget.getMapCenter?.call();
+                                  List<LatLng>? initialPoints;
+
+                                  try {
+                                    final detail =
+                                        await _mapApi.getPropertyDetail(
+                                      propertyId: item.id,
+                                      bearerToken: token,
+                                    );
+                                    final polygons = GeoJson.tryParsePolygons(
+                                      detail.propertyBoundaryGeoJson,
+                                    );
+                                    if (polygons.isNotEmpty) {
+                                      initialPoints = polygons.first;
+                                      center ??= GeoJson.tryParsePoint(
+                                        detail.centerPointGeoJson,
+                                      );
+                                    }
+                                  } on MapApiException catch (ex) {
+                                    ToastMessage.show(context, ex.message);
+                                  } catch (_) {
+                                    ToastMessage.show(
+                                      context,
+                                      'Failed to load property boundary.',
+                                    );
+                                  }
                                   await openEditor(
                                     mode: PropertyPolygonEditorMode.edit,
                                     center: center,
+                                    initialPoints: initialPoints,
                                   );
                                 }
 
@@ -578,8 +623,18 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                                 const SizedBox(width: 6),
                                                 actionIcon(
                                                   icon: Icons.edit_outlined,
-                                                  tooltip: 'Edit',
-                                                  onTap: edit,
+                                                  tooltip: isEditableProperty &&
+                                                          !isLayoutProperty
+                                                      ? 'Edit'
+                                                      : 'Edit (web only)',
+                                                  onTap: isEditableProperty &&
+                                                          !isLayoutProperty
+                                                      ? edit
+                                                      : () => ToastMessage
+                                                              .showAbove(
+                                                            this.context,
+                                                            'Layout editable only in web screen.',
+                                                          ),
                                                 ),
                                               ],
                                             ),
@@ -830,9 +885,22 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                 final locationMissing = locationLabel.isEmpty;
 
                                 final typeLabel =
-                                    item.propertyType.trim().isEmpty
-                                        ? 'Property'
-                                        : item.propertyType.trim();
+                                  item.propertyType.trim().isEmpty
+                                    ? 'Property'
+                                    : item.propertyType.trim();
+                                final normalizedType =
+                                  item.propertyType.trim().toLowerCase();
+                                final normalizedCompact =
+                                  normalizedType.replaceAll(RegExp(r'\s+'), '');
+                                final isLayoutProperty =
+                                  normalizedType.contains('layout');
+                                final isEditableProperty = const <String>{
+                                  'plot',
+                                  'apartment',
+                                  'independenthouse',
+                                  'commercialspace',
+                                  'land',
+                                }.contains(normalizedCompact);
 
                                 final dateSource = item.createdAt ==
                                         DateTime.fromMillisecondsSinceEpoch(0)
@@ -847,7 +915,36 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                 }
 
                                 Future<void> edit() async {
-                                  final center = item.centerPoint ?? widget.getMapCenter?.call();
+                                  if (!isEditableProperty || isLayoutProperty) {
+                                    return;
+                                  }
+                                  LatLng? center =
+                                      item.centerPoint ?? widget.getMapCenter?.call();
+                                  List<LatLng>? initialPoints;
+
+                                  try {
+                                    final detail = await _mapApi.getPropertyDetail(
+                                      propertyId: item.id,
+                                      bearerToken: token,
+                                    );
+                                    final polygons = GeoJson.tryParsePolygons(
+                                      detail.propertyBoundaryGeoJson,
+                                    );
+                                    if (polygons.isNotEmpty) {
+                                      initialPoints = polygons.first;
+                                      center ??= GeoJson.tryParsePoint(
+                                        detail.centerPointGeoJson,
+                                      );
+                                    }
+                                  } on MapApiException catch (ex) {
+                                    ToastMessage.show(context, ex.message);
+                                  } catch (_) {
+                                    ToastMessage.show(
+                                      context,
+                                      'Failed to load property boundary.',
+                                    );
+                                  }
+
                                   Navigator.of(context).pop();
                                   await Future<void>.delayed(Duration.zero);
                                   if (!mounted) return;
@@ -857,6 +954,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                       builder: (_) => PropertyPolygonEditorScreen(
                                         mode: PropertyPolygonEditorMode.edit,
                                         initialCenter: center,
+                                        initialPoints: initialPoints,
                                       ),
                                     ),
                                   );
@@ -1099,8 +1197,17 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                                 const SizedBox(width: 6),
                                                 actionIcon(
                                                   icon: Icons.edit_outlined,
-                                                  tooltip: 'Edit',
-                                                  onTap: edit,
+                                                  tooltip: isEditableProperty &&
+                                                          !isLayoutProperty
+                                                      ? 'Edit'
+                                                      : 'Edit (web only)',
+                                                    onTap: isEditableProperty &&
+                                                      !isLayoutProperty
+                                                        ? edit
+                                                        : () => ToastMessage.showAbove(
+                                                              this.context,
+                                                              'Layout editable only in web screen.',
+                                                            ),
                                                 ),
                                               ],
                                             ),

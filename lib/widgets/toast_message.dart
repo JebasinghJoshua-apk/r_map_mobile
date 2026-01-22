@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 /// App-wide toast/snackbar styling helper.
@@ -5,6 +7,101 @@ import 'package:flutter/material.dart';
 /// Uses a compact floating pill similar to the map zoom badge.
 class ToastMessage {
   ToastMessage._();
+
+  static OverlayEntry? _overlayEntry;
+
+  static void showAbove(
+    BuildContext context,
+    String message, {
+    Duration duration = const Duration(seconds: 4),
+    double bottomMargin = 24,
+    double fontSize = 14,
+    int maxLines = 3,
+  }) {
+    if (!context.mounted) return;
+
+    final overlay = Overlay.of(context, rootOverlay: true);
+    if (overlay == null) {
+      show(
+        context,
+        message,
+        duration: duration,
+        bottomMargin: bottomMargin,
+        fontSize: fontSize,
+        maxLines: maxLines,
+      );
+      return;
+    }
+
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+
+    final screenWidth = MediaQuery.maybeSizeOf(context)?.width ?? 400;
+    final textScaler = MediaQuery.textScalerOf(context);
+    final maxWidth = screenWidth - 24;
+
+    const horizontalPadding = 12.0;
+    const verticalPadding = 8.0;
+
+    final textStyle = TextStyle(
+      color: Colors.white,
+      fontWeight: FontWeight.w600,
+      fontSize: fontSize,
+    );
+
+    final textDirection = Directionality.maybeOf(context) ?? TextDirection.ltr;
+    final painter = TextPainter(
+      text: TextSpan(text: message, style: textStyle),
+      maxLines: maxLines < 1 ? 1 : maxLines,
+      textDirection: textDirection,
+      textScaler: textScaler,
+    )..layout(maxWidth: maxWidth - (horizontalPadding * 2) - 6);
+
+    final desiredWidth = painter.width + (horizontalPadding * 2) + 6;
+    final pillWidth = desiredWidth.clamp(80.0, maxWidth).toDouble();
+    final horizontalMargin =
+        ((screenWidth - pillWidth) / 2).clamp(12.0, 200.0).toDouble();
+
+    _overlayEntry = OverlayEntry(
+      builder: (_) => Positioned(
+        left: horizontalMargin,
+        right: horizontalMargin,
+        bottom: bottomMargin,
+        child: SafeArea(
+          top: false,
+          child: Material(
+            color: Colors.transparent,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: horizontalPadding,
+                  vertical: verticalPadding,
+                ),
+                child: Text(
+                  message,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: maxLines < 1 ? 1 : maxLines,
+                  softWrap: true,
+                  textAlign: TextAlign.center,
+                  style: textStyle,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    overlay.insert(_overlayEntry!);
+    Timer(duration, () {
+      _overlayEntry?.remove();
+      _overlayEntry = null;
+    });
+  }
 
   static void show(
     BuildContext context,

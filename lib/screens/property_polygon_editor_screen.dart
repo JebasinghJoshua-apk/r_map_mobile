@@ -15,10 +15,12 @@ class PropertyPolygonEditorScreen extends StatefulWidget {
     super.key,
     required this.mode,
     this.initialCenter,
+    this.initialPoints,
   });
 
   final PropertyPolygonEditorMode mode;
   final LatLng? initialCenter;
+  final List<LatLng>? initialPoints;
 
   @override
   State<PropertyPolygonEditorScreen> createState() =>
@@ -39,7 +41,7 @@ class _PropertyPolygonEditorScreenState
   static const double _hybridZoomEnter = 17.5;
   static const double _hybridZoomExit = 17.5;
 
-  late final LatLng _center = widget.initialCenter ?? _fallbackCenter;
+  late final LatLng _center;
   final List<LatLng> _points = <LatLng>[];
   int _geometryRevision = 0;
 
@@ -66,6 +68,18 @@ class _PropertyPolygonEditorScreenState
     super.initState();
     unawaited(_loadMapStyle());
 
+    _center = _resolveInitialCenter();
+
+    final seedPoints = widget.initialPoints ?? const <LatLng>[];
+    if (seedPoints.isNotEmpty) {
+      final normalized = _normalizeInitialPoints(seedPoints);
+      _points.addAll(normalized);
+      if (_points.isNotEmpty) {
+        _geometryRevision = 1;
+        unawaited(_refreshEdgeLabels());
+      }
+    }
+
     final key = googlePlacesApiKey.trim();
     if (key.isNotEmpty && key != 'YOUR_GOOGLE_PLACES_API_KEY') {
       _googlePlace = GooglePlace(key);
@@ -79,6 +93,47 @@ class _PropertyPolygonEditorScreenState
         });
       }
     });
+  }
+
+  LatLng _resolveInitialCenter() {
+    final center = widget.initialCenter;
+    if (center != null) return center;
+
+    final points = widget.initialPoints;
+    if (points != null && points.isNotEmpty) {
+      return _boundsCenter(points);
+    }
+
+    return _fallbackCenter;
+  }
+
+  List<LatLng> _normalizeInitialPoints(List<LatLng> points) {
+    if (points.length < 2) return List<LatLng>.from(points);
+    final first = points.first;
+    final last = points.last;
+    if (first.latitude == last.latitude && first.longitude == last.longitude) {
+      return List<LatLng>.from(points.sublist(0, points.length - 1));
+    }
+    return List<LatLng>.from(points);
+  }
+
+  LatLng _boundsCenter(List<LatLng> points) {
+    var minLat = points.first.latitude;
+    var maxLat = points.first.latitude;
+    var minLng = points.first.longitude;
+    var maxLng = points.first.longitude;
+
+    for (final p in points.skip(1)) {
+      minLat = math.min(minLat, p.latitude);
+      maxLat = math.max(maxLat, p.latitude);
+      minLng = math.min(minLng, p.longitude);
+      maxLng = math.max(maxLng, p.longitude);
+    }
+
+    return LatLng(
+      (minLat + maxLat) / 2,
+      (minLng + maxLng) / 2,
+    );
   }
 
   void _dismissKeyboard() {
@@ -104,6 +159,38 @@ class _PropertyPolygonEditorScreenState
       CameraUpdate.newCameraPosition(
         CameraPosition(target: target, zoom: zoom),
       ),
+    );
+  }
+
+  Future<void> _fitCameraToPoints(List<LatLng> points) async {
+    final controller = _controller;
+    if (controller == null || points.isEmpty) return;
+
+    if (points.length == 1) {
+      await _moveCameraTo(points.first, zoom: 17);
+      return;
+    }
+
+    var minLat = points.first.latitude;
+    var maxLat = points.first.latitude;
+    var minLng = points.first.longitude;
+    var maxLng = points.first.longitude;
+
+    for (final p in points.skip(1)) {
+      minLat = math.min(minLat, p.latitude);
+      maxLat = math.max(maxLat, p.latitude);
+      minLng = math.min(minLng, p.longitude);
+      maxLng = math.max(maxLng, p.longitude);
+    }
+
+    final bounds = LatLngBounds(
+      southwest: LatLng(minLat, minLng),
+      northeast: LatLng(maxLat, maxLng),
+    );
+
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await controller.animateCamera(
+      CameraUpdate.newLatLngBounds(bounds, 60),
     );
   }
 
@@ -364,92 +451,6 @@ class _PropertyPolygonEditorScreenState
               icon: Icons.remove,
               tooltip: 'Zoom out',
               onPressed: () => unawaited(_zoomOut()),
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(radius),
-                bottomRight: Radius.circular(radius),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _mapEditControl() {
-    const radius = 8.0;
-    const size = 36.0;
-    const borderColor = Color(0xFFE2E8F0);
-
-    Widget segment({
-      required IconData icon,
-      required String tooltip,
-      required VoidCallback onPressed,
-      required bool enabled,
-      required BorderRadius borderRadius,
-    }) {
-      return Tooltip(
-        message: tooltip,
-        child: Material(
-          color: Colors.white,
-          borderRadius: borderRadius,
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: enabled ? onPressed : null,
-            child: SizedBox(
-              width: size,
-              height: size,
-              child: Icon(
-                icon,
-                size: 18,
-                color:
-                    enabled ? const Color(0xFF1F2937) : const Color(0xFF94A3B8),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    final canUndo = _points.isNotEmpty;
-    final canClear = _points.isNotEmpty;
-
-    return Material(
-      color: Colors.transparent,
-      elevation: 4,
-      shadowColor: Colors.black26,
-      borderRadius: BorderRadius.circular(radius),
-      child: Container(
-        width: size,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(radius),
-          border: Border.all(color: borderColor),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            segment(
-              icon: Icons.undo,
-              tooltip: 'Undo last point',
-              enabled: canUndo,
-              onPressed: () {
-                _closeSearchSuggestions(dismissKeyboard: true);
-                _undo();
-              },
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(radius),
-                topRight: Radius.circular(radius),
-              ),
-            ),
-            const Divider(height: 1, thickness: 1, color: borderColor),
-            segment(
-              icon: Icons.delete_outline,
-              tooltip: 'Clear',
-              enabled: canClear,
-              onPressed: () {
-                _closeSearchSuggestions(dismissKeyboard: true);
-                _clear();
-              },
               borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(radius),
                 bottomRight: Radius.circular(radius),
@@ -783,8 +784,8 @@ class _PropertyPolygonEditorScreenState
   @override
   Widget build(BuildContext context) {
     final title = widget.mode == PropertyPolygonEditorMode.add
-        ? 'Add property'
-        : 'Edit property';
+        ? 'Add Property'
+        : 'Edit Property';
 
     final polygon = _points.length >= 3
         ? Polygon(
@@ -853,28 +854,51 @@ class _PropertyPolygonEditorScreenState
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
+        titleSpacing: 6,
+        leadingWidth: 44,
         title: Text(
           title,
           style: const TextStyle(
-            fontSize: 16,
+            fontSize: 18,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF0FAD97),
+            color: Color(0xFF0F172A),
           ),
         ),
-        foregroundColor: const Color(0xFF0FAD97),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         elevation: 0,
         actions: [
-          TextButton(
-            onPressed:
-                _canFinish ? () => Navigator.of(context).pop(_points) : null,
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF0FAD97),
-            ),
-            child: const Text(
-              'Next',
-              style: TextStyle(fontWeight: FontWeight.w700),
+          IconButton(
+            tooltip: 'Undo last point',
+            onPressed: _points.isEmpty ? null : _undo,
+            icon: const Icon(Icons.undo),
+          ),
+          IconButton(
+            tooltip: 'Clear',
+            onPressed: _points.isEmpty ? null : _clear,
+            icon: const Icon(Icons.delete_outline),
+          ),
+          const SizedBox(width: 6),
+          Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: OutlinedButton(
+              onPressed:
+                  _canFinish ? () => Navigator.of(context).pop(_points) : null,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF0FAD97),
+                side: const BorderSide(color: Color(0xFF0FAD97)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                minimumSize: const Size(0, 36),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text(
+                'Next',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
             ),
           ),
         ],
@@ -916,7 +940,12 @@ class _PropertyPolygonEditorScreenState
                 });
               }
             },
-            onMapCreated: (c) => _controller = c,
+            onMapCreated: (c) {
+              _controller = c;
+              if (_points.isNotEmpty) {
+                unawaited(_fitCameraToPoints(_points));
+              }
+            },
           ),
           if (widget.mode == PropertyPolygonEditorMode.add)
             Positioned(
@@ -928,11 +957,6 @@ class _PropertyPolygonEditorScreenState
                 child: _buildSearchBox(context),
               ),
             ),
-          Positioned(
-            right: 16,
-            top: widget.mode == PropertyPolygonEditorMode.add ? 84 : 16,
-            child: _mapEditControl(),
-          ),
           Positioned(
             left: 16,
             right: 16,
@@ -949,7 +973,7 @@ class _PropertyPolygonEditorScreenState
                       : 'Switch to satellite view',
                   onPressed: _toggleMapType,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Align(
                     alignment: Alignment.bottomCenter,
@@ -1003,7 +1027,7 @@ class _PropertyPolygonEditorScreenState
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 _mapZoomControl(),
               ],
             ),
