@@ -221,7 +221,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
                 );
 
                 setModalState(() {
-                  items = items.where((e) => e.id != id).toList(growable: false);
+                  items =
+                      items.where((e) => e.id != id).toList(growable: false);
                   deletingIds.remove(id);
                 });
 
@@ -741,9 +742,11 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                                   tooltip: 'Delete',
                                                   onTap: isDeleting
                                                       ? null
-                                                      : () => deleteProperty(item),
+                                                      : () =>
+                                                          deleteProperty(item),
                                                   enabled: !isDeleting,
-                                                  iconColor: const Color(0xFFDC2626),
+                                                  iconColor:
+                                                      const Color(0xFFDC2626),
                                                   borderColor:
                                                       const Color(0xFFFEE2E2),
                                                 ),
