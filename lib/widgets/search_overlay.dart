@@ -24,6 +24,7 @@ class SearchOverlay extends StatefulWidget {
     required this.onPlaceSelected,
     this.onMyPropertySelected,
     this.onMyPropertyDeleted,
+    this.onMyPropertiesOpened,
     this.getMapCenter,
     this.onSearchTap,
     this.onFilterTap,
@@ -36,6 +37,7 @@ class SearchOverlay extends StatefulWidget {
 
   final Future<void> Function(MyPropertyListItem item)? onMyPropertySelected;
   final Future<void> Function(MyPropertyListItem item)? onMyPropertyDeleted;
+  final VoidCallback? onMyPropertiesOpened;
   final LatLng? Function()? getMapCenter;
 
   final VoidCallback? onSearchTap;
@@ -78,6 +80,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
   }
 
   Future<void> showMyPropertiesPopup() async {
+    widget.onMyPropertiesOpened?.call();
     final token = AuthScope.of(context).session?.token;
     if (token == null || token.trim().isEmpty) {
       ToastMessage.show(context, 'Please login to view your properties.');
