@@ -336,6 +336,57 @@ class MobileBffMapApi {
     );
   }
 
+  Future<void> deleteProperty({
+    required String propertyType,
+    required String propertyId,
+    String? bearerToken,
+  }) async {
+    final safeType = Uri.encodeComponent(propertyType.trim());
+    final uri = _uri('/mobile/properties/$safeType/$propertyId');
+
+    http.Response response;
+    try {
+      final headers = <String, String>{};
+      if (bearerToken != null && bearerToken.trim().isNotEmpty) {
+        final token = bearerToken.toLowerCase().startsWith('bearer ')
+            ? bearerToken.substring('bearer '.length)
+            : bearerToken;
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      response = await _client
+          .delete(uri, headers: headers.isEmpty ? null : headers)
+          .timeout(_timeout);
+    } on SocketException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException(
+        'Cannot connect to the server. Please check your network and try again.',
+      );
+    } on HttpException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException('Network error. Please try again.');
+    } on FormatException {
+      throw const MapApiException('Unexpected response from server');
+    } on TimeoutException {
+      throw const MapApiException('Request timed out. Please try again.');
+    }
+
+    if (response.statusCode == 204 || response.statusCode == 200) {
+      return;
+    }
+
+    if (response.statusCode == 401) {
+      throw const MapApiException('Please login to delete properties.');
+    }
+
+    throw MapApiException(
+      _tryMessage(response.body) ??
+          'Property delete failed (${response.statusCode})',
+    );
+  }
+
   Future<PropertyDetail> getPropertyDetail({
     required String propertyId,
     String? bearerToken,

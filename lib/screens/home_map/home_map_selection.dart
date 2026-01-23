@@ -1,6 +1,24 @@
 part of '../home_map_screen.dart';
 
 extension _HomeMapSelection on _HomeMapScreenState {
+  Future<void> _onMyPropertyDeleted(MyPropertyListItem item) async {
+    final id = item.id.trim();
+    if (id.isNotEmpty) {
+      final selected = _selectedProperty;
+      if (selected != null) {
+        final selectedId = selected.propertyId.trim();
+        final selectedFeatureId = selected.featureId.trim();
+        if (selectedId == id || selectedFeatureId == id) {
+          _closePropertyPanel();
+        }
+      }
+    }
+
+    _viewportCache.clear();
+    _lastViewportSignature = null;
+    await _fetchViewport();
+  }
+
   Future<void> _moveCameraTo(LatLng target, String label, double zoom) async {
     if (_mapController == null) return;
     await _animateCamera(

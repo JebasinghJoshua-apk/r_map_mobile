@@ -23,6 +23,7 @@ class SearchOverlay extends StatefulWidget {
     required this.googlePlace,
     required this.onPlaceSelected,
     this.onMyPropertySelected,
+    this.onMyPropertyDeleted,
     this.getMapCenter,
     this.onSearchTap,
     this.onFilterTap,
@@ -34,6 +35,7 @@ class SearchOverlay extends StatefulWidget {
       onPlaceSelected;
 
   final Future<void> Function(MyPropertyListItem item)? onMyPropertySelected;
+  final Future<void> Function(MyPropertyListItem item)? onMyPropertyDeleted;
   final LatLng? Function()? getMapCenter;
 
   final VoidCallback? onSearchTap;
@@ -91,6 +93,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
     bool isLoading = true;
     String? error;
     bool started = false;
+    final Set<String> deletingIds = <String>{};
 
     await showDialog<void>(
       context: context,
@@ -169,6 +172,77 @@ class _SearchOverlayState extends State<SearchOverlay> {
                     this.context,
                     'Polygon updated.',
                   );
+                }
+              }
+            }
+
+            Future<void> deleteProperty(MyPropertyListItem item) async {
+              final id = item.id.trim();
+              if (id.isEmpty) {
+                ToastMessage.show(this.context, 'Invalid property id.');
+                return;
+              }
+
+              final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Delete property?'),
+                      content: const Text(
+                        'This will permanently delete this property and its details. This action cannot be undone.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFFDC2626),
+                          ),
+                          onPressed: () => Navigator.of(context).pop(true),
+                          child: const Text('Delete'),
+                        ),
+                      ],
+                    ),
+                  ) ??
+                  false;
+
+              if (!confirmed) return;
+
+              setModalState(() {
+                deletingIds.add(id);
+              });
+
+              try {
+                await _mapApi.deleteProperty(
+                  propertyType: item.propertyType,
+                  propertyId: id,
+                  bearerToken: token,
+                );
+
+                setModalState(() {
+                  items = items.where((e) => e.id != id).toList(growable: false);
+                  deletingIds.remove(id);
+                });
+
+                await widget.onMyPropertyDeleted?.call(item);
+
+                if (mounted) {
+                  ToastMessage.show(this.context, 'Property deleted.');
+                }
+              } on MapApiException catch (ex) {
+                setModalState(() {
+                  deletingIds.remove(id);
+                });
+                if (mounted) {
+                  ToastMessage.show(this.context, ex.message);
+                }
+              } catch (_) {
+                setModalState(() {
+                  deletingIds.remove(id);
+                });
+                if (mounted) {
+                  ToastMessage.show(this.context, 'Failed to delete property.');
                 }
               }
             }
@@ -324,6 +398,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
                               itemBuilder: (context, index) {
                                 final item = sorted[index];
                                 final isNew = _isNew(item.createdAt);
+                                final isDeleting =
+                                    deletingIds.contains(item.id.trim());
 
                                 final name = item.name.trim().isEmpty
                                     ? (item.propertyType.trim().isEmpty
@@ -412,6 +488,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                   required String tooltip,
                                   required VoidCallback? onTap,
                                   bool enabled = true,
+                                  Color? iconColor,
+                                  Color? borderColor,
                                 }) {
                                   return Tooltip(
                                     message: tooltip,
@@ -431,7 +509,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                                 BorderRadius.circular(10),
                                             border: Border.all(
                                               color: enabled
-                                                  ? const Color(0xFFE2E8F0)
+                                                  ? (borderColor ??
+                                                      const Color(0xFFE2E8F0))
                                                   : const Color(0xFFE5E7EB),
                                             ),
                                           ),
@@ -439,7 +518,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                             icon,
                                             size: 16,
                                             color: enabled
-                                                ? const Color(0xFF64748B)
+                                                ? (iconColor ??
+                                                    const Color(0xFF64748B))
                                                 : const Color(0xFFCBD5E1),
                                           ),
                                         ),
@@ -635,13 +715,6 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
                                                 actionIcon(
-                                                  icon:
-                                                      Icons.visibility_outlined,
-                                                  tooltip: 'View',
-                                                  onTap: focus,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                actionIcon(
                                                   icon: Icons.edit_outlined,
                                                   tooltip: isEditableProperty &&
                                                           !isLayoutProperty
@@ -661,6 +734,18 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                                           ),
                                                   enabled: isEditableProperty &&
                                                       !isLayoutProperty,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                actionIcon(
+                                                  icon: Icons.delete_outline,
+                                                  tooltip: 'Delete',
+                                                  onTap: isDeleting
+                                                      ? null
+                                                      : () => deleteProperty(item),
+                                                  enabled: !isDeleting,
+                                                  iconColor: const Color(0xFFDC2626),
+                                                  borderColor:
+                                                      const Color(0xFFFEE2E2),
                                                 ),
                                               ],
                                             ),
@@ -896,6 +981,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
                               itemBuilder: (context, index) {
                                 final item = sorted[index];
                                 final isNew = _isNew(item.createdAt);
+                                final isDeleting =
+                                    deletingIds.contains(item.id.trim());
 
                                 final name = item.name.trim().isEmpty
                                     ? (item.propertyType.trim().isEmpty
@@ -1207,13 +1294,6 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
                                                 actionIcon(
-                                                  icon:
-                                                      Icons.visibility_outlined,
-                                                  tooltip: 'View',
-                                                  onTap: focus,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                actionIcon(
                                                   icon: Icons.edit_outlined,
                                                   tooltip: isEditableProperty &&
                                                           !isLayoutProperty
@@ -1232,6 +1312,17 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                                         ),
                                                   enabled: isEditableProperty &&
                                                     !isLayoutProperty,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                actionIcon(
+                                                  icon: Icons.delete_outline,
+                                                  tooltip: 'Delete',
+                                                  onTap: isDeleting
+                                                      ? null
+                                                      : () => deleteProperty(item),
+                                                  enabled: !isDeleting,
+                                                  iconColor: const Color(0xFFDC2626),
+                                                  borderColor: const Color(0xFFFEE2E2),
                                                 ),
                                               ],
                                             ),
