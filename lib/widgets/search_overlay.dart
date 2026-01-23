@@ -328,18 +328,18 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                     .replaceAll(RegExp(r'\s+'), '');
                                 final plotsCount = item.plotsCount ?? 0;
                                 final hasMultiplePlots =
-                                  normalizedCompact == 'plot' &&
-                                    plotsCount > 1;
+                                    normalizedCompact == 'plot' &&
+                                        plotsCount > 1;
                                 final isLayoutProperty =
                                     normalizedType.contains('layout');
                                 final isEditableProperty = const <String>{
-                                  'plot',
-                                  'apartment',
-                                  'independenthouse',
-                                  'commercialspace',
-                                  'land',
-                                }.contains(normalizedCompact) &&
-                                  !hasMultiplePlots;
+                                      'plot',
+                                      'apartment',
+                                      'independenthouse',
+                                      'commercialspace',
+                                      'land',
+                                    }.contains(normalizedCompact) &&
+                                    !hasMultiplePlots;
 
                                 final dateSource = item.createdAt ==
                                         DateTime.fromMillisecondsSinceEpoch(0)
@@ -628,22 +628,23 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                                 actionIcon(
                                                   icon: Icons.edit_outlined,
                                                   tooltip: isEditableProperty &&
-                                                      !isLayoutProperty
-                                                    ? 'Edit'
-                                                    : (hasMultiplePlots
-                                                      ? 'Edit disabled'
-                                                      : 'Edit (web only)'),
+                                                          !isLayoutProperty
+                                                      ? 'Edit'
+                                                      : (hasMultiplePlots
+                                                          ? 'Edit disabled'
+                                                          : 'Edit (web only)'),
                                                   onTap: isEditableProperty &&
-                                                      !isLayoutProperty
-                                                    ? edit
-                                                      : () => ToastMessage.showAbove(
-                                                        this.context,
-                                                        hasMultiplePlots
-                                                          ? 'Only single-plot properties can be edited on mobile.'
-                                                          : 'Layout editable only in web screen.',
-                                                        ),
+                                                          !isLayoutProperty
+                                                      ? edit
+                                                      : () => ToastMessage
+                                                              .showAbove(
+                                                            this.context,
+                                                            hasMultiplePlots
+                                                                ? 'Only single-plot properties can be edited on mobile.'
+                                                                : 'Layout editable only in web screen.',
+                                                          ),
                                                   enabled: isEditableProperty &&
-                                                    !isLayoutProperty,
+                                                      !isLayoutProperty,
                                                 ),
                                               ],
                                             ),
