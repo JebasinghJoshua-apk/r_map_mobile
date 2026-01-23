@@ -10,6 +10,7 @@ import '../constants/search_constants.dart';
 import '../models/my_property_list_item.dart';
 import '../models/recent_place.dart';
 import '../screens/property_polygon_editor_screen.dart';
+import '../screens/property_details_form_screen.dart';
 import '../services/mobile_bff_map_api.dart';
 import '../state/auth_scope.dart';
 import '../utils/geojson.dart';
@@ -131,6 +132,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
               required PropertyPolygonEditorMode mode,
               LatLng? center,
               List<LatLng>? initialPoints,
+              bool showDetailsOnNext = false,
             }) async {
               if (!mounted) return;
 
@@ -142,18 +144,31 @@ class _SearchOverlayState extends State<SearchOverlay> {
                     mode: mode,
                     initialCenter: center,
                     initialPoints: initialPoints,
+                    popOnNext: !showDetailsOnNext,
+                    onNext: showDetailsOnNext
+                        ? (points) async {
+                            await Navigator.of(this.context, rootNavigator: true)
+                                .push<String>(
+                              MaterialPageRoute(
+                                builder: (_) => PropertyDetailsFormScreen(
+                                  boundaryPoints: points,
+                                ),
+                              ),
+                            );
+                          }
+                        : null,
                   ),
                 ),
               );
 
               if (!mounted) return;
               if (points != null && points.length >= 3) {
-                ToastMessage.show(
-                  this.context,
-                  mode == PropertyPolygonEditorMode.add
-                      ? 'Polygon captured. Next step coming soon.'
-                      : 'Polygon updated. Next step coming soon.',
-                );
+                if (mode == PropertyPolygonEditorMode.edit) {
+                  ToastMessage.show(
+                    this.context,
+                    'Polygon updated.',
+                  );
+                }
               }
             }
 
@@ -236,17 +251,17 @@ class _SearchOverlayState extends State<SearchOverlay> {
                             ),
                           ),
                           const Spacer(),
-                          OutlinedButton(
+                          FilledButton(
                             onPressed: () async {
                               final center = widget.getMapCenter?.call();
                               await openEditor(
                                 mode: PropertyPolygonEditorMode.add,
                                 center: center,
+                                showDetailsOnNext: true,
                               );
                             },
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF0FAD97),
-                              side: const BorderSide(color: Color(0xFF0FAD97)),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF0FAD97),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
                                 vertical: 6,
@@ -806,16 +821,19 @@ class _SearchOverlayState extends State<SearchOverlay> {
                             ),
                           ),
                           const Spacer(),
-                          OutlinedButton(
+                          FilledButton(
                             onPressed: () {
-                              ToastMessage.show(
-                                context,
-                                'Add property coming soon.',
+                              final center = widget.getMapCenter?.call();
+                              unawaited(
+                                openEditor(
+                                  mode: PropertyPolygonEditorMode.add,
+                                  center: center,
+                                  showDetailsOnNext: true,
+                                ),
                               );
                             },
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF0FAD97),
-                              side: const BorderSide(color: Color(0xFF0FAD97)),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF0FAD97),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
                                 vertical: 6,

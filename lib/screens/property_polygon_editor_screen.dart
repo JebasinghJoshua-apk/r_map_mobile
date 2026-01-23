@@ -16,11 +16,15 @@ class PropertyPolygonEditorScreen extends StatefulWidget {
     required this.mode,
     this.initialCenter,
     this.initialPoints,
+    this.onNext,
+    this.popOnNext = true,
   });
 
   final PropertyPolygonEditorMode mode;
   final LatLng? initialCenter;
   final List<LatLng>? initialPoints;
+  final Future<void> Function(List<LatLng> points)? onNext;
+  final bool popOnNext;
 
   @override
   State<PropertyPolygonEditorScreen> createState() =>
@@ -881,12 +885,22 @@ class _PropertyPolygonEditorScreenState
           const SizedBox(width: 6),
           Padding(
             padding: const EdgeInsets.only(right: 10),
-            child: OutlinedButton(
-              onPressed:
-                  _canFinish ? () => Navigator.of(context).pop(_points) : null,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF0FAD97),
-                side: const BorderSide(color: Color(0xFF0FAD97)),
+            child: FilledButton(
+              onPressed: _canFinish
+                  ? () async {
+                      if (widget.onNext != null) {
+                        await widget.onNext!(_points);
+                        if (!mounted) return;
+                        if (widget.popOnNext) {
+                          Navigator.of(context).pop(_points);
+                        }
+                        return;
+                      }
+                      Navigator.of(context).pop(_points);
+                    }
+                  : null,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF0FAD97),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 minimumSize: const Size(0, 36),
@@ -992,35 +1006,38 @@ class _PropertyPolygonEditorScreenState
                             )
                           ],
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.touch_app_outlined,
-                                size: 16,
-                                color: Color(0xFF64748B),
-                              ),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  _canFinish
-                                      ? 'Press Next to continue'
-                                      : 'Tap map to add points (${_points.length}/3).',
-                                  textAlign: TextAlign.center,
-                                  softWrap: true,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF475569),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 36),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.touch_app_outlined,
+                                  size: 16,
+                                  color: Color(0xFF64748B),
+                                ),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    _canFinish
+                                        ? 'Press Next to continue'
+                                        : 'Tap map to add points (${_points.length}/3).',
+                                    textAlign: TextAlign.center,
+                                    softWrap: true,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF475569),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),

@@ -35,8 +35,31 @@ class _RMapAppState extends State<RMapApp> {
       child: MaterialApp(
         title: 'R Map',
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF0FAD97),
+          ),
           useMaterial3: true,
+          filledButtonTheme: FilledButtonThemeData(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF0FAD97),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              minimumSize: const Size(0, 36),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+          outlinedButtonTheme: OutlinedButtonThemeData(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF0FAD97),
+              side: const BorderSide(color: Color(0xFF0FAD97)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              minimumSize: const Size(0, 36),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
         ),
         navigatorObservers: [routeObserver],
         home: const HomeMapScreen(),

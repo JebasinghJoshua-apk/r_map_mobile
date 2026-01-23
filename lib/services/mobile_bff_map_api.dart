@@ -390,6 +390,141 @@ class MobileBffMapApi {
     );
   }
 
+  Future<Map<String, dynamic>> createPropertyByType({
+    required String propertyType,
+    required Map<String, dynamic> payload,
+    String? bearerToken,
+  }) async {
+    final normalized = propertyType.trim().toLowerCase();
+    final path = switch (normalized) {
+      'independent-houses' => '/mobile/independent-houses',
+      'apartment-flats' => '/mobile/apartment-flats',
+      'individual-plots' => '/mobile/individual-plots',
+      'lands' => '/mobile/lands',
+      'commercial-spaces' => '/mobile/commercial-spaces',
+      _ => '/mobile/$normalized',
+    };
+
+    final uri = _uri(path);
+
+    http.Response response;
+    try {
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+      };
+      if (bearerToken != null && bearerToken.trim().isNotEmpty) {
+        final token = bearerToken.toLowerCase().startsWith('bearer ')
+            ? bearerToken.substring('bearer '.length)
+            : bearerToken;
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      response = await _client
+          .post(uri, headers: headers, body: jsonEncode(payload))
+          .timeout(_timeout);
+    } on SocketException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException(
+        'Cannot connect to the server. Please check your network and try again.',
+      );
+    } on HttpException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException('Network error. Please try again.');
+    } on FormatException {
+      throw const MapApiException('Unexpected response from server');
+    } on TimeoutException {
+      throw const MapApiException('Request timed out. Please try again.');
+    }
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map) {
+        throw const MapApiException('Unexpected response from server');
+      }
+      return decoded.cast<String, dynamic>();
+    }
+
+    if (response.statusCode == 401) {
+      throw const MapApiException('Please login to save this property.');
+    }
+
+    throw MapApiException(
+      _tryMessage(response.body) ??
+          'Property save failed (${response.statusCode})',
+    );
+  }
+
+  Future<Map<String, dynamic>> uploadPropertyImage({
+    required String propertyId,
+    required File file,
+    String? bearerToken,
+    bool isPrimary = false,
+    int displayOrder = 1,
+    String? description,
+    String? altText,
+  }) async {
+    final uri = _uri('/mobile/properties/$propertyId/images');
+
+    http.StreamedResponse response;
+    try {
+      final request = http.MultipartRequest('POST', uri);
+      if (bearerToken != null && bearerToken.trim().isNotEmpty) {
+        final token = bearerToken.toLowerCase().startsWith('bearer ')
+            ? bearerToken.substring('bearer '.length)
+            : bearerToken;
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+
+      request.fields['isPrimary'] = isPrimary ? 'true' : 'false';
+      request.fields['displayOrder'] = displayOrder.toString();
+      if (description != null && description.trim().isNotEmpty) {
+        request.fields['description'] = description.trim();
+      }
+      if (altText != null && altText.trim().isNotEmpty) {
+        request.fields['altText'] = altText.trim();
+      }
+
+      request.files.add(await http.MultipartFile.fromPath('file', file.path));
+
+      response = await request.send().timeout(_timeout);
+    } on SocketException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException(
+        'Cannot connect to the server. Please check your network and try again.',
+      );
+    } on HttpException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException('Network error. Please try again.');
+    } on FormatException {
+      throw const MapApiException('Unexpected response from server');
+    } on TimeoutException {
+      throw const MapApiException('Request timed out. Please try again.');
+    }
+
+    final responseBody = await response.stream.bytesToString();
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final decoded = jsonDecode(responseBody);
+      if (decoded is! Map) {
+        throw const MapApiException('Unexpected response from server');
+      }
+      return decoded.cast<String, dynamic>();
+    }
+
+    if (response.statusCode == 401) {
+      throw const MapApiException('Please login to upload images.');
+    }
+
+    throw MapApiException(
+      _tryMessage(responseBody) ??
+          'Image upload failed (${response.statusCode})',
+    );
+  }
+
   String? _tryMessage(String body) {
     try {
       final decoded = jsonDecode(body);

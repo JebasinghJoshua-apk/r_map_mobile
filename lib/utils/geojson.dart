@@ -5,6 +5,30 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 class GeoJson {
   GeoJson._();
 
+  /// Encodes a [Polygon] GeoJSON from a list of [LatLng] points.
+  /// Returns null if fewer than 3 points are supplied.
+  static String? polygonToGeoJson(List<LatLng> points) {
+    if (points.length < 3) return null;
+
+    final ring = <List<double>>[];
+    for (final p in points) {
+      ring.add(<double>[p.longitude, p.latitude]);
+    }
+
+    final first = points.first;
+    final last = points.last;
+    if (first.latitude != last.latitude || first.longitude != last.longitude) {
+      ring.add(<double>[first.longitude, first.latitude]);
+    }
+
+    final geometry = <String, dynamic>{
+      'type': 'Polygon',
+      'coordinates': [ring],
+    };
+
+    return jsonEncode(geometry);
+  }
+
   static List<Map<String, dynamic>> _extractGeometries(Object decoded) {
     if (decoded is! Map) return const <Map<String, dynamic>>[];
     final map = decoded.cast<String, dynamic>();
