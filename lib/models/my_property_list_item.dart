@@ -13,6 +13,7 @@ class MyPropertyListItem {
     required this.country,
     required this.pinCode,
     required this.centerPointGeoJson,
+    required this.plotsCount,
     required this.isApproved,
     required this.createdAt,
     required this.updatedAt,
@@ -29,6 +30,8 @@ class MyPropertyListItem {
   final String pinCode;
 
   final String? centerPointGeoJson;
+
+  final int? plotsCount;
 
   final bool isApproved;
   final DateTime createdAt;
@@ -65,6 +68,7 @@ class MyPropertyListItem {
       country: (json['country'] as String?) ?? '',
       pinCode: (json['pinCode'] as String?) ?? '',
       centerPointGeoJson: json['centerPointGeoJson'] as String?,
+      plotsCount: json['plotsCount'] as int?,
       isApproved: (json['isApproved'] as bool?) ?? false,
       createdAt: parseDate(json['createdAt']),
       updatedAt: parseDate(json['updatedAt']),

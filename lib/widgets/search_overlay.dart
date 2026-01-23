@@ -208,7 +208,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
                       child: Row(
                         children: [
                           const Text(
-                            'My properties',
+                            'My Properties',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
@@ -257,16 +257,9 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.add, size: 16),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Add',
-                                  style: TextStyle(fontWeight: FontWeight.w700),
-                                ),
-                              ],
+                            child: const Text(
+                              'Add',
+                              style: TextStyle(fontWeight: FontWeight.w700),
                             ),
                           ),
                           IconButton(
@@ -311,7 +304,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                   const EdgeInsets.fromLTRB(16, 12, 16, 16),
                               itemCount: sorted.length,
                               separatorBuilder: (_, __) =>
-                                  const SizedBox(height: 10),
+                                  const SizedBox(height: 8),
                               itemBuilder: (context, index) {
                                 final item = sorted[index];
                                 final isNew = _isNew(item.createdAt);
@@ -333,6 +326,10 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                     item.propertyType.trim().toLowerCase();
                                 final normalizedCompact = normalizedType
                                     .replaceAll(RegExp(r'\s+'), '');
+                                final plotsCount = item.plotsCount ?? 0;
+                                final hasMultiplePlots =
+                                  normalizedCompact == 'plot' &&
+                                    plotsCount > 1;
                                 final isLayoutProperty =
                                     normalizedType.contains('layout');
                                 final isEditableProperty = const <String>{
@@ -341,7 +338,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                   'independenthouse',
                                   'commercialspace',
                                   'land',
-                                }.contains(normalizedCompact);
+                                }.contains(normalizedCompact) &&
+                                  !hasMultiplePlots;
 
                                 final dateSource = item.createdAt ==
                                         DateTime.fromMillisecondsSinceEpoch(0)
@@ -396,12 +394,15 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                 Widget actionIcon({
                                   required IconData icon,
                                   required String tooltip,
-                                  required VoidCallback onTap,
+                                  required VoidCallback? onTap,
+                                  bool enabled = true,
                                 }) {
                                   return Tooltip(
                                     message: tooltip,
                                     child: Material(
-                                      color: const Color(0xFFF8FAFC),
+                                      color: enabled
+                                          ? const Color(0xFFF8FAFC)
+                                          : const Color(0xFFF8FAFC),
                                       borderRadius: BorderRadius.circular(10),
                                       child: InkWell(
                                         borderRadius: BorderRadius.circular(10),
@@ -413,13 +414,17 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                             borderRadius:
                                                 BorderRadius.circular(10),
                                             border: Border.all(
-                                              color: const Color(0xFFE2E8F0),
+                                              color: enabled
+                                                  ? const Color(0xFFE2E8F0)
+                                                  : const Color(0xFFE5E7EB),
                                             ),
                                           ),
                                           child: Icon(
                                             icon,
                                             size: 16,
-                                            color: const Color(0xFF64748B),
+                                            color: enabled
+                                                ? const Color(0xFF64748B)
+                                                : const Color(0xFFCBD5E1),
                                           ),
                                         ),
                                       ),
@@ -430,12 +435,12 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                 return Material(
                                   color: Colors.transparent,
                                   child: InkWell(
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(10),
                                     onTap: focus,
                                     child: Container(
                                       decoration: BoxDecoration(
                                         color: Colors.white,
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(10),
                                         border: Border.all(
                                           color: const Color(0xFFE2E8F0),
                                         ),
@@ -623,17 +628,22 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                                 actionIcon(
                                                   icon: Icons.edit_outlined,
                                                   tooltip: isEditableProperty &&
-                                                          !isLayoutProperty
-                                                      ? 'Edit'
-                                                      : 'Edit (web only)',
+                                                      !isLayoutProperty
+                                                    ? 'Edit'
+                                                    : (hasMultiplePlots
+                                                      ? 'Edit disabled'
+                                                      : 'Edit (web only)'),
                                                   onTap: isEditableProperty &&
-                                                          !isLayoutProperty
-                                                      ? edit
-                                                      : () => ToastMessage
-                                                              .showAbove(
-                                                            this.context,
-                                                            'Layout editable only in web screen.',
-                                                          ),
+                                                      !isLayoutProperty
+                                                    ? edit
+                                                      : () => ToastMessage.showAbove(
+                                                        this.context,
+                                                        hasMultiplePlots
+                                                          ? 'Only single-plot properties can be edited on mobile.'
+                                                          : 'Layout editable only in web screen.',
+                                                        ),
+                                                  enabled: isEditableProperty &&
+                                                    !isLayoutProperty,
                                                 ),
                                               ],
                                             ),
@@ -767,7 +777,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
                       child: Row(
                         children: [
                           const Text(
-                            'My properties',
+                            'My Properties',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
@@ -815,16 +825,9 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.add, size: 16),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Add',
-                                  style: TextStyle(fontWeight: FontWeight.w700),
-                                ),
-                              ],
+                            child: const Text(
+                              'Add',
+                              style: TextStyle(fontWeight: FontWeight.w700),
                             ),
                           ),
                           IconButton(
@@ -868,8 +871,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
                               padding:
                                   const EdgeInsets.fromLTRB(16, 12, 16, 16),
                               itemCount: sorted.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(height: 10),
+                                separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 8),
                               itemBuilder: (context, index) {
                                 final item = sorted[index];
                                 final isNew = _isNew(item.createdAt);
@@ -891,6 +894,10 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                   item.propertyType.trim().toLowerCase();
                                 final normalizedCompact =
                                   normalizedType.replaceAll(RegExp(r'\s+'), '');
+                                final plotsCount = item.plotsCount ?? 0;
+                                final hasMultiplePlots =
+                                  normalizedCompact == 'plot' &&
+                                      plotsCount > 1;
                                 final isLayoutProperty =
                                   normalizedType.contains('layout');
                                 final isEditableProperty = const <String>{
@@ -899,7 +906,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                   'independenthouse',
                                   'commercialspace',
                                   'land',
-                                }.contains(normalizedCompact);
+                                }.contains(normalizedCompact) &&
+                                  !hasMultiplePlots;
 
                                 final dateSource = item.createdAt ==
                                         DateTime.fromMillisecondsSinceEpoch(0)
@@ -954,12 +962,15 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                 Widget actionIcon({
                                   required IconData icon,
                                   required String tooltip,
-                                  required VoidCallback onTap,
+                                  required VoidCallback? onTap,
+                                  bool enabled = true,
                                 }) {
                                   return Tooltip(
                                     message: tooltip,
                                     child: Material(
-                                      color: const Color(0xFFF8FAFC),
+                                      color: enabled
+                                          ? const Color(0xFFF8FAFC)
+                                          : const Color(0xFFF8FAFC),
                                       borderRadius: BorderRadius.circular(10),
                                       child: InkWell(
                                         borderRadius: BorderRadius.circular(10),
@@ -971,13 +982,17 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                             borderRadius:
                                                 BorderRadius.circular(10),
                                             border: Border.all(
-                                              color: const Color(0xFFE2E8F0),
+                                              color: enabled
+                                                  ? const Color(0xFFE2E8F0)
+                                                  : const Color(0xFFE5E7EB),
                                             ),
                                           ),
                                           child: Icon(
                                             icon,
                                             size: 16,
-                                            color: const Color(0xFF64748B),
+                                            color: enabled
+                                                ? const Color(0xFF64748B)
+                                                : const Color(0xFFCBD5E1),
                                           ),
                                         ),
                                       ),
@@ -988,12 +1003,12 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                 return Material(
                                   color: Colors.transparent,
                                   child: InkWell(
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(10),
                                     onTap: focus,
                                     child: Container(
                                       decoration: BoxDecoration(
                                         color: Colors.white,
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(10),
                                         border: Border.all(
                                           color: const Color(0xFFE2E8F0),
                                         ),
@@ -1183,14 +1198,20 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                                   tooltip: isEditableProperty &&
                                                           !isLayoutProperty
                                                       ? 'Edit'
-                                                      : 'Edit (web only)',
-                                                    onTap: isEditableProperty &&
-                                                      !isLayoutProperty
-                                                        ? edit
-                                                        : () => ToastMessage.showAbove(
-                                                              this.context,
-                                                              'Layout editable only in web screen.',
-                                                            ),
+                                                      : (hasMultiplePlots
+                                                          ? 'Edit disabled'
+                                                          : 'Edit (web only)'),
+                                                  onTap: isEditableProperty &&
+                                                          !isLayoutProperty
+                                                      ? edit
+                                                      : () => ToastMessage.showAbove(
+                                                        this.context,
+                                                        hasMultiplePlots
+                                                          ? 'Only single-plot properties can be edited on mobile.'
+                                                          : 'Layout editable only in web screen.',
+                                                        ),
+                                                  enabled: isEditableProperty &&
+                                                    !isLayoutProperty,
                                                 ),
                                               ],
                                             ),

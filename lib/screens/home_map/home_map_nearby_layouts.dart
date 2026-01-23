@@ -143,7 +143,21 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
               final size = MediaQuery.of(context).size;
               final maxWidth = size.width - 24;
               final dialogWidth = maxWidth < 460 ? maxWidth : 460.0;
-              final dialogHeight = (size.height * 0.7).clamp(340.0, 560.0);
+              const maxVisibleItems = 4;
+              const cardHeight = 92.0;
+              const cardGap = 8.0;
+              const listPaddingVertical = 12.0 + 16.0;
+              const headerHeight = 102.0;
+              const dividerHeight = 1.0;
+
+              final visibleCount = math.min(items.length, maxVisibleItems);
+              final listHeight = visibleCount == 0
+                  ? 140.0
+                  : (visibleCount * cardHeight) +
+                      (math.max(0, visibleCount - 1) * cardGap) +
+                      listPaddingVertical;
+              final targetHeight = headerHeight + dividerHeight + listHeight;
+              final dialogHeight = math.min(targetHeight, size.height * 0.98);
 
               return Dialog(
                 insetPadding:
@@ -239,7 +253,7 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
                                     const EdgeInsets.fromLTRB(16, 12, 16, 16),
                                 itemCount: items.length,
                                 separatorBuilder: (_, __) =>
-                                    const SizedBox(height: 10),
+                                    const SizedBox(height: 8),
                                 itemBuilder: (context, index) {
                                   final item = items[index];
                                   final isNew = _isNearbyNew(item.createdAt);
@@ -269,13 +283,13 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
                                   return Material(
                                     color: Colors.transparent,
                                     child: InkWell(
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius: BorderRadius.circular(10),
                                       onTap: focus,
                                       child: Container(
                                         decoration: BoxDecoration(
                                           color: Colors.white,
                                           borderRadius:
-                                              BorderRadius.circular(12),
+                                              BorderRadius.circular(10),
                                           border: Border.all(
                                             color: const Color(0xFFE2E8F0),
                                           ),
