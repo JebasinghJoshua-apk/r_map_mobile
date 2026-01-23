@@ -147,7 +147,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
                     popOnNext: !showDetailsOnNext,
                     onNext: showDetailsOnNext
                         ? (points) async {
-                            await Navigator.of(this.context, rootNavigator: true)
+                            await Navigator.of(this.context,
+                                    rootNavigator: true)
                                 .push<String>(
                               MaterialPageRoute(
                                 builder: (_) => PropertyDetailsFormScreen(

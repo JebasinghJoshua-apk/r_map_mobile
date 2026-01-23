@@ -88,7 +88,10 @@ extension _HomeMapCarousel on _HomeMapScreenState {
       if (selected != null &&
           selected.propertyType.trim() == 'IndependentHouse') {
         final exists = houses.any(
-          (p) => p.featureId.trim() == selected.featureId.trim(),
+          (p) =>
+              p.featureId.trim() == selected.featureId.trim() ||
+              (p.propertyId.trim().isNotEmpty &&
+                  p.propertyId.trim() == selected.propertyId.trim()),
         );
         if (!exists) {
           houses.insert(0, selected);
@@ -98,7 +101,10 @@ extension _HomeMapCarousel on _HomeMapScreenState {
       final nextIndex = selected == null
           ? 0
           : houses.indexWhere(
-              (p) => p.featureId.trim() == selected.featureId.trim(),
+              (p) =>
+                  p.featureId.trim() == selected.featureId.trim() ||
+                  (p.propertyId.trim().isNotEmpty &&
+                      p.propertyId.trim() == selected.propertyId.trim()),
             );
 
       _updateState(() {

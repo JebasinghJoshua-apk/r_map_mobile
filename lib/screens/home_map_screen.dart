@@ -23,6 +23,7 @@ import '../widgets/toast_message.dart';
 import '../models/map_viewport_models.dart';
 import '../models/my_property_list_item.dart';
 import '../models/nearby_property_card.dart';
+import '../models/property_detail.dart';
 import 'layout_detail_screen.dart';
 import 'property_detail_screen.dart';
 import '../utils/route_observer.dart';
@@ -376,14 +377,184 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       return;
     }
 
+    final token = AuthScope.of(context).session?.token;
+    final id = item.id.trim();
+    MapPropertyFeature? matchedFeature;
+    if (id.isNotEmpty) {
+      for (final feature in _propertyByFeatureId.values) {
+        final featureId = feature.featureId.trim();
+        final propertyId = feature.propertyId.trim();
+        if (featureId == id || propertyId == id) {
+          matchedFeature = feature;
+          break;
+        }
+      }
+    }
+
+    if (matchedFeature == null && id.isNotEmpty) {
+      final rawType = item.propertyType.trim();
+      final normalizedType = rawType.replaceAll(RegExp(r'\s+'), '');
+      final typeFilter = normalizedType.isNotEmpty ? normalizedType : rawType;
+
+      final delta = 0.0025;
+      final nearBounds = LatLngBounds(
+        southwest: LatLng(center.latitude - delta, center.longitude - delta),
+        northeast: LatLng(center.latitude + delta, center.longitude + delta),
+      );
+
+      try {
+        final response = await _mapApi.getViewport(
+          bounds: nearBounds,
+          zoom: 18.0,
+          propertyTypes: typeFilter.isNotEmpty ? <String>[typeFilter] : null,
+          bearerToken: token,
+        );
+
+        for (final feature in response.properties) {
+          final featureId = feature.featureId.trim();
+          final propertyId = feature.propertyId.trim();
+          if (featureId == id || propertyId == id) {
+            matchedFeature = feature;
+            break;
+          }
+        }
+      } catch (_) {
+        // Best-effort only; fallback continues below.
+      }
+    }
+
+    PropertyDetail? detail;
+    if (token != null && token.trim().isNotEmpty) {
+      final needsDetail = matchedFeature == null ||
+          (matchedFeature.boundaryGeoJson == null ||
+              matchedFeature.boundaryGeoJson!.trim().isEmpty) ||
+          (matchedFeature.centerGeoJson == null ||
+              matchedFeature.centerGeoJson!.trim().isEmpty);
+      if (needsDetail && id.isNotEmpty) {
+        try {
+          detail = await _mapApi.getPropertyDetail(
+            propertyId: id,
+            bearerToken: token,
+          );
+        } catch (_) {
+          // Best-effort; fallback to viewport data if available.
+        }
+      }
+    }
+
+    MapPropertyFeature? effectiveFeature;
+    if (matchedFeature != null) {
+      if (detail != null &&
+          (matchedFeature.boundaryGeoJson == null ||
+              matchedFeature.boundaryGeoJson!.trim().isEmpty ||
+              matchedFeature.centerGeoJson == null ||
+              matchedFeature.centerGeoJson!.trim().isEmpty)) {
+        effectiveFeature = MapPropertyFeature(
+          propertyId: matchedFeature.propertyId,
+          featureId: matchedFeature.featureId,
+          propertyType: matchedFeature.propertyType,
+          name: matchedFeature.name,
+          isOwnedByCurrentUser: matchedFeature.isOwnedByCurrentUser,
+          listingType: matchedFeature.listingType,
+          boundaryGeoJson:
+              (detail.propertyBoundaryGeoJson?.trim().isNotEmpty ?? false)
+                  ? detail.propertyBoundaryGeoJson
+                  : matchedFeature.boundaryGeoJson,
+          centerGeoJson: (detail.centerPointGeoJson?.trim().isNotEmpty ?? false)
+              ? detail.centerPointGeoJson
+              : matchedFeature.centerGeoJson,
+          metadata: matchedFeature.metadata,
+        );
+      } else {
+        effectiveFeature = matchedFeature;
+      }
+    } else if (detail != null) {
+      effectiveFeature = MapPropertyFeature(
+        propertyId: item.id,
+        featureId: item.id,
+        propertyType: item.propertyType,
+        name: item.name,
+        isOwnedByCurrentUser: true,
+        listingType: null,
+        boundaryGeoJson: detail.propertyBoundaryGeoJson,
+        centerGeoJson: detail.centerPointGeoJson,
+        metadata: <String, String?>{
+          'location': item.locationLabel,
+        },
+      );
+    }
+
     _closeAnyPanel();
-    await _focusPropertyOnMap(target: center, zoom: 18.0);
+
+    if (effectiveFeature != null) {
+      final type = effectiveFeature.propertyType.trim();
+      final isLayout = type == 'Layout';
+
+      final rawPrice = _getMetadataValue(
+        effectiveFeature.metadata,
+        const <String>['price', 'listingPrice', 'salePrice', 'amount'],
+      );
+      final isPriceEligible = const <String>[
+        'IndependentHouse',
+        'CommercialSpace',
+        'Land',
+        'ApartmentFlat',
+        'IndividualPlots',
+      ].contains(type);
+
+      final priceBadgeLabel = (isPriceEligible && rawPrice != null)
+          ? _formatPriceBadgeLabel(rawPrice)
+          : null;
+
+      LatLng? focusCenter;
+      double? focusZoom;
+      if (priceBadgeLabel != null || isLayout) {
+        final polygons =
+            GeoJson.tryParsePolygons(effectiveFeature.boundaryGeoJson);
+        final points = polygons.firstWhere(
+          (p) => p.length >= 3,
+          orElse: () => const <LatLng>[],
+        );
+        if (points.isNotEmpty) {
+          focusCenter = _centerOfBounds(_boundsFromPoints(points));
+        }
+        focusCenter ??= effectiveFeature.centerPoint ?? center;
+        focusZoom = isLayout
+            ? _layoutFocusZoomTarget
+            : _priceBadgeFocusZoomTarget(type);
+      }
+
+      if (!isLayout && focusZoom == null) {
+        focusCenter = effectiveFeature.centerPoint ?? center;
+        focusZoom = _priceBadgeFocusZoomTarget(type);
+      }
+
+      final target = focusCenter ?? effectiveFeature.centerPoint ?? center;
+      final zoom = focusZoom ?? _priceBadgeFocusZoomTarget(type);
+
+      if (type == 'IndependentHouse') {
+        await _handleIndependentHouseTapped(
+          effectiveFeature,
+          target: target,
+          zoom: zoom,
+        );
+      } else if (isLayout) {
+        await _focusPropertyOnMap(
+          target: target,
+          zoom: zoom,
+        );
+      } else {
+        await _handlePropertyTapped(
+          effectiveFeature,
+          target: target,
+          zoom: zoom,
+        );
+      }
+    } else {
+      await _focusPropertyOnMap(target: center, zoom: 18.0);
+    }
 
     if (!mounted) return;
-    final title = item.name.trim().isEmpty
-        ? (item.propertyType.trim().isEmpty ? 'Property' : item.propertyType)
-        : item.name.trim();
-    ToastMessage.show(context, title);
   }
 
   void _onMapCreated(GoogleMapController controller) {
