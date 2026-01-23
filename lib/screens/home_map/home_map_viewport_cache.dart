@@ -1,0 +1,408 @@
+part of '../home_map_screen.dart';
+
+class _ViewportRenderCacheEntry {
+  _ViewportRenderCacheEntry({
+    required this.markers,
+    required this.plotLabelMarkers,
+    required this.roadLabelMarkers,
+    required this.amenityLabelMarkers,
+    required this.layoutPolygons,
+    required this.propertyPolygons,
+    required this.plotPolygons,
+    required this.amenityPolygons,
+    required this.roadPolygons,
+    required this.roadPolylines,
+    required this.ownedLayoutIds,
+    required this.propertyByFeatureId,
+    DateTime? createdAt,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  final Set<Marker> markers;
+  final Set<Marker> plotLabelMarkers;
+  final Set<Marker> roadLabelMarkers;
+  final Set<Marker> amenityLabelMarkers;
+  final Set<Polygon> layoutPolygons;
+  final Set<Polygon> propertyPolygons;
+  final Set<Polygon> plotPolygons;
+  final Set<Polygon> amenityPolygons;
+  final Set<Polygon> roadPolygons;
+  final Set<Polyline> roadPolylines;
+  final Set<String> ownedLayoutIds;
+  final Map<String, MapPropertyFeature> propertyByFeatureId;
+  final DateTime createdAt;
+
+  _ViewportRenderCacheEntry copyWith({
+    Set<Marker>? markers,
+    Set<Marker>? plotLabelMarkers,
+    Set<Marker>? roadLabelMarkers,
+    Set<Marker>? amenityLabelMarkers,
+  }) {
+    return _ViewportRenderCacheEntry(
+      markers: markers ?? this.markers,
+      plotLabelMarkers: plotLabelMarkers ?? this.plotLabelMarkers,
+      roadLabelMarkers: roadLabelMarkers ?? this.roadLabelMarkers,
+      amenityLabelMarkers: amenityLabelMarkers ?? this.amenityLabelMarkers,
+      layoutPolygons: layoutPolygons,
+      propertyPolygons: propertyPolygons,
+      plotPolygons: plotPolygons,
+      amenityPolygons: amenityPolygons,
+      roadPolygons: roadPolygons,
+      roadPolylines: roadPolylines,
+      ownedLayoutIds: ownedLayoutIds,
+      propertyByFeatureId: propertyByFeatureId,
+      createdAt: createdAt,
+    );
+  }
+}
+
+extension _HomeMapViewportCache on _HomeMapScreenState {
+  MapViewportResponse _applyClientFilters(MapViewportResponse response) {
+    final type = _selectedPropertyType?.trim();
+    final range = _selectedPriceRange;
+    if (type == null || type.isEmpty) return response;
+    if (!_isPriceFilterEligiblePropertyType(type)) return response;
+    if (type == 'Layout') return response;
+    if (range == null) return response;
+
+    final min = range.minRupees;
+    final max = range.maxRupees;
+
+    final filteredProperties = <MapPropertyFeature>[];
+    for (final feature in response.properties) {
+      final rawPrice = _getMetadataValue(
+        feature.metadata,
+        const <String>['price', 'listingPrice', 'salePrice', 'amount'],
+      );
+      final rupees = rawPrice == null ? null : _parsePriceToRupees(rawPrice);
+      if (rupees == null) {
+        continue;
+      }
+      if (min != null && rupees < min) continue;
+      if (max != null && rupees > max) continue;
+      filteredProperties.add(feature);
+    }
+
+    final allowedIds = filteredProperties
+        .map((p) => p.propertyId.trim())
+        .where((p) => p.isNotEmpty)
+        .toSet();
+
+    final filteredPlots = response.plots.where((plot) {
+      final id = plot.individualPlotsId?.trim();
+      if (id == null || id.isEmpty) return true;
+      return allowedIds.contains(id);
+    }).toList(growable: false);
+
+    final filteredRoads = response.roads.where((road) {
+      final ip = road.individualPlotsId?.trim();
+      if (ip != null && ip.isNotEmpty) {
+        return allowedIds.contains(ip);
+      }
+      final land = road.landId?.trim();
+      if (land != null && land.isNotEmpty) {
+        return allowedIds.contains(land);
+      }
+      final comm = road.commercialSpaceId?.trim();
+      if (comm != null && comm.isNotEmpty) {
+        return allowedIds.contains(comm);
+      }
+      return true;
+    }).toList(growable: false);
+
+    return MapViewportResponse(
+      detailLevel: response.detailLevel,
+      properties: filteredProperties.toList(growable: false),
+      plots: filteredPlots,
+      roads: filteredRoads,
+      amenities: response.amenities,
+    );
+  }
+
+  _ViewportRenderCacheEntry _renderViewport({
+    required MapViewportResponse response,
+    required double zoom,
+  }) {
+    final propertyByFeatureId = <String, MapPropertyFeature>{};
+    final ownedLayoutIds = <String>{};
+    final nextLayoutPolygons = <Polygon>{};
+    final nextPropertyPolygons = <Polygon>{};
+    final styleZoom = zoom;
+
+    var layoutFeatureCount = 0;
+    var layoutPolygonCount = 0;
+
+    for (final feature in response.properties) {
+      final id = feature.featureId.trim();
+      if (id.isNotEmpty) {
+        propertyByFeatureId[id] = feature;
+      }
+
+      if (feature.propertyType.trim() == 'Layout' &&
+          feature.isOwnedByCurrentUser) {
+        final layoutId = feature.propertyId.trim();
+        if (layoutId.isNotEmpty) {
+          ownedLayoutIds.add(layoutId);
+        }
+      }
+
+      final normalizedType = feature.propertyType.trim().toLowerCase();
+      final isLayout = normalizedType == 'layout';
+      if (isLayout) {
+        layoutFeatureCount++;
+        final fillOpacity =
+            zoom >= _layoutFillHideZoom ? 0.0 : _layoutBoundaryFillOpacity;
+        final polygons = GeoJson.tryParsePolygons(feature.boundaryGeoJson);
+        for (var i = 0; i < polygons.length; i++) {
+          final points = polygons[i];
+          if (points.length < 3) continue;
+          layoutPolygonCount++;
+          nextLayoutPolygons.add(
+            Polygon(
+              polygonId: PolygonId('layout:${feature.featureId}:$i'),
+              points: points,
+              strokeWidth: _layoutBoundaryStrokeWidth,
+              strokeColor: _layoutBoundaryStroke
+                  .withOpacity(_layoutBoundaryStrokeOpacity),
+              fillColor: _layoutBoundaryFill.withOpacity(fillOpacity),
+              consumeTapEvents: false,
+              zIndex: _propertyStyleForType('Layout').zIndex,
+            ),
+          );
+        }
+      } else {
+        final polygons = GeoJson.tryParsePolygons(feature.boundaryGeoJson);
+        if (polygons.isEmpty) continue;
+
+        final style = _propertyStyleForType(feature.propertyType);
+        final isDetailedPlotGroup =
+            feature.propertyType.trim() == 'IndividualPlots' &&
+                response.detailLevel == MapDetailLevel.detailed;
+
+        final strokeOpacity =
+            isDetailedPlotGroup ? 0.92 : _propertyStrokeOpacity;
+        final fillOpacity = isDetailedPlotGroup
+            ? 0.0
+            : _adjustFillOpacityForZoom(styleZoom, _propertyBaseFillOpacity);
+        final strokeWidth = isDetailedPlotGroup
+            ? _propertyBaseStrokeWidth
+            : _adjustStrokeWidthForZoom(styleZoom, _propertyBaseStrokeWidth);
+
+        for (var i = 0; i < polygons.length; i++) {
+          final points = polygons[i];
+          if (points.length < 3) continue;
+          nextPropertyPolygons.add(
+            Polygon(
+              polygonId: PolygonId(
+                'prop:${feature.propertyType}:${feature.featureId}:$i',
+              ),
+              points: points,
+              strokeWidth: strokeWidth,
+              strokeColor: style.stroke.withOpacity(strokeOpacity),
+              fillColor: style.fill.withOpacity(fillOpacity),
+              consumeTapEvents: false,
+              zIndex: style.zIndex,
+            ),
+          );
+        }
+      }
+    }
+
+    final shouldShowPolygons = zoom >= _minPlotPolygonZoom;
+    final shouldShowRoads = zoom >= _minRoadOverlayZoom;
+    final nextPlotPolygons = <Polygon>{};
+    final nextAmenityPolygons = <Polygon>{};
+    final nextRoadPolygons = <Polygon>{};
+    final nextRoadPolylines = <Polyline>{};
+
+    if (shouldShowPolygons) {
+      for (final plot in response.plots) {
+        final polygons = GeoJson.tryParsePolygons(plot.boundaryGeoJson);
+        final kind = _plotElementKind(plot);
+        final isSold = plot.layoutId != null && _isSoldPlot(plot);
+
+        Color stroke;
+        Color fill;
+        int strokeWidth;
+        double strokeOpacity;
+        double fillOpacity;
+        int zIndex;
+
+        if (kind == 'road') {
+          stroke = _roadStroke;
+          fill = _roadFill;
+          strokeWidth = _roadStrokeWidth;
+          strokeOpacity = _roadStrokeOpacity;
+          fillOpacity = _roadFillOpacity;
+          zIndex = 58;
+        } else if (kind == 'boundary') {
+          stroke = _layoutBoundaryStroke;
+          fill = _layoutBoundaryFill;
+          strokeWidth = _layoutBoundaryStrokeWidth;
+          strokeOpacity = _layoutBoundaryStrokeOpacity;
+          fillOpacity =
+              zoom >= _layoutFillHideZoom ? 0.0 : _layoutBoundaryFillOpacity;
+          zIndex = 45;
+        } else if (isSold) {
+          stroke = _soldPlotStroke;
+          fill = _soldPlotFill;
+          strokeWidth = _bumpPlotStrokeWidthForHighZoom(zoom, _plotStrokeWidth);
+          strokeOpacity = _soldPlotStrokeOpacity;
+          fillOpacity = _soldPlotFillOpacity;
+          zIndex = 60;
+        } else {
+          stroke = _plotStroke;
+          fill = _plotFill;
+          strokeWidth = _bumpPlotStrokeWidthForHighZoom(zoom, _plotStrokeWidth);
+          strokeOpacity = _plotStrokeOpacity;
+          fillOpacity = _plotFillOpacity;
+          zIndex = 60;
+        }
+
+        for (var i = 0; i < polygons.length; i++) {
+          final points = polygons[i];
+          if (points.length < 3) continue;
+          nextPlotPolygons.add(
+            Polygon(
+              polygonId: PolygonId('plot:${plot.plotId}:$i'),
+              points: points,
+              strokeWidth: strokeWidth,
+              strokeColor: stroke.withOpacity(strokeOpacity),
+              fillColor: fill.withOpacity(fillOpacity),
+              consumeTapEvents: true,
+              zIndex: zIndex,
+              onTap: () => _handlePlotTapped(plot),
+            ),
+          );
+        }
+      }
+
+      for (final amenity in response.amenities) {
+        final polygons = GeoJson.tryParsePolygons(amenity.boundaryGeoJson);
+        for (var i = 0; i < polygons.length; i++) {
+          final points = polygons[i];
+          if (points.length < 3) continue;
+          nextAmenityPolygons.add(
+            Polygon(
+              polygonId: PolygonId('amenity:${amenity.amenityId}:$i'),
+              points: points,
+              strokeWidth: _amenityStrokeWidth,
+              strokeColor: _amenityStroke.withOpacity(_amenityStrokeOpacity),
+              fillColor: _amenityFill.withOpacity(_amenityFillOpacity),
+              consumeTapEvents: false,
+              zIndex: 64,
+            ),
+          );
+        }
+      }
+    }
+
+    if (shouldShowRoads) {
+      for (final road in response.roads) {
+        final lines = GeoJson.tryParseLineStrings(road.roadGeoJson);
+
+        if (lines.isNotEmpty) {
+          for (var i = 0; i < lines.length; i++) {
+            final points = lines[i];
+            if (points.length < 2) continue;
+
+            // Rough width scaling: keep readable at common zooms.
+            final width = (road.widthInFeet ?? 12) >= 20
+                ? _roadLineStrokeWidth + 2
+                : _roadLineStrokeWidth;
+            nextRoadPolylines.add(
+              Polyline(
+                polylineId: PolylineId('road:${road.roadId}:$i'),
+                points: points,
+                width: width,
+                color: _roadLineStroke.withOpacity(_roadLineStrokeOpacity),
+                geodesic: true,
+              ),
+            );
+          }
+          continue;
+        }
+
+        // Fallback: some datasets may encode roads as Polygon/MultiPolygon.
+        final roadPolygons = GeoJson.tryParsePolygons(road.roadGeoJson);
+        for (var i = 0; i < roadPolygons.length; i++) {
+          final points = roadPolygons[i];
+          if (points.length < 3) continue;
+          nextRoadPolygons.add(
+            Polygon(
+              polygonId: PolygonId('roadpoly:${road.roadId}:$i'),
+              points: points,
+              strokeWidth: _roadStrokeWidth,
+              strokeColor: _roadStroke.withOpacity(_roadStrokeOpacity),
+              fillColor: _roadFill.withOpacity(_roadFillOpacity),
+              consumeTapEvents: false,
+            ),
+          );
+        }
+      }
+    }
+
+    assert(() {
+      if (layoutFeatureCount > 0 && layoutPolygonCount == 0) {
+        debugPrint(
+          'Viewport: found $layoutFeatureCount Layout properties but parsed 0 polygons. boundaryGeoJson may be empty/unsupported.',
+        );
+      }
+      return true;
+    }());
+
+    return _ViewportRenderCacheEntry(
+      markers: const <Marker>{},
+      plotLabelMarkers: const <Marker>{},
+      roadLabelMarkers: const <Marker>{},
+      amenityLabelMarkers: const <Marker>{},
+      layoutPolygons: Set<Polygon>.unmodifiable(nextLayoutPolygons),
+      propertyPolygons: Set<Polygon>.unmodifiable(nextPropertyPolygons),
+      plotPolygons: Set<Polygon>.unmodifiable(nextPlotPolygons),
+      amenityPolygons: Set<Polygon>.unmodifiable(nextAmenityPolygons),
+      roadPolygons: Set<Polygon>.unmodifiable(nextRoadPolygons),
+      roadPolylines: Set<Polyline>.unmodifiable(nextRoadPolylines),
+      ownedLayoutIds: Set<String>.unmodifiable(ownedLayoutIds),
+      propertyByFeatureId:
+          Map<String, MapPropertyFeature>.unmodifiable(propertyByFeatureId),
+    );
+  }
+
+  String _buildViewportSignature(
+    LatLngBounds bounds,
+    double zoom,
+    List<String> propertyTypes,
+    bool isAuthenticated, {
+    String? clientFilters,
+  }) {
+    final minLat = bounds.southwest.latitude < bounds.northeast.latitude
+        ? bounds.southwest.latitude
+        : bounds.northeast.latitude;
+    final maxLat = bounds.southwest.latitude > bounds.northeast.latitude
+        ? bounds.southwest.latitude
+        : bounds.northeast.latitude;
+    final minLng = bounds.southwest.longitude < bounds.northeast.longitude
+        ? bounds.southwest.longitude
+        : bounds.northeast.longitude;
+    final maxLng = bounds.southwest.longitude > bounds.northeast.longitude
+        ? bounds.southwest.longitude
+        : bounds.northeast.longitude;
+
+    final filterSignature = propertyTypes
+        .map((t) => t.trim())
+        .where((t) => t.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+
+    return [
+      minLat.toStringAsFixed(5),
+      maxLat.toStringAsFixed(5),
+      minLng.toStringAsFixed(5),
+      maxLng.toStringAsFixed(5),
+      zoom.toStringAsFixed(2),
+      filterSignature.join(','),
+      (clientFilters ?? '').trim(),
+      isAuthenticated ? 'auth' : 'anon',
+    ].join('|');
+  }
+}
