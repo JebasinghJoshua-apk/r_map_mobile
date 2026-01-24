@@ -98,6 +98,11 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
       return;
     }
 
+    final initialItems = _nearbyLayouts ?? const <NearbyPropertyCard>[];
+    if (initialItems.isEmpty) {
+      return;
+    }
+
     _NearbyLayoutsDialogCloseReason? closeReason;
     try {
       _isNearbyLayoutsDialogOpen = true;
