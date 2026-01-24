@@ -473,13 +473,16 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                       );
                                     }
                                   } on MapApiException catch (ex) {
+                                    if (!context.mounted) return;
                                     ToastMessage.show(context, ex.message);
                                   } catch (_) {
+                                    if (!context.mounted) return;
                                     ToastMessage.show(
                                       context,
                                       'Failed to load property boundary.',
                                     );
                                   }
+                                  if (!context.mounted) return;
                                   await openEditor(
                                     mode: PropertyPolygonEditorMode.edit,
                                     center: center,

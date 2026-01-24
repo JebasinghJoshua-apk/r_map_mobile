@@ -20,7 +20,7 @@ class ToastMessage {
   }) {
     if (!context.mounted) return;
 
-    final overlay = Overlay.of(context, rootOverlay: true);
+    final overlay = Overlay.maybeOf(context, rootOverlay: true);
     if (overlay == null) {
       show(
         context,

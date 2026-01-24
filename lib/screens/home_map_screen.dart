@@ -80,6 +80,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   late final MobileBffMapApi _mapApi;
   late final MobileBffPlotsApi _plotsApi;
 
+  void _safeSetState(VoidCallback fn) {
+    if (!mounted) return;
+    setState(fn);
+  }
+
   // Camera restore behavior for property selection:
   // If a property tap zooms the map + opens the bottom panel, and the user does
   // not manually move/zoom the map afterwards, closing the panel restores the

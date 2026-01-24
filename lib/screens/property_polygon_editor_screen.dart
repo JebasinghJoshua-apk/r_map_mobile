@@ -888,15 +888,16 @@ class _PropertyPolygonEditorScreenState
             child: FilledButton(
               onPressed: _canFinish
                   ? () async {
+                      final navigator = Navigator.of(context);
                       if (widget.onNext != null) {
                         await widget.onNext!(_points);
                         if (!mounted) return;
                         if (widget.popOnNext) {
-                          Navigator.of(context).pop(_points);
+                          navigator.pop(_points);
                         }
                         return;
                       }
-                      Navigator.of(context).pop(_points);
+                      navigator.pop(_points);
                     }
                   : null,
               style: FilledButton.styleFrom(

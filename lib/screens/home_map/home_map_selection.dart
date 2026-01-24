@@ -310,7 +310,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
 
   void _handlePlotTapped(MapPlotFeature plot) {
     if (!mounted) return;
-    setState(() {
+    _safeSetState(() {
       _selectedPlot = plot;
       _selectedPlotHighlightPolygons =
           _buildSelectedPlotHighlightPolygons(plot);
@@ -325,7 +325,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
     if (_selectedPlot == null) return;
     // Cancel any in-flight focus animation/clamp for the previous selection.
     _plotFocusSeq++;
-    setState(() {
+    _safeSetState(() {
       _selectedPlot = null;
       _selectedPlotHighlightPolygons = const <Polygon>{};
     });
@@ -340,7 +340,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
     final restoreCameraPosition =
         shouldRestoreCamera ? _cameraBeforePropertyFocus : null;
 
-    setState(() {
+    _safeSetState(() {
       _selectedProperty = null;
       _selectedPropertyMediaUrls = null;
       _isSelectedPropertyMediaLoading = false;
