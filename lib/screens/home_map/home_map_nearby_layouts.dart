@@ -48,6 +48,7 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
       final results = await _mapApi.getNearbyLayouts(
         anchor: anchor,
         limit: 15,
+        radiusKm: 30,
         bearerToken: token,
       );
       if (!mounted) return;
