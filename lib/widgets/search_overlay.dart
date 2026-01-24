@@ -436,6 +436,16 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                       'land',
                                     }.contains(normalizedCompact) &&
                                     !hasMultiplePlots;
+                                final canDeleteProperty = !isDeleting &&
+                                    isEditableProperty &&
+                                    !isLayoutProperty;
+                                final deleteDisabledReason = canDeleteProperty
+                                    ? 'Delete'
+                                    : (isDeleting
+                                        ? 'Deleting...'
+                                        : (hasMultiplePlots
+                                            ? 'Delete disabled'
+                                            : 'Delete (web only)'));
 
                                 final dateSource = item.createdAt ==
                                         DateTime.fromMillisecondsSinceEpoch(0)
@@ -745,12 +755,20 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                                 const SizedBox(width: 6),
                                                 actionIcon(
                                                   icon: Icons.delete_outline,
-                                                  tooltip: 'Delete',
-                                                  onTap: isDeleting
-                                                      ? null
-                                                      : () =>
-                                                          deleteProperty(item),
-                                                  enabled: !isDeleting,
+                                                  tooltip: deleteDisabledReason,
+                                                  onTap: canDeleteProperty
+                                                      ? () =>
+                                                          deleteProperty(item)
+                                                      : (isDeleting
+                                                          ? null
+                                                          : () => ToastMessage
+                                                                  .showAbove(
+                                                                this.context,
+                                                                hasMultiplePlots
+                                                                    ? 'Only single-plot properties can be deleted on mobile.'
+                                                                    : 'Layout deletions are available on the web screen.',
+                                                              )),
+                                                  enabled: canDeleteProperty,
                                                   iconColor:
                                                       const Color(0xFFDC2626),
                                                   borderColor:
@@ -1024,6 +1042,16 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                   'land',
                                 }.contains(normalizedCompact) &&
                                   !hasMultiplePlots;
+                                final canDeleteProperty = !isDeleting &&
+                                  isEditableProperty &&
+                                  !isLayoutProperty;
+                                final deleteDisabledReason = canDeleteProperty
+                                  ? 'Delete'
+                                  : (isDeleting
+                                      ? 'Deleting...'
+                                      : (hasMultiplePlots
+                                          ? 'Delete disabled'
+                                          : 'Delete (web only)'));
 
                                 final dateSource = item.createdAt ==
                                         DateTime.fromMillisecondsSinceEpoch(0)
@@ -1325,11 +1353,18 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                                 const SizedBox(width: 6),
                                                 actionIcon(
                                                   icon: Icons.delete_outline,
-                                                  tooltip: 'Delete',
-                                                  onTap: isDeleting
+                                                  tooltip: deleteDisabledReason,
+                                                  onTap: canDeleteProperty
+                                                    ? () => deleteProperty(item)
+                                                    : (isDeleting
                                                       ? null
-                                                      : () => deleteProperty(item),
-                                                  enabled: !isDeleting,
+                                                      : () => ToastMessage.showAbove(
+                                                        this.context,
+                                                        hasMultiplePlots
+                                                          ? 'Only single-plot properties can be deleted on mobile.'
+                                                          : 'Layout deletions are available on the web screen.',
+                                                        )),
+                                                  enabled: canDeleteProperty,
                                                   iconColor: const Color(0xFFDC2626),
                                                   borderColor: const Color(0xFFFEE2E2),
                                                 ),
