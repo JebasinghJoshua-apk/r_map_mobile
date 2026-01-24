@@ -157,6 +157,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   Timer? _independentHouseCarouselDebounce;
   int _independentHouseCarouselRequestSeq = 0;
   DateTime? _independentHouseCarouselRefreshSuppressedUntil;
+  bool _suppressCarouselFocusOnce = false;
 
   // Media cache keyed by "<propertyType>:<featureId>".
   final Map<String, _PropertyMediaCacheEntry> _propertyMediaCache =

@@ -119,6 +119,7 @@ extension _HomeMapCarousel on _HomeMapScreenState {
         final targetPage =
             (_activeIndependentHouseIndex.clamp(0, houses.length - 1)) + 1;
         if (c.page?.round() != targetPage) {
+          _suppressCarouselFocusOnce = true;
           c.jumpToPage(targetPage);
         }
       });
@@ -261,7 +262,10 @@ extension _HomeMapCarousel on _HomeMapScreenState {
           _ensurePropertyMediaLoaded(next);
 
           final center = next.centerPoint;
-          if (center != null) {
+          final suppressFocus = _suppressCarouselFocusOnce;
+          if (suppressFocus) {
+            _suppressCarouselFocusOnce = false;
+          } else if (center != null) {
             unawaited(_focusPropertyOnMap(target: center, zoom: 20.0));
           }
 
@@ -275,6 +279,7 @@ extension _HomeMapCarousel on _HomeMapScreenState {
 
               final target = (index == 0) ? items.length : 1;
               if (c.page?.round() != target) {
+                _suppressCarouselFocusOnce = true;
                 c.jumpToPage(target);
               }
             });

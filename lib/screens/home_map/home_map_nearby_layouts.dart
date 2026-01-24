@@ -187,27 +187,6 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                            const SizedBox(width: 10),
-                            DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                child: Text(
-                                  '${items.length}',
-                                  style: const TextStyle(
-                                    color: Color(0xFF475569),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ),
                             const Spacer(),
                             IconButton(
                               tooltip: 'Refresh',
