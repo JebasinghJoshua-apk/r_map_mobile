@@ -58,28 +58,73 @@ class _ViewportRenderCacheEntry {
 extension _HomeMapViewportCache on _HomeMapScreenState {
   MapViewportResponse _applyClientFilters(MapViewportResponse response) {
     final type = _selectedPropertyType?.trim();
-    final range = _selectedPriceRange;
     if (type == null || type.isEmpty) return response;
-    if (!_isPriceFilterEligiblePropertyType(type)) return response;
     if (type == 'Layout') return response;
-    if (range == null) return response;
 
-    final min = range.minRupees;
-    final max = range.maxRupees;
+    var filteredProperties = response.properties;
+    var didFilter = false;
 
-    final filteredProperties = <MapPropertyFeature>[];
-    for (final feature in response.properties) {
-      final rawPrice = _getMetadataValue(
-        feature.metadata,
-        const <String>['price', 'listingPrice', 'salePrice', 'amount'],
-      );
-      final rupees = rawPrice == null ? null : _parsePriceToRupees(rawPrice);
-      if (rupees == null) {
-        continue;
+    if (type == 'Land') {
+      final selectedLandType = _selectedLandType?.trim();
+      if (selectedLandType != null && selectedLandType.isNotEmpty) {
+        filteredProperties = filteredProperties.where((feature) {
+          final raw = _getMetadataValue(
+            feature.metadata,
+            const <String>[
+              'landType',
+              'land_type',
+              'landTypeId',
+              'landTypeValue',
+            ],
+          );
+          if (raw == null) return false;
+
+          final selectedNorm = selectedLandType.toLowerCase();
+          final rawNorm = raw.trim().toLowerCase();
+          if (rawNorm == selectedNorm) return true;
+
+          final numeric = int.tryParse(rawNorm);
+          if (numeric == null) return false;
+          const mapping = <int, String>{
+            1: 'residential',
+            2: 'commercial',
+            3: 'agricultural',
+          };
+          return mapping[numeric] == selectedNorm;
+        }).toList(growable: false);
+        didFilter = true;
       }
-      if (min != null && rupees < min) continue;
-      if (max != null && rupees > max) continue;
-      filteredProperties.add(feature);
+    }
+
+    if (_isPriceFilterEligiblePropertyType(type)) {
+      final range = _selectedPriceRange;
+      if (range != null) {
+        final min = range.minRupees;
+        final max = range.maxRupees;
+
+        final priceFiltered = <MapPropertyFeature>[];
+        for (final feature in filteredProperties) {
+          final rawPrice = _getMetadataValue(
+            feature.metadata,
+            const <String>['price', 'listingPrice', 'salePrice', 'amount'],
+          );
+          final rupees =
+              rawPrice == null ? null : _parsePriceToRupees(rawPrice);
+          if (rupees == null) {
+            continue;
+          }
+          if (min != null && rupees < min) continue;
+          if (max != null && rupees > max) continue;
+          priceFiltered.add(feature);
+        }
+
+        filteredProperties = priceFiltered.toList(growable: false);
+        didFilter = true;
+      }
+    }
+
+    if (!didFilter) {
+      return response;
     }
 
     final allowedIds = filteredProperties

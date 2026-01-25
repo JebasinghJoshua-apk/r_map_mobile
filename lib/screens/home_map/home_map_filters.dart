@@ -16,10 +16,24 @@ extension _HomeMapFilters on _HomeMapScreenState {
   String _clientFilterSignature() {
     final type = _selectedPropertyType?.trim();
     if (type == null || type.isEmpty) return '';
-    if (!_isPriceFilterEligiblePropertyType(type)) return '';
-    final f = _selectedPriceRange;
-    if (f == null) return '';
-    return '${f.minRupees ?? ''}-${f.maxRupees ?? ''}';
+
+    final parts = <String>[];
+
+    if (_isPriceFilterEligiblePropertyType(type)) {
+      final f = _selectedPriceRange;
+      if (f != null) {
+        parts.add('price:${f.minRupees ?? ''}-${f.maxRupees ?? ''}');
+      }
+    }
+
+    if (type == 'Land') {
+      final landType = _selectedLandType?.trim();
+      if (landType != null && landType.isNotEmpty) {
+        parts.add('land:$landType');
+      }
+    }
+
+    return parts.join('|');
   }
 
   Future<void> _openFilters() async {
@@ -27,9 +41,14 @@ extension _HomeMapFilters on _HomeMapScreenState {
 
     final initialType = _selectedPropertyType;
     final initialPrice = _selectedPriceRange;
+    final initialLandType = _selectedLandType;
 
-    final result =
-        await showModalBottomSheet<({String? type, _PriceRangeFilter? price})>(
+    final result = await showModalBottomSheet<
+        ({
+          String? type,
+          _PriceRangeFilter? price,
+          String? landType,
+        })>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -39,6 +58,33 @@ extension _HomeMapFilters on _HomeMapScreenState {
       builder: (context) {
         var localType = initialType;
         var localPrice = initialPrice;
+        var localLandType = initialLandType;
+        if (localLandType?.trim() == 'Any') {
+          localLandType = null;
+        }
+
+        const sectionTitleStyle = TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF334155),
+        );
+
+        const chipLabelStyle = TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        );
+
+        const chipLabelPadding = EdgeInsets.symmetric(horizontal: 10);
+        const chipVisualDensity = VisualDensity.compact;
+        const chipRadius = 6.0;
+        const wrapSpacing = 8.0;
+        const wrapRunSpacing = 6.0;
+        const landTypeOptions = <String>[
+          'Any',
+          'Residential',
+          'Commercial',
+          'Agricultural',
+        ];
 
         return StatefulBuilder(
           builder: (context, setModalState) {
@@ -48,6 +94,11 @@ extension _HomeMapFilters on _HomeMapScreenState {
               localPrice = null;
             }
 
+            final showLandType = (localType?.trim() == 'Land');
+            if (!showLandType) {
+              localLandType = null;
+            }
+
             return SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -55,32 +106,33 @@ extension _HomeMapFilters on _HomeMapScreenState {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Property Type',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF334155),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                    const Text('Property Type', style: sectionTitleStyle),
+                    const SizedBox(height: 6),
                     Wrap(
-                      spacing: 10,
-                      runSpacing: 8,
+                      spacing: wrapSpacing,
+                      runSpacing: wrapRunSpacing,
                       children: [
                         for (final option in _propertyTypeOptions)
                           ChoiceChip(
                             label: Text(option.label),
                             selected: (localType == option.id),
                             showCheckmark: false,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: chipVisualDensity,
+                            labelPadding: chipLabelPadding,
                             selectedColor: const Color(0xFF0FAD97),
                             backgroundColor: const Color(0xFFF1F5F9),
                             side: const BorderSide(color: Color(0xFFCBD5E1)),
                             labelStyle: TextStyle(
-                              fontWeight: FontWeight.w600,
+                              fontSize: chipLabelStyle.fontSize,
+                              fontWeight: chipLabelStyle.fontWeight,
                               color: (localType == option.id)
                                   ? Colors.white
                                   : const Color(0xFF0F172A),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(chipRadius),
                             ),
                             onSelected: (_) {
                               setModalState(() {
@@ -90,25 +142,21 @@ extension _HomeMapFilters on _HomeMapScreenState {
                                     localType?.trim() == 'Layout') {
                                   localPrice = null;
                                 }
+                                if (localType?.trim() != 'Land') {
+                                  localLandType = null;
+                                }
                               });
                             },
                           ),
                       ],
                     ),
                     if (showPrice) ...[
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Price',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF334155),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
+                      const Text('Price', style: sectionTitleStyle),
+                      const SizedBox(height: 6),
                       Wrap(
-                        spacing: 10,
-                        runSpacing: 8,
+                        spacing: wrapSpacing,
+                        runSpacing: wrapRunSpacing,
                         children: [
                           for (final option in _priceRangeOptions)
                             ChoiceChip(
@@ -117,16 +165,24 @@ extension _HomeMapFilters on _HomeMapScreenState {
                                   ? option == _anyPriceRange
                                   : option.label == localPrice!.label),
                               showCheckmark: false,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: chipVisualDensity,
+                              labelPadding: chipLabelPadding,
                               selectedColor: const Color(0xFF0FAD97),
                               backgroundColor: const Color(0xFFF1F5F9),
                               side: const BorderSide(color: Color(0xFFCBD5E1)),
                               labelStyle: TextStyle(
-                                fontWeight: FontWeight.w600,
+                                fontSize: chipLabelStyle.fontSize,
+                                fontWeight: chipLabelStyle.fontWeight,
                                 color: (localPrice == null
                                         ? option == _anyPriceRange
                                         : option.label == localPrice!.label)
                                     ? Colors.white
                                     : const Color(0xFF0F172A),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(chipRadius),
                               ),
                               onSelected: (_) {
                                 setModalState(() {
@@ -138,13 +194,62 @@ extension _HomeMapFilters on _HomeMapScreenState {
                         ],
                       ),
                     ],
-                    const SizedBox(height: 18),
+                    if (showLandType) ...[
+                      const SizedBox(height: 10),
+                      const Text('Land Type', style: sectionTitleStyle),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: wrapSpacing,
+                        runSpacing: wrapRunSpacing,
+                        children: [
+                          for (final option in landTypeOptions)
+                            ChoiceChip(
+                              label: Text(option),
+                              selected: option == 'Any'
+                                  ? localLandType == null
+                                  : localLandType == option,
+                              showCheckmark: false,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: chipVisualDensity,
+                              labelPadding: chipLabelPadding,
+                              selectedColor: const Color(0xFF0FAD97),
+                              backgroundColor: const Color(0xFFF1F5F9),
+                              side: const BorderSide(color: Color(0xFFCBD5E1)),
+                              labelStyle: TextStyle(
+                                fontSize: chipLabelStyle.fontSize,
+                                fontWeight: chipLabelStyle.fontWeight,
+                                color: (option == 'Any'
+                                        ? localLandType == null
+                                        : localLandType == option)
+                                    ? Colors.white
+                                    : const Color(0xFF0F172A),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(chipRadius),
+                              ),
+                              onSelected: (_) {
+                                setModalState(() {
+                                  if (option == 'Any') {
+                                    localLandType = null;
+                                    return;
+                                  }
+                                  localLandType =
+                                      localLandType == option ? null : option;
+                                });
+                              },
+                            ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 14),
                     Row(
                       children: [
                         TextButton(
                           onPressed: () {
-                            Navigator.of(context)
-                                .pop((type: null, price: null));
+                            Navigator.of(context).pop(
+                              (type: null, price: null, landType: null),
+                            );
                           },
                           child: const Text(
                             'Clear',
@@ -161,8 +266,13 @@ extension _HomeMapFilters on _HomeMapScreenState {
                             foregroundColor: Colors.white,
                           ),
                           onPressed: () {
-                            Navigator.of(context)
-                                .pop((type: localType, price: localPrice));
+                            Navigator.of(context).pop(
+                              (
+                                type: localType,
+                                price: localPrice,
+                                landType: localLandType,
+                              ),
+                            );
                           },
                           child: const Text(
                             'Apply',
@@ -184,15 +294,23 @@ extension _HomeMapFilters on _HomeMapScreenState {
 
     final nextType = result.type?.trim().isEmpty ?? true ? null : result.type;
     final nextPrice = result.price;
+    final nextLandType =
+      result.landType?.trim().isEmpty ?? true ? null : result.landType;
+    final normalizedNextLandType = nextLandType?.trim() == 'Any'
+      ? null
+      : nextLandType;
 
     final normalizedNextType = nextType?.trim();
     final shouldAllowPrice =
         _isPriceFilterEligiblePropertyType(normalizedNextType) &&
             normalizedNextType != 'Layout';
 
+    final shouldAllowLandType = normalizedNextType == 'Land';
+
     _updateState(() {
       _selectedPropertyType = nextType;
       _selectedPriceRange = shouldAllowPrice ? nextPrice : null;
+      _selectedLandType = shouldAllowLandType ? normalizedNextLandType : null;
     });
 
     await _fetchViewport();

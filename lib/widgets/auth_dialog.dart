@@ -154,6 +154,7 @@ class _AuthDialogState extends State<AuthDialog> {
       if (!mounted) return;
       FocusManager.instance.primaryFocus?.unfocus();
       await SystemChannels.textInput.invokeMethod('TextInput.hide');
+      if (!mounted) return;
       Navigator.of(context).pop();
     } on AuthApiException catch (e) {
       setState(() => _error = e.message);
