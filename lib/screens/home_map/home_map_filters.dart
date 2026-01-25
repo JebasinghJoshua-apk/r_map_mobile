@@ -295,10 +295,9 @@ extension _HomeMapFilters on _HomeMapScreenState {
     final nextType = result.type?.trim().isEmpty ?? true ? null : result.type;
     final nextPrice = result.price;
     final nextLandType =
-      result.landType?.trim().isEmpty ?? true ? null : result.landType;
-    final normalizedNextLandType = nextLandType?.trim() == 'Any'
-      ? null
-      : nextLandType;
+        result.landType?.trim().isEmpty ?? true ? null : result.landType;
+    final normalizedNextLandType =
+        nextLandType?.trim() == 'Any' ? null : nextLandType;
 
     final normalizedNextType = nextType?.trim();
     final shouldAllowPrice =
