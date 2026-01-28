@@ -1,3 +1,5 @@
+import '../utils/user_role.dart';
+
 class AuthSession {
   const AuthSession({
     required this.token,
@@ -36,6 +38,8 @@ class AuthUser {
   final String phoneNumber;
   final String role;
   final String? email;
+
+  UserRole get roleValue => parseUserRole(role);
 
   String get displayName {
     final name = '${firstName.trim()} ${lastName.trim()}'.trim();
