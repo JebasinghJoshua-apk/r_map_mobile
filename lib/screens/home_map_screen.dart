@@ -754,7 +754,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                         getMapCenter: () => _lastCameraPosition.target,
                         onSearchTap: _closeAnyPanel,
                         onFilterTap: (panelRect, arrowRect) =>
-                          unawaited(_openFilters(panelRect, arrowRect)),
+                            unawaited(_openFilters(panelRect, arrowRect)),
                         hasActiveFilters: _selectedPropertyType != null ||
                             _selectedListingType != null ||
                             _selectedPriceRange != null ||

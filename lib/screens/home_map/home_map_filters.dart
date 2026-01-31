@@ -76,12 +76,12 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
 
         final safeTop = media.padding.top;
         final popupTopRaw =
-          panelAnchorRect.bottom + popupGap - popupOverlapIntoAnchor;
+            panelAnchorRect.bottom + popupGap - popupOverlapIntoAnchor;
         final popupTop = popupTopRaw < safeTop + 4 ? safeTop + 4 : popupTopRaw;
 
         final popupWidth = size.width - (horizontalPadding * 2);
         final arrowAnchorCenterX =
-          arrowAnchorRect.left + (arrowAnchorRect.width / 2);
+            arrowAnchorRect.left + (arrowAnchorRect.width / 2);
         const arrowLeftMin = horizontalPadding + 12;
         final arrowLeftMax = horizontalPadding + popupWidth - 12 - arrowWidth;
         final arrowLeftRaw = arrowAnchorCenterX - (arrowWidth / 2);
@@ -178,10 +178,7 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                                                       CrossAxisAlignment.start,
                                                   children: [
                                                     Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                        right: 44,
-                                                      ),
+                                                      padding: EdgeInsets.zero,
                                                       child: Column(
                                                         crossAxisAlignment:
                                                             CrossAxisAlignment
@@ -192,35 +189,68 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                                                           Row(
                                                             children: [
                                                               const Padding(
-                                                                padding:
-                                                                    EdgeInsets.only(left: 4),
+                                                                padding: EdgeInsets
+                                                                    .only(
+                                                                        left:
+                                                                            4),
                                                                 child: Text(
                                                                   'Listing Type',
-                                                                  style: sectionTitleStyle,
+                                                                  style:
+                                                                      sectionTitleStyle,
                                                                 ),
                                                               ),
                                                               const Spacer(),
-                                                              TextButton(
-                                                                style: TextButton.styleFrom(
-                                                                  padding: EdgeInsets.zero,
-                                                                  minimumSize: const Size(32, 32),
-                                                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                              Padding(
+                                                                padding:
+                                                                    const EdgeInsets
+                                                                        .only(
+                                                                  right: 4,
                                                                 ),
-                                                                onPressed: () {
-                                                                  Navigator.of(context).pop(
-                                                                    (
-                                                                      type: null,
-                                                                      listingType: null,
-                                                                      price: null,
-                                                                      landType: null,
+                                                                child:
+                                                                    TextButton(
+                                                                  style: TextButton
+                                                                      .styleFrom(
+                                                                    padding:
+                                                                        EdgeInsets
+                                                                            .zero,
+                                                                    minimumSize:
+                                                                        const Size(
+                                                                            32,
+                                                                            32),
+                                                                    tapTargetSize:
+                                                                        MaterialTapTargetSize
+                                                                            .shrinkWrap,
+                                                                  ),
+                                                                  onPressed:
+                                                                      () {
+                                                                    Navigator.of(
+                                                                            context)
+                                                                        .pop(
+                                                                      (
+                                                                        type:
+                                                                            null,
+                                                                        listingType:
+                                                                            null,
+                                                                        price:
+                                                                            null,
+                                                                        landType:
+                                                                            null,
+                                                                      ),
+                                                                    );
+                                                                  },
+                                                                  child:
+                                                                      const Text(
+                                                                    'CLEAR',
+                                                                    style:
+                                                                        TextStyle(
+                                                                      fontSize:
+                                                                          13,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w700,
+                                                                      color: Color(
+                                                                          0xFF0FAD97),
                                                                     ),
-                                                                  );
-                                                                },
-                                                                child: const Text(
-                                                                  'CLEAR',
-                                                                  style: TextStyle(
-                                                                    fontWeight: FontWeight.w700,
-                                                                    color: Color(0xFF0FAD97),
                                                                   ),
                                                                 ),
                                                               ),
@@ -662,40 +692,79 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                                         const SizedBox(height: 12),
                                         Row(
                                           children: [
-                                            TextButton(
-                                              onPressed: () {
-                                                Navigator.of(context).pop();
-                                              },
-                                              child: const Text(
-                                                'Close',
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF64748B),
+                                            SizedBox(
+                                              height: 36,
+                                              child: OutlinedButton(
+                                                style: OutlinedButton.styleFrom(
+                                                  side: const BorderSide(
+                                                    color: Color(0xFF0FAD97),
+                                                  ),
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 12,
+                                                  ),
+                                                  minimumSize:
+                                                      const Size(0, 36),
+                                                  tapTargetSize:
+                                                      MaterialTapTargetSize
+                                                          .shrinkWrap,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                  ),
+                                                ),
+                                                onPressed: () {
+                                                  Navigator.of(context).pop();
+                                                },
+                                                child: const Text(
+                                                  'Close',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Color(0xFF0FAD97),
+                                                  ),
                                                 ),
                                               ),
                                             ),
                                             const Spacer(),
-                                            FilledButton(
-                                              style: FilledButton.styleFrom(
-                                                backgroundColor:
-                                                    const Color(0xFF0FAD97),
-                                                foregroundColor: Colors.white,
-                                              ),
-                                              onPressed: () {
-                                                Navigator.of(context).pop(
-                                                  (
-                                                    type: localType,
-                                                    listingType:
-                                                        localListingType,
-                                                    price: localPrice,
-                                                    landType: localLandType,
+                                            SizedBox(
+                                              height: 36,
+                                              child: FilledButton(
+                                                style: FilledButton.styleFrom(
+                                                  backgroundColor:
+                                                      const Color(0xFF0FAD97),
+                                                  foregroundColor: Colors.white,
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 12,
                                                   ),
-                                                );
-                                              },
-                                              child: const Text(
-                                                'Apply',
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w700,
+                                                  minimumSize:
+                                                      const Size(0, 36),
+                                                  tapTargetSize:
+                                                      MaterialTapTargetSize
+                                                          .shrinkWrap,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                  ),
+                                                ),
+                                                onPressed: () {
+                                                  Navigator.of(context).pop(
+                                                    (
+                                                      type: localType,
+                                                      listingType:
+                                                          localListingType,
+                                                      price: localPrice,
+                                                      landType: localLandType,
+                                                    ),
+                                                  );
+                                                },
+                                                child: const Text(
+                                                  'Apply',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
                                                 ),
                                               ),
                                             ),
