@@ -44,7 +44,7 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
     return parts.join('|');
   }
 
-  Future<void> _openFilters(Rect anchorRect) async {
+  Future<void> _openFilters(Rect panelAnchorRect, Rect arrowAnchorRect) async {
     if (!mounted) return;
 
     final initialType = _selectedPropertyType;
@@ -70,17 +70,21 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
         const horizontalPadding = 16.0;
         const arrowWidth = 18.0;
         const arrowHeight = 10.0;
-        const popupGap = 8.0;
+        const popupGap = 0.0;
+        const popupOverlapIntoAnchor = 34.0;
+        const arrowOverlapIntoPopup = 3.0;
 
         final safeTop = media.padding.top;
-        final popupTopRaw = anchorRect.bottom + popupGap;
-        final popupTop = popupTopRaw < safeTop + 8 ? safeTop + 8 : popupTopRaw;
+        final popupTopRaw =
+          panelAnchorRect.bottom + popupGap - popupOverlapIntoAnchor;
+        final popupTop = popupTopRaw < safeTop + 4 ? safeTop + 4 : popupTopRaw;
 
         final popupWidth = size.width - (horizontalPadding * 2);
-        final anchorCenterX = anchorRect.left + (anchorRect.width / 2);
+        final arrowAnchorCenterX =
+          arrowAnchorRect.left + (arrowAnchorRect.width / 2);
         const arrowLeftMin = horizontalPadding + 12;
         final arrowLeftMax = horizontalPadding + popupWidth - 12 - arrowWidth;
-        final arrowLeftRaw = anchorCenterX - (arrowWidth / 2);
+        final arrowLeftRaw = arrowAnchorCenterX - (arrowWidth / 2);
         final arrowLeft = arrowLeftRaw < arrowLeftMin
             ? arrowLeftMin
             : (arrowLeftRaw > arrowLeftMax ? arrowLeftMax : arrowLeftRaw);
@@ -138,17 +142,6 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                   child: Stack(
                     children: [
                       Positioned(
-                        top: popupTop - arrowHeight,
-                        left: arrowLeft,
-                        child: const IgnorePointer(
-                          child: _FilterPopoverArrow(
-                            width: arrowWidth,
-                            height: arrowHeight,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      Positioned(
                         top: popupTop,
                         left: horizontalPadding,
                         right: horizontalPadding,
@@ -157,7 +150,7 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                           child: Material(
                             elevation: 10,
                             shadowColor: Colors.black26,
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(8),
                             clipBehavior: Clip.antiAlias,
                             color: Colors.white,
                             child: ConstrainedBox(
@@ -196,15 +189,42 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                                                         children: [
                                                           const SizedBox(
                                                               height: 12),
-                                                          const Padding(
-                                                            padding:
-                                                                EdgeInsets.only(
-                                                                    left: 4),
-                                                            child: Text(
-                                                              'Listing Type',
-                                                              style:
-                                                                  sectionTitleStyle,
-                                                            ),
+                                                          Row(
+                                                            children: [
+                                                              const Padding(
+                                                                padding:
+                                                                    EdgeInsets.only(left: 4),
+                                                                child: Text(
+                                                                  'Listing Type',
+                                                                  style: sectionTitleStyle,
+                                                                ),
+                                                              ),
+                                                              const Spacer(),
+                                                              TextButton(
+                                                                style: TextButton.styleFrom(
+                                                                  padding: EdgeInsets.zero,
+                                                                  minimumSize: const Size(32, 32),
+                                                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                                ),
+                                                                onPressed: () {
+                                                                  Navigator.of(context).pop(
+                                                                    (
+                                                                      type: null,
+                                                                      listingType: null,
+                                                                      price: null,
+                                                                      landType: null,
+                                                                    ),
+                                                                  );
+                                                                },
+                                                                child: const Text(
+                                                                  'CLEAR',
+                                                                  style: TextStyle(
+                                                                    fontWeight: FontWeight.w700,
+                                                                    color: Color(0xFF0FAD97),
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ],
                                                           ),
                                                           const SizedBox(
                                                               height: 10),
@@ -644,20 +664,13 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                                           children: [
                                             TextButton(
                                               onPressed: () {
-                                                Navigator.of(context).pop(
-                                                  (
-                                                    type: null,
-                                                    listingType: null,
-                                                    price: null,
-                                                    landType: null,
-                                                  ),
-                                                );
+                                                Navigator.of(context).pop();
                                               },
                                               child: const Text(
-                                                'Clear',
+                                                'Close',
                                                 style: TextStyle(
                                                   fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF0FAD97),
+                                                  color: Color(0xFF64748B),
                                                 ),
                                               ),
                                             ),
@@ -690,30 +703,21 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                                         ),
                                       ],
                                     ),
-                                    Positioned(
-                                      top: 0,
-                                      right: 0,
-                                      child: IconButton(
-                                        tooltip: 'Close',
-                                        padding: EdgeInsets.zero,
-                                        constraints:
-                                            const BoxConstraints.tightFor(
-                                          width: 32,
-                                          height: 32,
-                                        ),
-                                        onPressed: () =>
-                                            Navigator.of(context).pop(),
-                                        icon: const Icon(
-                                          Icons.close,
-                                          size: 18,
-                                          color: Color(0xFF64748B),
-                                        ),
-                                      ),
-                                    ),
                                   ],
                                 ),
                               ),
                             ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: popupTop - arrowHeight + arrowOverlapIntoPopup,
+                        left: arrowLeft,
+                        child: const IgnorePointer(
+                          child: _FilterPopoverArrow(
+                            width: arrowWidth,
+                            height: arrowHeight,
+                            color: Colors.white,
                           ),
                         ),
                       ),

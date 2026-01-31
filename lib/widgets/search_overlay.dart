@@ -41,7 +41,7 @@ class SearchOverlay extends StatefulWidget {
   final LatLng? Function()? getMapCenter;
 
   final VoidCallback? onSearchTap;
-  final void Function(Rect anchorRect)? onFilterTap;
+  final void Function(Rect panelAnchorRect, Rect arrowAnchorRect)? onFilterTap;
   final bool hasActiveFilters;
 
   @override
@@ -58,6 +58,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
   final MobileBffMapApi _mapApi = MobileBffMapApi();
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+  final GlobalKey _searchCardKey = GlobalKey();
+  final GlobalKey _filterButtonKey = GlobalKey();
 
   Timer? _debounce;
   Timer? _keyboardShowTimer;
@@ -1643,9 +1645,10 @@ class _SearchOverlayState extends State<SearchOverlay> {
   Widget build(BuildContext context) {
     final bool showBrandHeader = !_isCompactMode;
     final bool showCompactRLogoInSearchBar = _isCompactMode;
-    final double searchCardRadius = _isCompactMode ? 6 : 10;
+    final double searchCardRadius = _isCompactMode ? 6 : 8;
 
     final Widget searchCard = Container(
+      key: _searchCardKey,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(searchCardRadius),
@@ -1711,6 +1714,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
                     },
                   ),
                 IconButton(
+                  key: _filterButtonKey,
                   icon: Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -1749,10 +1753,22 @@ class _SearchOverlayState extends State<SearchOverlay> {
                     _keyboardShowTimer?.cancel();
                     SystemChannels.textInput.invokeMethod('TextInput.hide');
 
-                    final box = context.findRenderObject() as RenderBox?;
-                    if (box == null) return;
-                    final topLeft = box.localToGlobal(Offset.zero);
-                    widget.onFilterTap?.call(topLeft & box.size);
+                    final searchBoxContext = _searchCardKey.currentContext;
+                    final panelBox =
+                        searchBoxContext?.findRenderObject() as RenderBox?;
+                    if (panelBox == null) return;
+
+                    final filterBoxContext = _filterButtonKey.currentContext;
+                    final arrowBox =
+                        filterBoxContext?.findRenderObject() as RenderBox?;
+                    if (arrowBox == null) return;
+
+                    final panelTopLeft = panelBox.localToGlobal(Offset.zero);
+                    final arrowTopLeft = arrowBox.localToGlobal(Offset.zero);
+                    widget.onFilterTap?.call(
+                      panelTopLeft & panelBox.size,
+                      arrowTopLeft & arrowBox.size,
+                    );
                   },
                 ),
               ],
@@ -1910,8 +1926,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(18),
+        color: const Color.fromRGBO(243, 244, 246, 0.9),
+        borderRadius: BorderRadius.circular(8),
         boxShadow: const [
           BoxShadow(
             color: Colors.black12,
