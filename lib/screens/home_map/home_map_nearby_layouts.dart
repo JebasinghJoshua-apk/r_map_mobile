@@ -181,12 +181,32 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
                         child: Row(
                           children: [
                             const Text(
-                              'Nearby layouts',
+                              'Layouts near Aruppukkottai',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
+                            if (items.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF2F3),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  '${items.length}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
                             const Spacer(),
                             IconButton(
                               tooltip: 'Refresh',

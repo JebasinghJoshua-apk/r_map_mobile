@@ -36,26 +36,46 @@ extension _HomeMapFilters on _HomeMapScreenState {
     return parts.join('|');
   }
 
-  Future<void> _openFilters() async {
+  Future<void> _openFilters(Rect anchorRect) async {
     if (!mounted) return;
 
     final initialType = _selectedPropertyType;
     final initialPrice = _selectedPriceRange;
     final initialLandType = _selectedLandType;
 
-    final result = await showModalBottomSheet<
+    final result = await showGeneralDialog<
         ({
           String? type,
           _PriceRangeFilter? price,
           String? landType,
         })>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
+      barrierDismissible: true,
+      barrierLabel: 'Filters',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 160),
+      pageBuilder: (context, _, __) {
+        final media = MediaQuery.of(context);
+        final size = media.size;
+        const horizontalPadding = 16.0;
+        const arrowWidth = 18.0;
+        const arrowHeight = 10.0;
+        const popupGap = 8.0;
+
+        final safeTop = media.padding.top;
+        final popupTopRaw = anchorRect.bottom + popupGap;
+        final popupTop = popupTopRaw < safeTop + 8 ? safeTop + 8 : popupTopRaw;
+
+        final popupWidth = size.width - (horizontalPadding * 2);
+        final anchorCenterX = anchorRect.left + (anchorRect.width / 2);
+        const arrowLeftMin = horizontalPadding + 12;
+        final arrowLeftMax =
+            horizontalPadding + popupWidth - 12 - arrowWidth;
+        final arrowLeftRaw = anchorCenterX - (arrowWidth / 2);
+        final arrowLeft = arrowLeftRaw < arrowLeftMin
+            ? arrowLeftMin
+            : (arrowLeftRaw > arrowLeftMax ? arrowLeftMax : arrowLeftRaw);
+
         var localType = initialType;
         var localPrice = initialPrice;
         var localLandType = initialLandType;
@@ -99,193 +119,371 @@ extension _HomeMapFilters on _HomeMapScreenState {
               localLandType = null;
             }
 
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Property Type', style: sectionTitleStyle),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: wrapSpacing,
-                      runSpacing: wrapRunSpacing,
-                      children: [
-                        for (final option in _propertyTypeOptions)
-                          ChoiceChip(
-                            label: Text(option.label),
-                            selected: (localType == option.id),
-                            showCheckmark: false,
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                            visualDensity: chipVisualDensity,
-                            labelPadding: chipLabelPadding,
-                            selectedColor: const Color(0xFF0FAD97),
-                            backgroundColor: const Color(0xFFF1F5F9),
-                            side: const BorderSide(color: Color(0xFFCBD5E1)),
-                            labelStyle: TextStyle(
-                              fontSize: chipLabelStyle.fontSize,
-                              fontWeight: chipLabelStyle.fontWeight,
-                              color: (localType == option.id)
-                                  ? Colors.white
-                                  : const Color(0xFF0F172A),
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(chipRadius),
-                            ),
-                            onSelected: (_) {
-                              setModalState(() {
-                                localType = option.id;
-                                if (!_isPriceFilterEligiblePropertyType(
-                                        localType) ||
-                                    localType?.trim() == 'Layout') {
-                                  localPrice = null;
-                                }
-                                if (localType?.trim() != 'Land') {
-                                  localLandType = null;
-                                }
-                              });
-                            },
+            return GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Material(
+                color: Colors.transparent,
+                child: SafeArea(
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        top: popupTop - arrowHeight,
+                        left: arrowLeft,
+                        child: const IgnorePointer(
+                          child: _FilterPopoverArrow(
+                            width: arrowWidth,
+                            height: arrowHeight,
+                            color: Colors.white,
                           ),
-                      ],
-                    ),
-                    if (showPrice) ...[
-                      const SizedBox(height: 10),
-                      const Text('Price', style: sectionTitleStyle),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: wrapSpacing,
-                        runSpacing: wrapRunSpacing,
-                        children: [
-                          for (final option in _priceRangeOptions)
-                            ChoiceChip(
-                              label: Text(option.label),
-                              selected: (localPrice == null
-                                  ? option == _anyPriceRange
-                                  : option.label == localPrice!.label),
-                              showCheckmark: false,
-                              materialTapTargetSize:
-                                  MaterialTapTargetSize.shrinkWrap,
-                              visualDensity: chipVisualDensity,
-                              labelPadding: chipLabelPadding,
-                              selectedColor: const Color(0xFF0FAD97),
-                              backgroundColor: const Color(0xFFF1F5F9),
-                              side: const BorderSide(color: Color(0xFFCBD5E1)),
-                              labelStyle: TextStyle(
-                                fontSize: chipLabelStyle.fontSize,
-                                fontWeight: chipLabelStyle.fontWeight,
-                                color: (localPrice == null
-                                        ? option == _anyPriceRange
-                                        : option.label == localPrice!.label)
-                                    ? Colors.white
-                                    : const Color(0xFF0F172A),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(chipRadius),
-                              ),
-                              onSelected: (_) {
-                                setModalState(() {
-                                  localPrice =
-                                      option == _anyPriceRange ? null : option;
-                                });
-                              },
-                            ),
-                        ],
+                        ),
                       ),
-                    ],
-                    if (showLandType) ...[
-                      const SizedBox(height: 10),
-                      const Text('Land Type', style: sectionTitleStyle),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: wrapSpacing,
-                        runSpacing: wrapRunSpacing,
-                        children: [
-                          for (final option in landTypeOptions)
-                            ChoiceChip(
-                              label: Text(option),
-                              selected: option == 'Any'
-                                  ? localLandType == null
-                                  : localLandType == option,
-                              showCheckmark: false,
-                              materialTapTargetSize:
-                                  MaterialTapTargetSize.shrinkWrap,
-                              visualDensity: chipVisualDensity,
-                              labelPadding: chipLabelPadding,
-                              selectedColor: const Color(0xFF0FAD97),
-                              backgroundColor: const Color(0xFFF1F5F9),
-                              side: const BorderSide(color: Color(0xFFCBD5E1)),
-                              labelStyle: TextStyle(
-                                fontSize: chipLabelStyle.fontSize,
-                                fontWeight: chipLabelStyle.fontWeight,
-                                color: (option == 'Any'
-                                        ? localLandType == null
-                                        : localLandType == option)
-                                    ? Colors.white
-                                    : const Color(0xFF0F172A),
+                      Positioned(
+                        top: popupTop,
+                        left: horizontalPadding,
+                        right: horizontalPadding,
+                        child: GestureDetector(
+                          onTap: () {},
+                          child: Material(
+                            elevation: 10,
+                            shadowColor: Colors.black26,
+                            borderRadius: BorderRadius.circular(16),
+                            clipBehavior: Clip.antiAlias,
+                            color: Colors.white,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxHeight: size.height * 0.72,
                               ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(chipRadius),
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 6, 16, 14),
+                                child: Stack(
+                                  children: [
+                                    Positioned(
+                                      top: 0,
+                                      right: 0,
+                                      child: IconButton(
+                                        tooltip: 'Close',
+                                        padding: EdgeInsets.zero,
+                                        constraints:
+                                            const BoxConstraints.tightFor(
+                                          width: 32,
+                                          height: 32,
+                                        ),
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(),
+                                        icon: const Icon(
+                                          Icons.close,
+                                          size: 18,
+                                          color: Color(0xFF64748B),
+                                        ),
+                                      ),
+                                    ),
+                                    Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: SingleChildScrollView(
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.only(right: 44),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  const SizedBox(height: 10),
+                                            const Text(
+                                              'Property Type',
+                                              style: sectionTitleStyle,
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Wrap(
+                                              spacing: wrapSpacing,
+                                              runSpacing: wrapRunSpacing,
+                                              children: [
+                                                for (final option
+                                                    in _propertyTypeOptions)
+                                                  ChoiceChip(
+                                                    label: Text(option.label),
+                                                    selected:
+                                                        (localType == option.id),
+                                                    showCheckmark: false,
+                                                    materialTapTargetSize:
+                                                        MaterialTapTargetSize
+                                                            .shrinkWrap,
+                                                    visualDensity:
+                                                        chipVisualDensity,
+                                                    labelPadding:
+                                                        chipLabelPadding,
+                                                    selectedColor:
+                                                        const Color(0xFF0FAD97),
+                                                    backgroundColor:
+                                                        const Color(0xFFF1F5F9),
+                                                    side: const BorderSide(
+                                                      color: Color(0xFFCBD5E1),
+                                                    ),
+                                                    labelStyle: TextStyle(
+                                                      fontSize:
+                                                          chipLabelStyle.fontSize,
+                                                      fontWeight:
+                                                          chipLabelStyle.fontWeight,
+                                                      color:
+                                                          (localType == option.id)
+                                                              ? Colors.white
+                                                              : const Color(
+                                                                  0xFF0F172A,
+                                                                ),
+                                                    ),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                        chipRadius,
+                                                      ),
+                                                    ),
+                                                    onSelected: (_) {
+                                                      setModalState(() {
+                                                        localType = option.id;
+                                                        if (!_isPriceFilterEligiblePropertyType(
+                                                              localType,
+                                                            ) ||
+                                                            localType?.trim() ==
+                                                                'Layout') {
+                                                          localPrice = null;
+                                                        }
+                                                        if (localType?.trim() !=
+                                                            'Land') {
+                                                          localLandType = null;
+                                                        }
+                                                      });
+                                                    },
+                                                  ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 10),
+                                            if (showPrice) ...[
+                                              const SizedBox(height: 10),
+                                              const Text(
+                                                'Price',
+                                                style: sectionTitleStyle,
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Wrap(
+                                                spacing: wrapSpacing,
+                                                runSpacing: wrapRunSpacing,
+                                                children: [
+                                                  for (final option
+                                                      in _priceRangeOptions)
+                                                    ChoiceChip(
+                                                      label: Text(option.label),
+                                                      selected: (localPrice == null
+                                                          ? option ==
+                                                              _anyPriceRange
+                                                          : option.label ==
+                                                              localPrice!.label),
+                                                      showCheckmark: false,
+                                                      materialTapTargetSize:
+                                                          MaterialTapTargetSize
+                                                              .shrinkWrap,
+                                                      visualDensity:
+                                                          chipVisualDensity,
+                                                      labelPadding:
+                                                          chipLabelPadding,
+                                                      selectedColor:
+                                                          const Color(0xFF0FAD97),
+                                                      backgroundColor:
+                                                          const Color(0xFFF1F5F9),
+                                                      side: const BorderSide(
+                                                        color:
+                                                            Color(0xFFCBD5E1),
+                                                      ),
+                                                      labelStyle: TextStyle(
+                                                        fontSize:
+                                                            chipLabelStyle.fontSize,
+                                                        fontWeight:
+                                                            chipLabelStyle.fontWeight,
+                                                        color: (localPrice == null
+                                                                ? option ==
+                                                                    _anyPriceRange
+                                                                : option.label ==
+                                                                    localPrice!
+                                                                        .label)
+                                                            ? Colors.white
+                                                            : const Color(
+                                                                0xFF0F172A,
+                                                              ),
+                                                      ),
+                                                      shape:
+                                                          RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                          chipRadius,
+                                                        ),
+                                                      ),
+                                                      onSelected: (_) {
+                                                        setModalState(() {
+                                                          localPrice = option ==
+                                                                  _anyPriceRange
+                                                              ? null
+                                                              : option;
+                                                        });
+                                                      },
+                                                    ),
+                                                ],
+                                              ),
+                                            ],
+                                            if (showLandType) ...[
+                                              const SizedBox(height: 10),
+                                              const Text(
+                                                'Land Type',
+                                                style: sectionTitleStyle,
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Wrap(
+                                                spacing: wrapSpacing,
+                                                runSpacing: wrapRunSpacing,
+                                                children: [
+                                                  for (final option
+                                                      in landTypeOptions)
+                                                    ChoiceChip(
+                                                      label: Text(option),
+                                                      selected: option == 'Any'
+                                                          ? localLandType == null
+                                                          : localLandType ==
+                                                              option,
+                                                      showCheckmark: false,
+                                                      materialTapTargetSize:
+                                                          MaterialTapTargetSize
+                                                              .shrinkWrap,
+                                                      visualDensity:
+                                                          chipVisualDensity,
+                                                      labelPadding:
+                                                          chipLabelPadding,
+                                                      selectedColor:
+                                                          const Color(0xFF0FAD97),
+                                                      backgroundColor:
+                                                          const Color(0xFFF1F5F9),
+                                                      side: const BorderSide(
+                                                        color:
+                                                            Color(0xFFCBD5E1),
+                                                      ),
+                                                      labelStyle: TextStyle(
+                                                        fontSize:
+                                                            chipLabelStyle.fontSize,
+                                                        fontWeight:
+                                                            chipLabelStyle.fontWeight,
+                                                        color: (option == 'Any'
+                                                                ? localLandType ==
+                                                                    null
+                                                                : localLandType ==
+                                                                    option)
+                                                            ? Colors.white
+                                                            : const Color(
+                                                                0xFF0F172A,
+                                                              ),
+                                                      ),
+                                                      shape:
+                                                          RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                          chipRadius,
+                                                        ),
+                                                      ),
+                                                      onSelected: (_) {
+                                                        setModalState(() {
+                                                          if (option == 'Any') {
+                                                            localLandType = null;
+                                                            return;
+                                                          }
+                                                          localLandType =
+                                                              localLandType ==
+                                                                      option
+                                                                  ? null
+                                                                  : option;
+                                                        });
+                                                      },
+                                                    ),
+                                                ],
+                                              ),
+                                            ],
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Row(
+                                          children: [
+                                            TextButton(
+                                              onPressed: () {
+                                                Navigator.of(context).pop(
+                                                  (
+                                                    type: null,
+                                                    price: null,
+                                                    landType: null,
+                                                  ),
+                                                );
+                                              },
+                                              child: const Text(
+                                                'Clear',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFF0FAD97),
+                                                ),
+                                              ),
+                                            ),
+                                            const Spacer(),
+                                            FilledButton(
+                                              style: FilledButton.styleFrom(
+                                                backgroundColor:
+                                                    const Color(0xFF0FAD97),
+                                                foregroundColor: Colors.white,
+                                              ),
+                                              onPressed: () {
+                                                Navigator.of(context).pop(
+                                                  (
+                                                    type: localType,
+                                                    price: localPrice,
+                                                    landType: localLandType,
+                                                  ),
+                                                );
+                                              },
+                                              child: const Text(
+                                                'Apply',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
-                              onSelected: (_) {
-                                setModalState(() {
-                                  if (option == 'Any') {
-                                    localLandType = null;
-                                    return;
-                                  }
-                                  localLandType =
-                                      localLandType == option ? null : option;
-                                });
-                              },
-                            ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(context).pop(
-                              (type: null, price: null, landType: null),
-                            );
-                          },
-                          child: const Text(
-                            'Clear',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF0FAD97),
                             ),
                           ),
                         ),
-                        const Spacer(),
-                        FilledButton(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF0FAD97),
-                            foregroundColor: Colors.white,
-                          ),
-                          onPressed: () {
-                            Navigator.of(context).pop(
-                              (
-                                type: localType,
-                                price: localPrice,
-                                landType: localLandType,
-                              ),
-                            );
-                          },
-                          child: const Text(
-                            'Apply',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
           },
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final fade = CurvedAnimation(parent: animation, curve: Curves.easeOut);
+        return FadeTransition(
+          opacity: fade,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, -0.02),
+              end: Offset.zero,
+            ).animate(fade),
+            child: child,
+          ),
         );
       },
     );
@@ -313,5 +511,47 @@ extension _HomeMapFilters on _HomeMapScreenState {
     });
 
     await _fetchViewport();
+  }
+}
+
+class _FilterPopoverArrow extends StatelessWidget {
+  const _FilterPopoverArrow({
+    required this.width,
+    required this.height,
+    required this.color,
+  });
+
+  final double width;
+  final double height;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size(width, height),
+      painter: _FilterPopoverArrowPainter(color),
+    );
+  }
+}
+
+class _FilterPopoverArrowPainter extends CustomPainter {
+  _FilterPopoverArrowPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final path = Path()
+      ..moveTo(0, size.height)
+      ..lineTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _FilterPopoverArrowPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }

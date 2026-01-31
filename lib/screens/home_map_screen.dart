@@ -752,7 +752,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                         onMyPropertiesOpened: _closeAnyPanel,
                         getMapCenter: () => _lastCameraPosition.target,
                         onSearchTap: _closeAnyPanel,
-                        onFilterTap: _openFilters,
+                        onFilterTap: (rect) => unawaited(_openFilters(rect)),
                         hasActiveFilters: _selectedPropertyType != null ||
                             _selectedPriceRange != null,
                       ),
@@ -781,7 +781,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
               children: [
                 _mapControlButton(
                   icon: Icons.list_alt_outlined,
-                  tooltip: 'Nearby layouts',
+                  tooltip: 'Layouts near Aruppukkottai',
                   highlight: _isNearbyLayoutsReopenHintOn,
                   onPressed: () {
                     _nearbyLayoutsReopenHintTimer?.cancel();

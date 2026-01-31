@@ -41,7 +41,7 @@ class SearchOverlay extends StatefulWidget {
   final LatLng? Function()? getMapCenter;
 
   final VoidCallback? onSearchTap;
-  final VoidCallback? onFilterTap;
+  final void Function(Rect anchorRect)? onFilterTap;
   final bool hasActiveFilters;
 
   @override
@@ -1748,7 +1748,11 @@ class _SearchOverlayState extends State<SearchOverlay> {
                     FocusScope.of(context).unfocus();
                     _keyboardShowTimer?.cancel();
                     SystemChannels.textInput.invokeMethod('TextInput.hide');
-                    widget.onFilterTap?.call();
+
+                    final box = context.findRenderObject() as RenderBox?;
+                    if (box == null) return;
+                    final topLeft = box.localToGlobal(Offset.zero);
+                    widget.onFilterTap?.call(topLeft & box.size);
                   },
                 ),
               ],

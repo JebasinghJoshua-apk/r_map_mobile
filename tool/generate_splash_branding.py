@@ -39,8 +39,10 @@ def main() -> None:
     text_w = bbox[2] - bbox[0]
     text_h = bbox[3] - bbox[1]
 
+    # Position the text higher within the image so it appears closer to the
+    # centered app icon when Android anchors the branding image at the bottom.
     x = (width - text_w) // 2
-    y = (height - text_h) // 2
+    y = 18
     draw.text((x, y), text, font=font, fill=color)
 
     img.save(out_path, "PNG")
