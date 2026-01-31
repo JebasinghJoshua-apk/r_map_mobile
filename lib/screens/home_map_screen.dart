@@ -118,6 +118,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   DateTime? _lastViewportErrorAt;
 
   String? _selectedPropertyType; // null => All properties
+  String? _selectedListingType; // null => Any
   _PriceRangeFilter? _selectedPriceRange; // null => Any
   String? _selectedLandType; // null => Any
 
@@ -754,7 +755,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                         onSearchTap: _closeAnyPanel,
                         onFilterTap: (rect) => unawaited(_openFilters(rect)),
                         hasActiveFilters: _selectedPropertyType != null ||
-                            _selectedPriceRange != null,
+                            _selectedListingType != null ||
+                            _selectedPriceRange != null ||
+                            _selectedLandType != null,
                       ),
               ],
             ),

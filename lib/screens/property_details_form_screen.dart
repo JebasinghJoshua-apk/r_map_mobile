@@ -973,17 +973,17 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: [
             _dropdown(
+              label: 'Listing Type:',
+              value: _listingType,
+              options: _listingTypes,
+              onChanged: (v) => setState(() => _listingType = v ?? 'Sell'),
+            ),
+            const SizedBox(height: 12),
+            _dropdown(
               label: 'Property Type',
               value: _propertyType,
               options: _propertyTypes,
               onChanged: (v) => setState(() => _propertyType = v ?? 'Plot'),
-            ),
-            const SizedBox(height: 12),
-            _dropdown(
-              label: 'Listing Type',
-              value: _listingType,
-              options: _listingTypes,
-              onChanged: (v) => setState(() => _listingType = v ?? 'Sell'),
             ),
             const SizedBox(height: 10),
             ..._buildPropertyFields(),

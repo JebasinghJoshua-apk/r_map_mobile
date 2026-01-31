@@ -58,11 +58,82 @@ class _ViewportRenderCacheEntry {
 extension _HomeMapViewportCache on _HomeMapScreenState {
   MapViewportResponse _applyClientFilters(MapViewportResponse response) {
     final type = _selectedPropertyType?.trim();
-    if (type == null || type.isEmpty) return response;
-    if (type == 'Layout') return response;
+    final listingType = _selectedListingType?.trim();
+
+    if ((type == null || type.isEmpty) &&
+        (listingType == null || listingType.isEmpty)) {
+      return response;
+    }
 
     var filteredProperties = response.properties;
     var didFilter = false;
+
+    if (listingType != null && listingType.isNotEmpty) {
+      final selectedNorm = listingType.toLowerCase();
+      filteredProperties = filteredProperties.where((feature) {
+        final raw = feature.listingType?.trim();
+        if (raw == null || raw.isEmpty) return false;
+        final rawNorm = raw.toLowerCase();
+
+        if (rawNorm == selectedNorm) return true;
+        // Some backends/clients use Buy/Sell interchangeably.
+        if (selectedNorm == 'sell' && rawNorm == 'buy') return true;
+        if (selectedNorm == 'buy' && rawNorm == 'sell') return true;
+        return false;
+      }).toList(growable: false);
+      didFilter = true;
+    }
+
+    if (type == null || type.isEmpty) {
+      if (!didFilter) return response;
+
+      final allowedIds = filteredProperties
+          .map((p) => p.propertyId.trim())
+          .where((p) => p.isNotEmpty)
+          .toSet();
+
+      final filteredPlots = response.plots.where((plot) {
+        final id = plot.individualPlotsId?.trim();
+        if (id == null || id.isEmpty) return true;
+        return allowedIds.contains(id);
+      }).toList(growable: false);
+
+      final filteredRoads = response.roads.where((road) {
+        final ip = road.individualPlotsId?.trim();
+        if (ip != null && ip.isNotEmpty) {
+          return allowedIds.contains(ip);
+        }
+        final land = road.landId?.trim();
+        if (land != null && land.isNotEmpty) {
+          return allowedIds.contains(land);
+        }
+        final comm = road.commercialSpaceId?.trim();
+        if (comm != null && comm.isNotEmpty) {
+          return allowedIds.contains(comm);
+        }
+        return true;
+      }).toList(growable: false);
+
+      return MapViewportResponse(
+        detailLevel: response.detailLevel,
+        properties: filteredProperties.toList(growable: false),
+        plots: filteredPlots,
+        roads: filteredRoads,
+        amenities: response.amenities,
+      );
+    }
+
+    if (type == 'Layout') {
+      return didFilter
+          ? MapViewportResponse(
+              detailLevel: response.detailLevel,
+              properties: filteredProperties.toList(growable: false),
+              plots: response.plots,
+              roads: response.roads,
+              amenities: response.amenities,
+            )
+          : response;
+    }
 
     if (type == 'Land') {
       final selectedLandType = _selectedLandType?.trim();
