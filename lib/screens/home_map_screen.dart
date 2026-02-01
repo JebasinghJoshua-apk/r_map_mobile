@@ -29,7 +29,9 @@ import 'property_detail_screen.dart';
 import '../utils/route_observer.dart';
 
 part 'home_map_screen.helpers.dart';
-part 'home_map/home_map_filters.dart';
+part 'home_map/home_map_filters_refactored.dart';
+part 'home_map/home_map_filters_types.dart';
+part 'home_map/home_map_filters_widgets.dart';
 part 'home_map/home_map_viewport.dart';
 part 'home_map/home_map_viewport_cache.dart';
 part 'home_map/home_map_polygon_styles.dart';

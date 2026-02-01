@@ -60,7 +60,8 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
     final type = _selectedPropertyType?.trim();
     final listingType = _selectedListingType?.trim();
 
-    int? parseIntFromMetadata(Map<String, String?> metadata, List<String> keys) {
+    int? parseIntFromMetadata(
+        Map<String, String?> metadata, List<String> keys) {
       final raw = _getMetadataValue(metadata, keys);
       if (raw == null) return null;
       final numericText = raw
@@ -74,7 +75,11 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
 
     bool parseBoolTruthy(String raw) {
       final v = raw.trim().toLowerCase();
-      return v == 'true' || v == 'yes' || v == 'y' || v == '1' || v == 'available';
+      return v == 'true' ||
+          v == 'yes' ||
+          v == 'y' ||
+          v == '1' ||
+          v == 'available';
     }
 
     int? parseBuildingAgeYears(Map<String, String?> metadata) {
