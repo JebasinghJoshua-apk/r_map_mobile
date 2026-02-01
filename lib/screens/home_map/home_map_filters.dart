@@ -164,6 +164,9 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
           'Agricultural',
         ];
 
+        final scrollController = ScrollController();
+        final independentMoreFiltersAnchorKey = GlobalKey();
+
         return StatefulBuilder(
           builder: (context, setModalState) {
             final showPrice = _isPriceFilterEligiblePropertyType(localType) &&
@@ -242,6 +245,8 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                                     Flexible(
                                       fit: FlexFit.loose,
                                       child: CustomScrollView(
+                                        controller: scrollController,
+                                        primary: false,
                                         shrinkWrap: true,
                                         slivers: [
                                           SliverToBoxAdapter(
@@ -1180,10 +1185,39 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                                                             BorderRadius
                                                                 .circular(6),
                                                         onTap: () {
+                                                          final willOpen =
+                                                              !localShowIndependentMoreFilters;
                                                           setModalState(() {
                                                             localShowIndependentMoreFilters =
                                                                 !localShowIndependentMoreFilters;
                                                           });
+
+                                                          if (willOpen) {
+                                                            WidgetsBinding
+                                                                .instance
+                                                                .addPostFrameCallback(
+                                                                    (_) {
+                                                              final targetContext =
+                                                                  independentMoreFiltersAnchorKey
+                                                                      .currentContext;
+                                                              if (targetContext ==
+                                                                  null) {
+                                                                return;
+                                                              }
+
+                                                              Scrollable
+                                                                  .ensureVisible(
+                                                                targetContext,
+                                                                duration:
+                                                                    const Duration(
+                                                                        milliseconds:
+                                                                            220),
+                                                                curve: Curves
+                                                                    .easeOut,
+                                                                alignment: 0.08,
+                                                              );
+                                                            });
+                                                          }
                                                         },
                                                         child: Padding(
                                                           padding:
@@ -1245,13 +1279,18 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                                                       if (localShowIndependentMoreFilters) ...[
                                                         const SizedBox(
                                                             height: 10),
-                                                        const Padding(
+                                                        Padding(
+                                                          key:
+                                                              independentMoreFiltersAnchorKey,
                                                           padding:
-                                                              EdgeInsets.only(
+                                                              const EdgeInsets
+                                                                  .only(
                                                                   left: 4),
-                                                          child: Text('Floors',
-                                                              style:
-                                                                  sectionTitleStyle),
+                                                          child: const Text(
+                                                            'Floors',
+                                                            style:
+                                                                sectionTitleStyle,
+                                                          ),
                                                         ),
                                                         const SizedBox(
                                                             height: 10),
