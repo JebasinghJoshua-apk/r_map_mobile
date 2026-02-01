@@ -1175,53 +1175,72 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                                                               0xFFE2E8F0)),
                                                       const SizedBox(
                                                           height: 10),
-                                                      Row(
-                                                        children: [
-                                                          const Padding(
-                                                            padding:
-                                                                EdgeInsets.only(
-                                                                    left: 4),
-                                                            child: Text(
-                                                                'More filters',
-                                                                style:
-                                                                    sectionTitleStyle),
-                                                          ),
-                                                          const Spacer(),
-                                                          TextButton(
-                                                            style: TextButton
-                                                                .styleFrom(
-                                                              padding:
-                                                                  EdgeInsets
-                                                                      .zero,
-                                                              minimumSize:
-                                                                  const Size(
-                                                                      32, 32),
-                                                              tapTargetSize:
-                                                                  MaterialTapTargetSize
-                                                                      .shrinkWrap,
+                                                      InkWell(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(6),
+                                                        onTap: () {
+                                                          setModalState(() {
+                                                            localShowIndependentMoreFilters =
+                                                                !localShowIndependentMoreFilters;
+                                                          });
+                                                        },
+                                                        child: Padding(
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .fromLTRB(
+                                                                  4, 6, 4, 6),
+                                                          child: Text.rich(
+                                                            TextSpan(
+                                                              children: [
+                                                                const TextSpan(
+                                                                  text:
+                                                                      'More filters ',
+                                                                  style:
+                                                                      TextStyle(
+                                                                    fontSize:
+                                                                        13,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
+                                                                    color: Color(
+                                                                        0xFF0F172A),
+                                                                  ),
+                                                                ),
+                                                                TextSpan(
+                                                                  text:
+                                                                      localShowIndependentMoreFilters
+                                                                          ? '▲'
+                                                                          : '▼',
+                                                                  style:
+                                                                      const TextStyle(
+                                                                    fontSize:
+                                                                        12,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w700,
+                                                                    color: Color(
+                                                                        0xFF0F172A),
+                                                                  ),
+                                                                ),
+                                                                const TextSpan(
+                                                                  text:
+                                                                      '  (Floors, Building Age)',
+                                                                  style:
+                                                                      TextStyle(
+                                                                    fontSize:
+                                                                        12,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w500,
+                                                                    color: Color(
+                                                                        0xFF64748B),
+                                                                  ),
+                                                                ),
+                                                              ],
                                                             ),
-                                                            onPressed: () {
-                                                              setModalState(() {
-                                                                localShowIndependentMoreFilters =
-                                                                    !localShowIndependentMoreFilters;
-                                                              });
-                                                            },
-                                                            child: Text(
-                                                              localShowIndependentMoreFilters
-                                                                  ? 'HIDE'
-                                                                  : 'SHOW',
-                                                              style:
-                                                                  const TextStyle(
-                                                                fontSize: 13,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w700,
-                                                                color: Color(
-                                                                    0xFF0FAD97),
-                                                              ),
-                                                            ),
                                                           ),
-                                                        ],
+                                                        ),
                                                       ),
                                                       if (localShowIndependentMoreFilters) ...[
                                                         const SizedBox(
