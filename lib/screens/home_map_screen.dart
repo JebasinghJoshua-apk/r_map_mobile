@@ -124,6 +124,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   String? _selectedCommercialSuitableFor; // null => All Types
   _AreaRangeFilter? _selectedAreaRange; // null => Any
 
+  int? _selectedMinBedrooms; // null => Any
+  bool? _selectedCarParking; // null => Any (true => Available)
+  int? _selectedMinFloors; // null => Any
+  String? _selectedBuildingAge; // null => Any
+
   String? _lastViewportAuthKey;
 
   ModalRoute<void>? _routeSubscription;

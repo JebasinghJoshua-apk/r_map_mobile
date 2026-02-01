@@ -60,6 +60,53 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
     final type = _selectedPropertyType?.trim();
     final listingType = _selectedListingType?.trim();
 
+    int? parseIntFromMetadata(Map<String, String?> metadata, List<String> keys) {
+      final raw = _getMetadataValue(metadata, keys);
+      if (raw == null) return null;
+      final numericText = raw
+          .trim()
+          .toLowerCase()
+          .replaceAll(',', '')
+          .replaceAll(RegExp(r'[^0-9]'), '');
+      if (numericText.isEmpty) return null;
+      return int.tryParse(numericText);
+    }
+
+    bool parseBoolTruthy(String raw) {
+      final v = raw.trim().toLowerCase();
+      return v == 'true' || v == 'yes' || v == 'y' || v == '1' || v == 'available';
+    }
+
+    int? parseBuildingAgeYears(Map<String, String?> metadata) {
+      final raw = _getMetadataValue(
+        metadata,
+        const <String>[
+          'buildingAge',
+          'building_age',
+          'propertyAge',
+          'property_age',
+          'constructionAge',
+          'construction_age',
+          'age',
+        ],
+      );
+      if (raw == null) return null;
+      final lower = raw.trim().toLowerCase();
+      if (lower.isEmpty) return null;
+      if (lower.contains('new')) return 0;
+      // Accept ranges like "0-5", "0–5" and pick the max as a conservative estimate.
+      final range = RegExp(r'(\d+)\s*[-–]\s*(\d+)').firstMatch(lower);
+      if (range != null) {
+        final a = int.tryParse(range.group(1) ?? '');
+        final b = int.tryParse(range.group(2) ?? '');
+        if (a != null && b != null) return b;
+      }
+
+      final years = RegExp(r'(\d+)').firstMatch(lower);
+      final value = years == null ? null : int.tryParse(years.group(1) ?? '');
+      return value;
+    }
+
     int? parseSqft(Map<String, String?> metadata) {
       final raw = _getMetadataValue(
         metadata,
@@ -261,6 +308,102 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
           if (sqft < min) return false;
           if (sqft > max) return false;
           return true;
+        }).toList(growable: false);
+        didFilter = true;
+      }
+    }
+
+    if (type == 'IndependentHouse') {
+      final minBedrooms = _selectedMinBedrooms;
+      if (minBedrooms != null) {
+        filteredProperties = filteredProperties.where((feature) {
+          final bedrooms = parseIntFromMetadata(
+            feature.metadata,
+            const <String>[
+              'bedrooms',
+              'bedroom',
+              'bhk',
+              'noOfBedrooms',
+              'no_of_bedrooms',
+            ],
+          );
+          if (bedrooms == null) return false;
+          return bedrooms >= minBedrooms;
+        }).toList(growable: false);
+        didFilter = true;
+      }
+
+      final carParking = _selectedCarParking;
+      if (carParking == true) {
+        filteredProperties = filteredProperties.where((feature) {
+          final raw = _getMetadataValue(
+            feature.metadata,
+            const <String>[
+              'carParking',
+              'car_parking',
+              'parking',
+              'carParkingAvailable',
+              'car_parking_available',
+              'hasParking',
+              'has_parking',
+            ],
+          );
+          if (raw == null) return false;
+          return parseBoolTruthy(raw);
+        }).toList(growable: false);
+        didFilter = true;
+      }
+
+      final minFloors = _selectedMinFloors;
+      if (minFloors != null) {
+        filteredProperties = filteredProperties.where((feature) {
+          final floors = parseIntFromMetadata(
+            feature.metadata,
+            const <String>[
+              'totalFloors',
+              'total_floors',
+              'floors',
+              'floorCount',
+              'floor_count',
+            ],
+          );
+          if (floors == null) return false;
+          return floors >= minFloors;
+        }).toList(growable: false);
+        didFilter = true;
+      }
+
+      final buildingAge = _selectedBuildingAge?.trim();
+      if (buildingAge != null && buildingAge.isNotEmpty) {
+        bool matchesAgeBucket(int years, String bucket) {
+          switch (bucket) {
+            case 'New':
+              return years <= 1;
+            case '0–5 yrs':
+              return years >= 0 && years <= 5;
+            case '5–10 yrs':
+              return years > 5 && years <= 10;
+            case '10–20 yrs':
+              return years > 10 && years <= 20;
+            case '20+ yrs':
+              return years > 20;
+            default:
+              return false;
+          }
+        }
+
+        filteredProperties = filteredProperties.where((feature) {
+          final years = parseBuildingAgeYears(feature.metadata);
+          if (years == null) {
+            // If backend stores the same label, allow exact match.
+            final rawLabel = _getMetadataValue(
+              feature.metadata,
+              const <String>['buildingAgeLabel', 'building_age_label'],
+            );
+            if (rawLabel == null) return false;
+            return rawLabel.trim() == buildingAge;
+          }
+          return matchesAgeBucket(years, buildingAge);
         }).toList(growable: false);
         didFilter = true;
       }

@@ -198,6 +198,17 @@ const List<String> _commercialSuitableForOptions = <String>[
   'Restaurant',
 ];
 
+const List<int> _bedroomMinOptions = <int>[1, 2, 3, 4, 5];
+const List<int> _floorMinOptions = <int>[1, 2, 3];
+
+const List<String> _buildingAgeOptions = <String>[
+  'New',
+  '0–5 yrs',
+  '5–10 yrs',
+  '10–20 yrs',
+  '20+ yrs',
+];
+
 const _PriceRangeFilter _anyPriceRange =
     _PriceRangeFilter(label: 'Any', minRupees: null, maxRupees: null);
 
