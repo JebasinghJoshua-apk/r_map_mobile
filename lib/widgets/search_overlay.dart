@@ -69,9 +69,11 @@ class _SearchOverlayState extends State<SearchOverlay> {
 
   bool _isLoading = false;
   bool _isCompactMode = false;
+  bool _suppressSuggestionAndRecentPanels = false;
 
   bool get _shouldShowRecents {
-    return !_isCompactMode &&
+    return !_suppressSuggestionAndRecentPanels &&
+        !_isCompactMode &&
         _controller.text.trim().isEmpty &&
         _recentPlaces.isNotEmpty;
   }
@@ -1495,6 +1497,13 @@ class _SearchOverlayState extends State<SearchOverlay> {
   void _onQueryChanged(String value) {
     _debounce?.cancel();
     final query = value.trim();
+
+    if (_suppressSuggestionAndRecentPanels) {
+      setState(() {
+        _suppressSuggestionAndRecentPanels = false;
+      });
+    }
+
     if (query.isEmpty) {
       if (!mounted) return;
       setState(() {
@@ -1692,6 +1701,11 @@ class _SearchOverlayState extends State<SearchOverlay> {
                     onChanged: _onQueryChanged,
                     onTap: () {
                       widget.onSearchTap?.call();
+                      if (_suppressSuggestionAndRecentPanels) {
+                        setState(() {
+                          _suppressSuggestionAndRecentPanels = false;
+                        });
+                      }
                       _enterExpandedMode();
                     },
                   ),
@@ -1708,6 +1722,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
                     onPressed: () {
                       setState(() {
                         _controller.clear();
+                        _suppressSuggestionAndRecentPanels = false;
                       });
                       _enterExpandedMode();
                       _onQueryChanged('');
@@ -1748,10 +1763,32 @@ class _SearchOverlayState extends State<SearchOverlay> {
                     height: 40,
                   ),
                   visualDensity: VisualDensity.compact,
-                  onPressed: () {
+                  onPressed: () async {
                     FocusScope.of(context).unfocus();
                     _keyboardShowTimer?.cancel();
                     SystemChannels.textInput.invokeMethod('TextInput.hide');
+
+                    final hasRecentsPanel = !_isCompactMode &&
+                        _controller.text.trim().isEmpty &&
+                        _recentPlaces.isNotEmpty;
+                    final hasSuggestionsPanel =
+                        !_isCompactMode && _predictions.isNotEmpty;
+
+                    if (hasRecentsPanel || hasSuggestionsPanel) {
+                      // Collapse panels first, then measure the search card
+                      // after layout so the filter popover anchors tightly to
+                      // the search box.
+                      setState(() {
+                        _suppressSuggestionAndRecentPanels = true;
+                        _predictions.clear();
+                        _isLoading = false;
+                      });
+
+                      // Wait for the next frame so RenderBox sizes/positions
+                      // reflect the collapsed search card.
+                      await WidgetsBinding.instance.endOfFrame;
+                      if (!mounted) return;
+                    }
 
                     final searchBoxContext = _searchCardKey.currentContext;
                     final panelBox =
@@ -1856,7 +1893,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
                 ),
               ],
             )
-          else if (_predictions.isNotEmpty) ...[
+          else if (!_suppressSuggestionAndRecentPanels &&
+              _predictions.isNotEmpty) ...[
             const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 260),
