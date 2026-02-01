@@ -1229,7 +1229,7 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                                                               children: [
                                                                 const TextSpan(
                                                                   text:
-                                                                      'More filters ',
+                                                                      'More Filters ',
                                                                   style:
                                                                       TextStyle(
                                                                     fontSize:
@@ -1275,6 +1275,12 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                                                             ),
                                                           ),
                                                         ),
+                                                      ),
+                                                      const Divider(
+                                                        height: 1,
+                                                        thickness: 1,
+                                                        color:
+                                                            Color(0xFFE2E8F0),
                                                       ),
                                                       if (localShowIndependentMoreFilters) ...[
                                                         const SizedBox(
