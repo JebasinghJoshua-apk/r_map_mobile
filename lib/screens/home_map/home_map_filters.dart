@@ -61,6 +61,33 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
       }
     }
 
+        if (type == 'ApartmentFlat') {
+            final minBedrooms = _selectedApartmentMinBedrooms;
+            if (minBedrooms != null) {
+                parts.add('aptBedroomsMin:$minBedrooms');
+            }
+
+            final carParking = _selectedApartmentCarParking;
+            if (carParking != null) {
+                parts.add('aptCarParking:$carParking');
+            }
+
+            final floor = _selectedApartmentFloor?.trim();
+            if (floor != null && floor.isNotEmpty) {
+                parts.add('aptFloor:$floor');
+            }
+
+            final totalFloors = _selectedApartmentTotalFloors?.trim();
+            if (totalFloors != null && totalFloors.isNotEmpty) {
+                parts.add('aptTotalFloors:$totalFloors');
+            }
+
+            final buildingAge = _selectedApartmentBuildingAge?.trim();
+            if (buildingAge != null && buildingAge.isNotEmpty) {
+                parts.add('aptBuildingAge:$buildingAge');
+            }
+        }
+
     if (_isPriceFilterEligiblePropertyType(type)) {
       final f = _selectedPriceRange;
       if (f != null) {
@@ -186,6 +213,15 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
 
         return StatefulBuilder(
           builder: (context, setModalState) {
+                        final normalizedLocalType = localType?.trim();
+                        final isLockedListingType =
+                                normalizedLocalType == 'Layout' ||
+                                        normalizedLocalType == 'IndividualPlots';
+                        if (isLockedListingType) {
+                            // Keep parity with web: Layout & Individual Plots are always Buy.
+                            localListingType = 'Sell';
+                        }
+
             final showPrice = _isPriceFilterEligiblePropertyType(localType) &&
                 (localType?.trim() != 'Layout');
             if (!showPrice) {
@@ -375,61 +411,85 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                                                         label: 'Lease'
                                                       ),
                                                     ])
-                                                      ChoiceChip(
-                                                        label:
-                                                            Text(option.label),
-                                                        selected:
-                                                            (localListingType ==
-                                                                option.id),
-                                                        showCheckmark: false,
-                                                        materialTapTargetSize:
-                                                            MaterialTapTargetSize
-                                                                .shrinkWrap,
-                                                        visualDensity:
-                                                            chipVisualDensity,
-                                                        labelPadding:
-                                                            chipLabelPadding,
-                                                        selectedColor:
-                                                            const Color(
-                                                                0xFF0FAD97),
-                                                        backgroundColor:
-                                                            const Color(
-                                                                0xFFF1F5F9),
-                                                        side: const BorderSide(
-                                                            color: Color(
-                                                                0xFFCBD5E1)),
-                                                        labelStyle: TextStyle(
-                                                          fontSize:
-                                                              chipLabelStyle
-                                                                  .fontSize,
-                                                          fontWeight:
-                                                              chipLabelStyle
-                                                                  .fontWeight,
-                                                          color:
-                                                              (localListingType ==
-                                                                      option.id)
-                                                                  ? Colors.white
+                                                      () {
+                                                        final isDisabled =
+                                                            isLockedListingType &&
+                                                                option.id !=
+                                                                    'Sell';
+                                                        final isSelected =
+                                                            localListingType ==
+                                                                option.id;
+                                                        return ChoiceChip(
+                                                          label: Text(
+                                                              option.label),
+                                                          selected: isSelected,
+                                                          showCheckmark: false,
+                                                          materialTapTargetSize:
+                                                              MaterialTapTargetSize
+                                                                  .shrinkWrap,
+                                                          visualDensity:
+                                                              chipVisualDensity,
+                                                          labelPadding:
+                                                              chipLabelPadding,
+                                                          selectedColor:
+                                                              const Color(
+                                                                  0xFF0FAD97),
+                                                          backgroundColor:
+                                                              isDisabled
+                                                                  ? const Color(
+                                                                      0xFFF8FAFC)
                                                                   : const Color(
-                                                                      0xFF0F172A),
-                                                        ),
-                                                        shape:
-                                                            RoundedRectangleBorder(
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(
-                                                                      chipRadius),
-                                                        ),
-                                                        onSelected: (_) {
-                                                          setModalState(() {
-                                                            localListingType =
-                                                                localListingType ==
-                                                                        option
-                                                                            .id
-                                                                    ? null
-                                                                    : option.id;
-                                                          });
-                                                        },
-                                                      ),
+                                                                      0xFFF1F5F9),
+                                                          side: BorderSide(
+                                                            color: isDisabled
+                                                                ? const Color(
+                                                                    0xFFE2E8F0)
+                                                                : const Color(
+                                                                    0xFFCBD5E1),
+                                                          ),
+                                                          labelStyle:
+                                                              TextStyle(
+                                                            fontSize:
+                                                                chipLabelStyle
+                                                                    .fontSize,
+                                                            fontWeight:
+                                                                chipLabelStyle
+                                                                    .fontWeight,
+                                                            color: isSelected
+                                                                ? Colors.white
+                                                                : (isDisabled
+                                                                    ? const Color(
+                                                                        0xFF94A3B8)
+                                                                    : const Color(
+                                                                        0xFF0F172A)),
+                                                          ),
+                                                          shape:
+                                                              RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        chipRadius),
+                                                          ),
+                                                          onSelected:
+                                                              isDisabled
+                                                                  ? null
+                                                                  : (_) {
+                                                                      setModalState(
+                                                                          () {
+                                                                        if (isLockedListingType) {
+                                                                          localListingType =
+                                                                              'Sell';
+                                                                          return;
+                                                                        }
+                                                                        localListingType =
+                                                                            localListingType ==
+                                                                                    option.id
+                                                                                ? null
+                                                                                : option.id;
+                                                                      });
+                                                                    },
+                                                        );
+                                                      }(),
                                                   ],
                                                 ),
                                                 const SizedBox(height: 12),
@@ -519,6 +579,17 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                                                                     () {
                                                                   localType =
                                                                       option.id;
+
+                                                                  final nextType =
+                                                                      localType
+                                                                          ?.trim();
+                                                                  if (nextType ==
+                                                                          'Layout' ||
+                                                                      nextType ==
+                                                                          'IndividualPlots') {
+                                                                    localListingType =
+                                                                        'Sell';
+                                                                  }
                                                                   if (!_isPriceFilterEligiblePropertyType(
                                                                           localType) ||
                                                                       localType
@@ -2703,6 +2774,8 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
             : result.apartmentBuildingAge;
 
     final normalizedNextType = nextType?.trim();
+    final isLockedNextListingType =
+        normalizedNextType == 'Layout' || normalizedNextType == 'IndividualPlots';
     final shouldAllowPrice =
         _isPriceFilterEligiblePropertyType(normalizedNextType) &&
             normalizedNextType != 'Layout';
@@ -2716,7 +2789,8 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
 
     _updateState(() {
       _selectedPropertyType = nextType;
-      _selectedListingType = nextListingType;
+        _selectedListingType =
+            isLockedNextListingType ? 'Sell' : nextListingType;
       _selectedPriceRange = shouldAllowPrice ? nextPrice : null;
       _selectedLandType = shouldAllowLandType ? normalizedNextLandType : null;
 

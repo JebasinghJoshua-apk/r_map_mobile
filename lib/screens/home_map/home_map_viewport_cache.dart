@@ -414,6 +414,192 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
       }
     }
 
+    if (type == 'ApartmentFlat') {
+      final minBedrooms = _selectedApartmentMinBedrooms;
+      if (minBedrooms != null) {
+        filteredProperties = filteredProperties.where((feature) {
+          final bedrooms = parseIntFromMetadata(
+            feature.metadata,
+            const <String>[
+              'bedrooms',
+              'bedroom',
+              'bhk',
+              'noOfBedrooms',
+              'no_of_bedrooms',
+            ],
+          );
+          if (bedrooms == null) return false;
+          return bedrooms >= minBedrooms;
+        }).toList(growable: false);
+        didFilter = true;
+      }
+
+      final carParking = _selectedApartmentCarParking;
+      if (carParking == true) {
+        filteredProperties = filteredProperties.where((feature) {
+          final count = parseIntFromMetadata(
+            feature.metadata,
+            const <String>[
+              'carParkingCount',
+              'car_parking_count',
+              'parkingCount',
+              'parking_count',
+              'carParking',
+              'car_parking',
+              'parking',
+              'hasParking',
+              'has_parking',
+            ],
+          );
+          if (count != null) {
+            return count > 0;
+          }
+
+          final raw = _getMetadataValue(
+            feature.metadata,
+            const <String>[
+              'carParking',
+              'car_parking',
+              'parking',
+              'carParkingAvailable',
+              'car_parking_available',
+              'hasParking',
+              'has_parking',
+            ],
+          );
+          if (raw == null) return false;
+          return parseBoolTruthy(raw);
+        }).toList(growable: false);
+        didFilter = true;
+      }
+
+      final buildingAge = _selectedApartmentBuildingAge?.trim();
+      if (buildingAge != null && buildingAge.isNotEmpty) {
+        bool matchesAgeBucket(int years, String bucket) {
+          switch (bucket) {
+            case 'New':
+              return years <= 1;
+            case '0–5 yrs':
+              return years >= 0 && years <= 5;
+            case '5–10 yrs':
+              return years > 5 && years <= 10;
+            case '10–20 yrs':
+              return years > 10 && years <= 20;
+            case '20+ yrs':
+              return years > 20;
+            default:
+              return false;
+          }
+        }
+
+        filteredProperties = filteredProperties.where((feature) {
+          final years = parseBuildingAgeYears(feature.metadata);
+          if (years == null) {
+            final rawLabel = _getMetadataValue(
+              feature.metadata,
+              const <String>['buildingAgeLabel', 'building_age_label'],
+            );
+            if (rawLabel == null) return false;
+            return rawLabel.trim() == buildingAge;
+          }
+          return matchesAgeBucket(years, buildingAge);
+        }).toList(growable: false);
+        didFilter = true;
+      }
+
+      final selectedFloor = _selectedApartmentFloor?.trim();
+      if (selectedFloor != null && selectedFloor.isNotEmpty) {
+        filteredProperties = filteredProperties.where((feature) {
+          final floor = parseIntFromMetadata(
+            feature.metadata,
+            const <String>[
+              'floor',
+              'apartmentFloor',
+              'apartment_floor',
+              'propertyFloor',
+              'property_floor',
+            ],
+          );
+          if (floor == null) return false;
+
+          if (selectedFloor == 'Ground') {
+            // Be lenient: some backends use 0 for ground, some use 1.
+            return floor == 0 || floor == 1;
+          }
+
+          if (selectedFloor == 'Top Floor') {
+            final totalFloors = parseIntFromMetadata(
+              feature.metadata,
+              const <String>[
+                'totalFloors',
+                'total_floors',
+                'floorsInBuilding',
+                'floors_in_building',
+              ],
+            );
+            if (totalFloors == null) return false;
+            // Handle both 1-based and 0-based floor encodings.
+            if (floor == totalFloors) return true;
+            if (floor == totalFloors - 1) return true;
+            return false;
+          }
+
+          if (selectedFloor == '5+') {
+            return floor >= 5;
+          }
+
+          final exact = int.tryParse(selectedFloor);
+          if (exact != null) {
+            return floor == exact;
+          }
+
+          return false;
+        }).toList(growable: false);
+        didFilter = true;
+      }
+
+      final totalFloorsBucket = _selectedApartmentTotalFloors?.trim();
+      if (totalFloorsBucket != null && totalFloorsBucket.isNotEmpty) {
+        final normalized = totalFloorsBucket.replaceAll('–', '-');
+
+        int? minAllowed;
+        int? maxAllowed;
+        if (normalized.startsWith('Low-rise')) {
+          minAllowed = 1;
+          maxAllowed = 3;
+        } else if (normalized.startsWith('Mid-rise')) {
+          minAllowed = 4;
+          maxAllowed = 7;
+        } else if (normalized.startsWith('High-rise')) {
+          minAllowed = 8;
+          maxAllowed = null;
+        }
+
+        if (minAllowed != null) {
+          final int minAllowedValue = minAllowed;
+          final int? maxAllowedValue = maxAllowed;
+          filteredProperties = filteredProperties.where((feature) {
+            final totalFloors = parseIntFromMetadata(
+              feature.metadata,
+              const <String>[
+                'totalFloors',
+                'total_floors',
+                'floorsInBuilding',
+                'floors_in_building',
+              ],
+            );
+            if (totalFloors == null) return false;
+            if (totalFloors < minAllowedValue) return false;
+            if (maxAllowedValue != null && totalFloors > maxAllowedValue) {
+              return false;
+            }
+            return true;
+          }).toList(growable: false);
+          didFilter = true;
+        }
+      }
+    }
+
     if (_isPriceFilterEligiblePropertyType(type)) {
       final range = _selectedPriceRange;
       if (range != null) {
@@ -424,7 +610,23 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
         for (final feature in filteredProperties) {
           final rawPrice = _getMetadataValue(
             feature.metadata,
-            const <String>['price', 'listingPrice', 'salePrice', 'amount'],
+            const <String>[
+              'price',
+              'listingPrice',
+              'salePrice',
+              'amount',
+              // Common alternates (seen across different sources/backends).
+              'totalPrice',
+              'total_price',
+              'plotPrice',
+              'plot_price',
+              'priceRupees',
+              'price_rupees',
+              'amountRupees',
+              'amount_rupees',
+              'priceInRupees',
+              'price_in_rupees',
+            ],
           );
           final rupees =
               rawPrice == null ? null : _parsePriceToRupees(rawPrice);
