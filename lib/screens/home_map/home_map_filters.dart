@@ -61,32 +61,32 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
       }
     }
 
-        if (type == 'ApartmentFlat') {
-            final minBedrooms = _selectedApartmentMinBedrooms;
-            if (minBedrooms != null) {
-                parts.add('aptBedroomsMin:$minBedrooms');
-            }
+    if (type == 'ApartmentFlat') {
+      final minBedrooms = _selectedApartmentMinBedrooms;
+      if (minBedrooms != null) {
+        parts.add('aptBedroomsMin:$minBedrooms');
+      }
 
-            final carParking = _selectedApartmentCarParking;
-            if (carParking != null) {
-                parts.add('aptCarParking:$carParking');
-            }
+      final carParking = _selectedApartmentCarParking;
+      if (carParking != null) {
+        parts.add('aptCarParking:$carParking');
+      }
 
-            final floor = _selectedApartmentFloor?.trim();
-            if (floor != null && floor.isNotEmpty) {
-                parts.add('aptFloor:$floor');
-            }
+      final floor = _selectedApartmentFloor?.trim();
+      if (floor != null && floor.isNotEmpty) {
+        parts.add('aptFloor:$floor');
+      }
 
-            final totalFloors = _selectedApartmentTotalFloors?.trim();
-            if (totalFloors != null && totalFloors.isNotEmpty) {
-                parts.add('aptTotalFloors:$totalFloors');
-            }
+      final totalFloors = _selectedApartmentTotalFloors?.trim();
+      if (totalFloors != null && totalFloors.isNotEmpty) {
+        parts.add('aptTotalFloors:$totalFloors');
+      }
 
-            final buildingAge = _selectedApartmentBuildingAge?.trim();
-            if (buildingAge != null && buildingAge.isNotEmpty) {
-                parts.add('aptBuildingAge:$buildingAge');
-            }
-        }
+      final buildingAge = _selectedApartmentBuildingAge?.trim();
+      if (buildingAge != null && buildingAge.isNotEmpty) {
+        parts.add('aptBuildingAge:$buildingAge');
+      }
+    }
 
     if (_isPriceFilterEligiblePropertyType(type)) {
       final f = _selectedPriceRange;
@@ -213,14 +213,13 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
 
         return StatefulBuilder(
           builder: (context, setModalState) {
-                        final normalizedLocalType = localType?.trim();
-                        final isLockedListingType =
-                                normalizedLocalType == 'Layout' ||
-                                        normalizedLocalType == 'IndividualPlots';
-                        if (isLockedListingType) {
-                            // Keep parity with web: Layout & Individual Plots are always Buy.
-                            localListingType = 'Sell';
-                        }
+            final normalizedLocalType = localType?.trim();
+            final isLockedListingType = normalizedLocalType == 'Layout' ||
+                normalizedLocalType == 'IndividualPlots';
+            if (isLockedListingType) {
+              // Keep parity with web: Layout & Individual Plots are always Buy.
+              localListingType = 'Sell';
+            }
 
             final showPrice = _isPriceFilterEligiblePropertyType(localType) &&
                 (localType?.trim() != 'Layout');
@@ -447,8 +446,7 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                                                                 : const Color(
                                                                     0xFFCBD5E1),
                                                           ),
-                                                          labelStyle:
-                                                              TextStyle(
+                                                          labelStyle: TextStyle(
                                                             fontSize:
                                                                 chipLabelStyle
                                                                     .fontSize,
@@ -470,24 +468,24 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                                                                     .circular(
                                                                         chipRadius),
                                                           ),
-                                                          onSelected:
-                                                              isDisabled
-                                                                  ? null
-                                                                  : (_) {
-                                                                      setModalState(
-                                                                          () {
-                                                                        if (isLockedListingType) {
-                                                                          localListingType =
-                                                                              'Sell';
-                                                                          return;
-                                                                        }
-                                                                        localListingType =
-                                                                            localListingType ==
-                                                                                    option.id
-                                                                                ? null
-                                                                                : option.id;
-                                                                      });
-                                                                    },
+                                                          onSelected: isDisabled
+                                                              ? null
+                                                              : (_) {
+                                                                  setModalState(
+                                                                      () {
+                                                                    if (isLockedListingType) {
+                                                                      localListingType =
+                                                                          'Sell';
+                                                                      return;
+                                                                    }
+                                                                    localListingType = localListingType ==
+                                                                            option
+                                                                                .id
+                                                                        ? null
+                                                                        : option
+                                                                            .id;
+                                                                  });
+                                                                },
                                                         );
                                                       }(),
                                                   ],
@@ -2774,8 +2772,8 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
             : result.apartmentBuildingAge;
 
     final normalizedNextType = nextType?.trim();
-    final isLockedNextListingType =
-        normalizedNextType == 'Layout' || normalizedNextType == 'IndividualPlots';
+    final isLockedNextListingType = normalizedNextType == 'Layout' ||
+        normalizedNextType == 'IndividualPlots';
     final shouldAllowPrice =
         _isPriceFilterEligiblePropertyType(normalizedNextType) &&
             normalizedNextType != 'Layout';
@@ -2789,8 +2787,7 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
 
     _updateState(() {
       _selectedPropertyType = nextType;
-        _selectedListingType =
-            isLockedNextListingType ? 'Sell' : nextListingType;
+      _selectedListingType = isLockedNextListingType ? 'Sell' : nextListingType;
       _selectedPriceRange = shouldAllowPrice ? nextPrice : null;
       _selectedLandType = shouldAllowLandType ? normalizedNextLandType : null;
 
