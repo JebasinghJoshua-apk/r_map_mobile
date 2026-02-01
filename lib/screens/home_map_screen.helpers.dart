@@ -209,6 +209,22 @@ const List<String> _buildingAgeOptions = <String>[
   '20+ yrs',
 ];
 
+const List<String> _apartmentPropertyFloorOptions = <String>[
+  'Ground',
+  '1',
+  '2',
+  '3',
+  '4',
+  '5+',
+  'Top Floor',
+];
+
+const List<String> _apartmentTotalFloorsOptions = <String>[
+  'Low-rise (1–3)',
+  'Mid-rise (4–7)',
+  'High-rise (8+)',
+];
+
 const _PriceRangeFilter _anyPriceRange =
     _PriceRangeFilter(label: 'Any', minRupees: null, maxRupees: null);
 
