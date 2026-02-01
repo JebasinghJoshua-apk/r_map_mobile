@@ -60,6 +60,81 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
     final type = _selectedPropertyType?.trim();
     final listingType = _selectedListingType?.trim();
 
+    int? parseSqft(Map<String, String?> metadata) {
+      final raw = _getMetadataValue(
+        metadata,
+        const <String>[
+          'builtUpAreaInSquareFeet',
+          'builtUpAreaSqFt',
+          'builtUpAreaSqft',
+          'areaSqFt',
+          'areaSqft',
+          'area_sqft',
+          'sqft',
+          'area',
+        ],
+      );
+      if (raw == null) return null;
+      final numericText = raw.trim().replaceAll(',', '');
+      final value = double.tryParse(numericText);
+      if (value == null || !value.isFinite) return null;
+      if (value <= 0) return null;
+      return value.round();
+    }
+
+    bool matchesSuitableFor(Map<String, String?> metadata, String selected) {
+      final raw = _getMetadataValue(
+        metadata,
+        const <String>[
+          'spaceType',
+          'commercialSpaceType',
+          'suitableFor',
+          'suitable_for',
+          'useType',
+          'use_type',
+        ],
+      );
+      if (raw == null) return false;
+
+      String norm(String s) => s
+          .trim()
+          .toLowerCase()
+          .replaceAll('-', ' ')
+          .replaceAll(RegExp(r'\s+'), ' ');
+
+      final selectedNorm = norm(selected);
+      final rawParts = raw
+          .split(RegExp(r'[,/|]'))
+          .map((p) => norm(p))
+          .where((p) => p.isNotEmpty)
+          .toList(growable: false);
+
+      if (rawParts.contains(selectedNorm)) return true;
+
+      // Handle common variants.
+      const aliases = <String, List<String>>{
+        'office space': <String>['office', 'officespace'],
+        'co working': <String>['coworking', 'co-working', 'co working'],
+        'godown': <String>['warehouse', 'store', 'storage'],
+      };
+
+      final selectedAlternates = <String>{selectedNorm};
+      if (aliases.containsKey(selectedNorm)) {
+        selectedAlternates.addAll(aliases[selectedNorm]!.map(norm));
+      }
+      // Also map "Co-working" label to "co working" normalized key.
+      if (selectedNorm == 'co working' || selectedNorm == 'co-working') {
+        selectedAlternates.addAll(aliases['co working']!.map(norm));
+      }
+
+      for (final part in rawParts) {
+        for (final alt in selectedAlternates) {
+          if (part == alt) return true;
+        }
+      }
+      return false;
+    }
+
     if ((type == null || type.isEmpty) &&
         (listingType == null || listingType.isEmpty)) {
       return response;
@@ -162,6 +237,30 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
             3: 'agricultural',
           };
           return mapping[numeric] == selectedNorm;
+        }).toList(growable: false);
+        didFilter = true;
+      }
+    }
+
+    if (type == 'CommercialSpace') {
+      final selectedSuitableFor = _selectedCommercialSuitableFor?.trim();
+      if (selectedSuitableFor != null && selectedSuitableFor.isNotEmpty) {
+        filteredProperties = filteredProperties.where((feature) {
+          return matchesSuitableFor(feature.metadata, selectedSuitableFor);
+        }).toList(growable: false);
+        didFilter = true;
+      }
+
+      final area = _selectedAreaRange;
+      if (area != null) {
+        final min = area.minSqft;
+        final max = area.maxSqft;
+        filteredProperties = filteredProperties.where((feature) {
+          final sqft = parseSqft(feature.metadata);
+          if (sqft == null) return false;
+          if (sqft < min) return false;
+          if (sqft > max) return false;
+          return true;
         }).toList(growable: false);
         didFilter = true;
       }

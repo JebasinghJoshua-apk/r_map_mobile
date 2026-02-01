@@ -118,9 +118,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   DateTime? _lastViewportErrorAt;
 
   String? _selectedPropertyType; // null => All properties
-  String? _selectedListingType; // null => Any
+  String? _selectedListingType = 'Sell'; // default => Buy
   _PriceRangeFilter? _selectedPriceRange; // null => Any
   String? _selectedLandType; // null => Any
+  String? _selectedCommercialSuitableFor; // null => All Types
+  _AreaRangeFilter? _selectedAreaRange; // null => Any
 
   String? _lastViewportAuthKey;
 

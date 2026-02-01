@@ -178,6 +178,26 @@ class _PriceRangeFilter {
   final int? maxRupees;
 }
 
+class _AreaRangeFilter {
+  const _AreaRangeFilter({
+    required this.minSqft,
+    required this.maxSqft,
+  });
+
+  final int minSqft;
+  final int maxSqft;
+}
+
+const List<String> _commercialSuitableForOptions = <String>[
+  'Office Space',
+  'Showroom',
+  'Shop',
+  'Godown',
+  'Industrial',
+  'Co-working',
+  'Restaurant',
+];
+
 const _PriceRangeFilter _anyPriceRange =
     _PriceRangeFilter(label: 'Any', minRupees: null, maxRupees: null);
 
