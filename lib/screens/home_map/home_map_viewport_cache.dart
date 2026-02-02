@@ -199,7 +199,15 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
       final selectedNorm = listingType.toLowerCase();
       filteredProperties = filteredProperties.where((feature) {
         final raw = feature.listingType?.trim();
-        if (raw == null || raw.isEmpty) return false;
+
+        // Some feature types are effectively Buy-only and may not carry an
+        // explicit listingType in the payload (e.g., Layout groups).
+        if (raw == null || raw.isEmpty) {
+          final pt = feature.propertyType.trim().toLowerCase();
+          final isBuyOnlyType = pt == 'layout' || pt == 'individualplots';
+          final isBuySelected = selectedNorm == 'sell' || selectedNorm == 'buy';
+          return isBuyOnlyType && isBuySelected;
+        }
         final rawNorm = raw.toLowerCase();
 
         if (rawNorm == selectedNorm) return true;

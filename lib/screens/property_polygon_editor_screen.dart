@@ -498,6 +498,49 @@ class _PropertyPolygonEditorScreenState
     );
   }
 
+  Widget _topMapActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback? onPressed,
+    Color? iconColor,
+  }) {
+    const radius = 8.0;
+    const size = 36.0;
+    final enabled = onPressed != null;
+    const teal = Color(0xFF0FAD97);
+
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Material(
+          color: Colors.white,
+          elevation: 4,
+          shadowColor: Colors.black26,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radius),
+            side: BorderSide(
+              color: enabled ? teal : teal.withOpacity(0.45),
+              width: 1,
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onPressed,
+            child: Icon(
+              icon,
+              size: 18,
+              color: enabled
+                  ? (iconColor ?? const Color(0xFF1F2937))
+                  : const Color(0xFF94A3B8),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   static double _distanceMeters(LatLng a, LatLng b) {
     const earthRadiusMeters = 6371000.0;
 
@@ -872,17 +915,6 @@ class _PropertyPolygonEditorScreenState
         surfaceTintColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-            tooltip: 'Undo last point',
-            onPressed: _points.isEmpty ? null : _undo,
-            icon: const Icon(Icons.undo),
-          ),
-          IconButton(
-            tooltip: 'Clear',
-            onPressed: _points.isEmpty ? null : _clear,
-            icon: const Icon(Icons.delete_outline),
-          ),
-          const SizedBox(width: 6),
           Padding(
             padding: const EdgeInsets.only(right: 10),
             child: FilledButton(
@@ -967,9 +999,35 @@ class _PropertyPolygonEditorScreenState
               left: 16,
               right: 16,
               top: 16,
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: _buildSearchBox(context),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: _buildSearchBox(context),
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _topMapActionButton(
+                          icon: Icons.delete_outline,
+                          tooltip: 'Clear',
+                          onPressed: _points.isEmpty ? null : _clear,
+                          iconColor: const Color(0xFFDC2626),
+                        ),
+                        const SizedBox(height: 10),
+                        _topMapActionButton(
+                          icon: Icons.undo,
+                          tooltip: 'Undo last point',
+                          onPressed: _points.isEmpty ? null : _undo,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           Positioned(
