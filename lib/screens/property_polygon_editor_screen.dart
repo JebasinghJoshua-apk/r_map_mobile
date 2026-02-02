@@ -40,11 +40,6 @@ class _PropertyPolygonEditorScreenState
     extends State<PropertyPolygonEditorScreen> {
   static const LatLng _fallbackCenter = LatLng(20.5937, 78.9629); // India
 
-  // Keep map type behavior aligned with the main map screen.
-  // See: lib/screens/home_map_screen.helpers.dart
-  static const double _hybridZoomEnter = 17.5;
-  static const double _hybridZoomExit = 17.5;
-
   late final LatLng _center;
   final List<LatLng> _points = <LatLng>[];
   int _geometryRevision = 0;
@@ -64,7 +59,8 @@ class _PropertyPolygonEditorScreenState
 
   GoogleMapController? _controller;
 
-  MapType _mapType = MapType.normal;
+  MapType _mapType = MapType.hybrid;
+  bool _showSatelliteLabels = true;
   String? _lightMapStyle;
 
   @override
@@ -388,9 +384,75 @@ class _PropertyPolygonEditorScreenState
   void _toggleMapType() {
     _closeSearchSuggestions(dismissKeyboard: true);
     setState(() {
-      // Match main screen: toggle between normal map and hybrid (satellite + labels).
-      _mapType = _mapType == MapType.hybrid ? MapType.normal : MapType.hybrid;
+      // Toggle between map view (normal) and satellite view.
+      final satelliteType =
+          _showSatelliteLabels ? MapType.hybrid : MapType.satellite;
+      final isSatellite =
+          _mapType == MapType.hybrid || _mapType == MapType.satellite;
+      _mapType = isSatellite ? MapType.normal : satelliteType;
     });
+  }
+
+  void _setShowSatelliteLabels(bool show) {
+    if (_showSatelliteLabels == show) return;
+    _closeSearchSuggestions(dismissKeyboard: true);
+    setState(() {
+      _showSatelliteLabels = show;
+      // Match web semantics: labels ON => hybrid, labels OFF => satellite.
+      _mapType = show ? MapType.hybrid : MapType.satellite;
+    });
+  }
+
+  Widget _mapLabelsToggle() {
+    const teal = Color(0xFF0FAD97);
+    const bg = Colors.white;
+
+    void toggle(bool nextShowLabels) {
+      _setShowSatelliteLabels(nextShowLabels);
+    }
+
+    final showLabels = _showSatelliteLabels;
+
+    return Material(
+      color: Colors.transparent,
+      elevation: 4,
+      shadowColor: Colors.black26,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: () => toggle(!showLabels),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: teal, width: 1),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Checkbox(
+                value: showLabels,
+                onChanged: (v) => toggle(v ?? true),
+                activeColor: teal,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              const SizedBox(width: 2),
+              const Text(
+                'Labels',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF374151),
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _mapZoomControl() {
@@ -505,7 +567,7 @@ class _PropertyPolygonEditorScreenState
     Color? iconColor,
   }) {
     const radius = 8.0;
-    const size = 36.0;
+    const size = 40.0;
     final enabled = onPressed != null;
     const teal = Color(0xFF0FAD97);
 
@@ -530,7 +592,7 @@ class _PropertyPolygonEditorScreenState
             onTap: onPressed,
             child: Icon(
               icon,
-              size: 18,
+              size: 20,
               color: enabled
                   ? (iconColor ?? const Color(0xFF1F2937))
                   : const Color(0xFF94A3B8),
@@ -975,17 +1037,8 @@ class _PropertyPolygonEditorScreenState
             onCameraMoveStarted: () =>
                 _closeSearchSuggestions(dismissKeyboard: true),
             onCameraMove: (position) {
-              final shouldBeHybrid = _mapType == MapType.hybrid
-                  ? position.zoom >= _hybridZoomExit
-                  : position.zoom >= _hybridZoomEnter;
-
-              final nextMapType =
-                  shouldBeHybrid ? MapType.hybrid : MapType.normal;
-              if (nextMapType != _mapType) {
-                setState(() {
-                  _mapType = nextMapType;
-                });
-              }
+              // Keep map type stable in the polygon editor; labels are driven
+              // by the "Labels" checkbox and map/satellite by the map button.
             },
             onMapCreated: (c) {
               _controller = c;
@@ -1007,26 +1060,30 @@ class _PropertyPolygonEditorScreenState
                     child: _buildSearchBox(context),
                   ),
                   const SizedBox(height: 10),
-                  Align(
-                    alignment: Alignment.topRight,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _topMapActionButton(
-                          icon: Icons.delete_outline,
-                          tooltip: 'Clear',
-                          onPressed: _points.isEmpty ? null : _clear,
-                          iconColor: const Color(0xFFDC2626),
-                        ),
-                        const SizedBox(height: 10),
-                        _topMapActionButton(
-                          icon: Icons.undo,
-                          tooltip: 'Undo last point',
-                          onPressed: _points.isEmpty ? null : _undo,
-                        ),
-                      ],
-                    ),
-                  ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _mapLabelsToggle(),
+                      const Spacer(),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _topMapActionButton(
+                            icon: Icons.delete_outline,
+                            tooltip: 'Clear',
+                            onPressed: _points.isEmpty ? null : _clear,
+                            iconColor: const Color(0xFFDC2626),
+                          ),
+                          const SizedBox(height: 10),
+                          _topMapActionButton(
+                            icon: Icons.undo,
+                            tooltip: 'Undo last point',
+                            onPressed: _points.isEmpty ? null : _undo,
+                          ),
+                        ],
+                      ),
+                    ],
+                  )
                 ],
               ),
             ),
