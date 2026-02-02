@@ -7,6 +7,7 @@ import 'package:google_place/google_place.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/search_constants.dart';
+import '../models/auth_session.dart';
 import '../models/my_property_list_item.dart';
 import '../models/recent_place.dart';
 import '../screens/property_polygon_editor_screen.dart';
@@ -2100,18 +2101,65 @@ class _VerticalSeparator extends StatelessWidget {
   }
 }
 
-class _CompactProfileButton extends StatelessWidget {
+class _CompactProfileButton extends StatefulWidget {
   const _CompactProfileButton();
 
   @override
-  Widget build(BuildContext context) {
+  State<_CompactProfileButton> createState() => _CompactProfileButtonState();
+}
+
+class _CompactProfileButtonState extends State<_CompactProfileButton> {
+  final GlobalKey _buttonKey = GlobalKey();
+
+  Future<void> _handleTap() async {
     final auth = AuthScope.of(context);
     final session = auth.session;
 
+    final renderBox =
+        _buttonKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) {
+      return;
+    }
+    final offset = renderBox.localToGlobal(Offset.zero);
+    final rect = offset & renderBox.size;
+
+    final selected = await _showProfileMenuPopover(
+      context: context,
+      anchorRect: rect,
+      session: session,
+    );
+    if (!mounted || selected == null) {
+      return;
+    }
+
+    switch (selected) {
+      case _ProfileMenuAction.login:
+        AuthDialog.showLogin(context);
+        break;
+      case _ProfileMenuAction.myProperties:
+        final overlayState =
+            context.findAncestorStateOfType<_SearchOverlayState>();
+        overlayState?.showMyPropertiesPopup();
+        break;
+      case _ProfileMenuAction.logout:
+        auth.logout().then((_) {
+          if (!mounted) return;
+          ToastMessage.show(context, 'Logged out');
+        }).catchError((_) {
+          if (!mounted) return;
+          ToastMessage.show(context, 'Logout failed');
+        });
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return SizedBox(
       width: 48,
       height: 48,
       child: DecoratedBox(
+        key: _buttonKey,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(6),
@@ -2129,117 +2177,250 @@ class _CompactProfileButton extends StatelessWidget {
             FocusManager.instance.primaryFocus?.unfocus();
             SystemChannels.textInput.invokeMethod('TextInput.hide');
           },
-          child: PopupMenuButton<_ProfileMenuAction>(
-            tooltip: 'Profile',
-            position: PopupMenuPosition.under,
-            padding: EdgeInsets.zero,
-            offset: const Offset(0, 10),
-            child: const SizedBox.expand(
-              child: Center(
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: () {
+                FocusManager.instance.primaryFocus?.unfocus();
+                SystemChannels.textInput.invokeMethod('TextInput.hide');
+                _handleTap();
+              },
+              child: const Center(
                 child: Icon(
                   Icons.person_outline,
                   color: Color(0xFF0FAD97),
                 ),
               ),
             ),
-            onSelected: (value) {
-              switch (value) {
-                case _ProfileMenuAction.login:
-                  FocusManager.instance.primaryFocus?.unfocus();
-                  SystemChannels.textInput.invokeMethod('TextInput.hide');
-                  AuthDialog.showLogin(context);
-                  break;
-                case _ProfileMenuAction.myProperties:
-                  FocusManager.instance.primaryFocus?.unfocus();
-                  SystemChannels.textInput.invokeMethod('TextInput.hide');
-                  final overlayState =
-                      context.findAncestorStateOfType<_SearchOverlayState>();
-                  overlayState?.showMyPropertiesPopup();
-                  break;
-                case _ProfileMenuAction.logout:
-                  FocusManager.instance.primaryFocus?.unfocus();
-                  SystemChannels.textInput.invokeMethod('TextInput.hide');
-                  auth.logout().then((_) {
-                    if (!context.mounted) return;
-                    ToastMessage.show(context, 'Logged out');
-                  }).catchError((_) {
-                    if (!context.mounted) return;
-                    ToastMessage.show(context, 'Logout failed');
-                  });
-                  break;
-              }
-            },
-            itemBuilder: (context) {
-              if (session == null) {
-                return const <PopupMenuEntry<_ProfileMenuAction>>[
-                  PopupMenuItem<_ProfileMenuAction>(
-                    value: _ProfileMenuAction.login,
-                    height: 40,
-                    padding: EdgeInsets.symmetric(horizontal: 14),
-                    child: Row(
-                      children: [
-                        Icon(Icons.login, size: 18),
-                        SizedBox(width: 10),
-                        Text('Login'),
-                      ],
-                    ),
-                  ),
-                ];
-              }
-
-              final fullName =
-                  '${session.user.firstName} ${session.user.lastName}'.trim();
-              final displayName =
-                  fullName.isEmpty ? session.user.phoneNumber : fullName;
-
-              return <PopupMenuEntry<_ProfileMenuAction>>[
-                PopupMenuItem<_ProfileMenuAction>(
-                  enabled: false,
-                  height: 44,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Hi, $displayName',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF334155),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const PopupMenuDivider(height: 8),
-                const PopupMenuItem<_ProfileMenuAction>(
-                  value: _ProfileMenuAction.myProperties,
-                  height: 40,
-                  padding: EdgeInsets.symmetric(horizontal: 14),
-                  child: Row(
-                    children: [
-                      Icon(Icons.business_outlined, size: 18),
-                      SizedBox(width: 10),
-                      Text('My Properties'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem<_ProfileMenuAction>(
-                  value: _ProfileMenuAction.logout,
-                  height: 40,
-                  padding: EdgeInsets.symmetric(horizontal: 14),
-                  child: Row(
-                    children: [
-                      Icon(Icons.logout, size: 18),
-                      SizedBox(width: 10),
-                      Text('Logout'),
-                    ],
-                  ),
-                ),
-              ];
-            },
           ),
         ),
       ),
     );
+  }
+}
+
+Future<_ProfileMenuAction?> _showProfileMenuPopover({
+  required BuildContext context,
+  required Rect anchorRect,
+  required AuthSession? session,
+}) async {
+  if (!context.mounted) return null;
+
+  const horizontalPadding = 16.0;
+  const arrowWidth = 18.0;
+  const arrowHeight = 10.0;
+  const arrowOverlapIntoPopup = 3.0;
+  const popupWidth = 220.0;
+  const popupGap = 9.0;
+  const popupOverlapIntoAnchor = 0.0;
+
+  return showGeneralDialog<_ProfileMenuAction>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: 'Profile menu',
+    barrierColor: Colors.transparent,
+    transitionDuration: const Duration(milliseconds: 140),
+    pageBuilder: (context, _, __) {
+      final media = MediaQuery.of(context);
+      final size = media.size;
+
+      final safeTop = media.padding.top;
+      final popupTopRaw = anchorRect.bottom + popupGap - popupOverlapIntoAnchor;
+      final popupTop = popupTopRaw < safeTop + 4 ? safeTop + 4 : popupTopRaw;
+
+      final anchorCenterX = anchorRect.left + (anchorRect.width / 2);
+      final popupLeftRaw = anchorCenterX - (popupWidth / 2);
+      final popupLeftMax = size.width - horizontalPadding - popupWidth;
+      final popupLeft = popupLeftRaw < horizontalPadding
+          ? horizontalPadding
+          : (popupLeftRaw > popupLeftMax ? popupLeftMax : popupLeftRaw);
+
+      final arrowLeftMin = popupLeft + 12;
+      final arrowLeftMax = popupLeft + popupWidth - 12 - arrowWidth;
+      final arrowLeftRaw = anchorCenterX - (arrowWidth / 2);
+      final arrowLeft = arrowLeftRaw < arrowLeftMin
+          ? arrowLeftMin
+          : (arrowLeftRaw > arrowLeftMax ? arrowLeftMax : arrowLeftRaw);
+
+      final fullName = session == null
+          ? ''
+          : '${session.user.firstName} ${session.user.lastName}'.trim();
+      final displayName = session == null
+          ? ''
+          : (fullName.isEmpty ? session.user.phoneNumber : fullName);
+
+      Widget buildItem({
+        required IconData icon,
+        required String label,
+        required _ProfileMenuAction action,
+      }) {
+        return InkWell(
+          onTap: () => Navigator.of(context).pop(action),
+          child: SizedBox(
+            height: 40,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Row(
+                children: [
+                  Icon(icon, size: 18, color: const Color(0xFF334155)),
+                  const SizedBox(width: 10),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+
+      return GestureDetector(
+        onTap: () => Navigator.of(context).pop(),
+        child: Material(
+          color: Colors.transparent,
+          child: Stack(
+            children: [
+              Positioned(
+                top: popupTop,
+                left: popupLeft,
+                width: popupWidth,
+                child: GestureDetector(
+                  onTap: () {},
+                  child: Material(
+                    elevation: 10,
+                    shadowColor: Colors.black26,
+                    borderRadius: BorderRadius.circular(8),
+                    clipBehavior: Clip.antiAlias,
+                    color: Colors.white,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (session != null) ...[
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 14),
+                              child: SizedBox(
+                                height: 36,
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'Hi, $displayName',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF334155),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: Color(0xFFE2E8F0),
+                            ),
+                            const SizedBox(height: 6),
+                            buildItem(
+                              icon: Icons.business_outlined,
+                              label: 'My Properties',
+                              action: _ProfileMenuAction.myProperties,
+                            ),
+                            buildItem(
+                              icon: Icons.logout,
+                              label: 'Logout',
+                              action: _ProfileMenuAction.logout,
+                            ),
+                          ] else ...[
+                            buildItem(
+                              icon: Icons.login,
+                              label: 'Login',
+                              action: _ProfileMenuAction.login,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: popupTop - arrowHeight + arrowOverlapIntoPopup,
+                left: arrowLeft,
+                child: const IgnorePointer(
+                  child: _ProfilePopoverArrow(
+                    width: arrowWidth,
+                    height: arrowHeight,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      final fade = CurvedAnimation(parent: animation, curve: Curves.easeOut);
+      return FadeTransition(
+        opacity: fade,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, -0.02),
+            end: Offset.zero,
+          ).animate(fade),
+          child: child,
+        ),
+      );
+    },
+  );
+}
+
+class _ProfilePopoverArrow extends StatelessWidget {
+  const _ProfilePopoverArrow({
+    required this.width,
+    required this.height,
+    required this.color,
+  });
+
+  final double width;
+  final double height;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size(width, height),
+      painter: _ProfilePopoverArrowPainter(color),
+    );
+  }
+}
+
+class _ProfilePopoverArrowPainter extends CustomPainter {
+  _ProfilePopoverArrowPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final path = Path()
+      ..moveTo(0, size.height)
+      ..lineTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ProfilePopoverArrowPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }
