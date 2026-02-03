@@ -950,7 +950,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
               children: [
                 _mapControlButton(
                   icon: Icons.list_alt_outlined,
-                  tooltip: 'Layouts near Aruppukkottai',
+                  tooltip: 'Nearby layouts',
                   highlight: _isNearbyLayoutsReopenHintOn,
                   onPressed: () {
                     _nearbyLayoutsReopenHintTimer?.cancel();
@@ -960,7 +960,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                     });
 
                     final anchor = _lastCameraPosition.target;
-                    unawaited(_openNearbyLayoutsPopup(anchor: anchor));
+                    unawaited(
+                      _openNearbyLayoutsPopup(
+                        anchor: anchor,
+                        showWhenEmpty: true,
+                      ),
+                    );
                   },
                 ),
                 const SizedBox(height: 10),

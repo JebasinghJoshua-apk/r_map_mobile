@@ -7,6 +7,7 @@ import '../models/map_viewport_models.dart';
 import '../services/mobile_bff_saved_properties_api.dart';
 import '../state/auth_scope.dart';
 import '../widgets/auth_dialog.dart';
+import '../widgets/delimited_bullet_list.dart';
 import '../widgets/property_details_panel.dart';
 import '../widgets/toast_message.dart';
 
@@ -456,9 +457,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                       const SizedBox(height: 14),
                       _SectionCard(
                         title: 'ADDITIONAL INFO',
-                        child: Text(
-                          additionalInfo,
-                          style: const TextStyle(
+                        child: DelimitedBulletList(
+                          text: additionalInfo,
+                          delimiter: '~~',
+                          textStyle: const TextStyle(
                             color: Color(0xFF334155),
                             fontSize: 14,
                             fontWeight: FontWeight.w600,

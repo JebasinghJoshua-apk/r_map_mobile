@@ -76,7 +76,10 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
     }
   }
 
-  Future<void> _openNearbyLayoutsPopup({required LatLng anchor}) async {
+  Future<void> _openNearbyLayoutsPopup({
+    required LatLng anchor,
+    bool showWhenEmpty = false,
+  }) async {
     if (_isNearbyLayoutsDialogOpen) {
       final dialogContext = _nearbyLayoutsDialogContext;
       if (dialogContext != null) {
@@ -99,9 +102,7 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
     }
 
     final initialItems = _nearbyLayouts ?? const <NearbyPropertyCard>[];
-    if (initialItems.isEmpty) {
-      return;
-    }
+    if (initialItems.isEmpty && !showWhenEmpty) return;
 
     _NearbyLayoutsDialogCloseReason? closeReason;
     try {
@@ -181,7 +182,7 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
                         child: Row(
                           children: [
                             const Text(
-                              'Layouts near Aruppukkottai',
+                              'Nearby layouts',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
@@ -246,7 +247,7 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
                         child: items.isEmpty
                             ? const Center(
                                 child: Text(
-                                  'No layouts found near this point.',
+                                  'No nearby layouts',
                                   style: TextStyle(
                                     fontWeight: FontWeight.w600,
                                     color: Color(0xFF475569),

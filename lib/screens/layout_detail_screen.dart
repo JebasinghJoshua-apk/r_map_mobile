@@ -5,6 +5,7 @@ import '../constants/api_constants.dart';
 import '../models/map_viewport_models.dart';
 import '../services/mobile_bff_layouts_api.dart';
 import '../state/auth_scope.dart';
+import '../widgets/delimited_bullet_list.dart';
 import '../widgets/toast_message.dart';
 
 class LayoutDetailScreen extends StatefulWidget {
@@ -321,9 +322,10 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
                     const SizedBox(height: 14),
                     _SectionCard(
                       title: 'ADDITIONAL INFO',
-                      child: Text(
-                        additionalInfo,
-                        style: const TextStyle(
+                      child: DelimitedBulletList(
+                        text: additionalInfo,
+                        delimiter: '~~',
+                        textStyle: const TextStyle(
                           color: Color(0xFF334155),
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
