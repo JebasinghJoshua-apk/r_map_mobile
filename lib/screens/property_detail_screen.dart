@@ -185,7 +185,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                       children: [
                         Icon(
                           Icons.favorite,
-                          size: 28,
+                          size: 36,
                           color: Colors.white54,
                           shadows: [
                             Shadow(
@@ -196,7 +196,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                         ),
                         Icon(
                           Icons.favorite,
-                          size: 24,
+                          size: 32,
                           color: Color(0xFFE11D48),
                           shadows: [
                             Shadow(
@@ -212,12 +212,12 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                       children: [
                         Icon(
                           Icons.favorite,
-                          size: 24,
+                          size: 32,
                           color: const Color(0xFF0F172A).withOpacity(0.18),
                         ),
                         const Icon(
                           Icons.favorite_border,
-                          size: 23,
+                          size: 31,
                           color: Colors.white,
                           shadows: [
                             Shadow(
@@ -384,7 +384,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                 activeIndex: _activeIndex,
               ),
               Positioned(
-                top: 6,
+                top: 14,
                 right: 6,
                 child: _favoriteButton(),
               ),

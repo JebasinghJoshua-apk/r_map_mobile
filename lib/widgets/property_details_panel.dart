@@ -314,7 +314,7 @@ class PropertyDetailsPanel extends StatelessWidget {
                 Positioned.fill(child: imagePanelChild()),
                 if (canToggleSaved)
                   Positioned(
-                    top: 6,
+                    top: 4,
                     right: 6,
                     child: Material(
                       type: MaterialType.transparency,
