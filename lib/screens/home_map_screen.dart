@@ -120,7 +120,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   DateTime? _lastViewportErrorAt;
 
   String? _selectedPropertyType; // null => All properties
-  String? _selectedListingType = 'Sell'; // default => Buy
+  static const String _defaultListingType = 'Sell';
+  String? _selectedListingType = _defaultListingType;
   _PriceRangeFilter? _selectedPriceRange; // null => Any
   String? _selectedLandType; // null => Any
   String? _selectedCommercialSuitableFor; // null => All Types
@@ -136,6 +137,28 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   String? _selectedApartmentFloor; // null => Any
   String? _selectedApartmentTotalFloors; // null => Any
   String? _selectedApartmentBuildingAge; // null => Any
+
+  bool get _hasAppliedNonDefaultFilters {
+    final listingIsActive = _selectedListingType != null &&
+        _selectedListingType!.trim().isNotEmpty &&
+        _selectedListingType != _defaultListingType;
+
+    return _selectedPropertyType != null ||
+        listingIsActive ||
+        _selectedPriceRange != null ||
+        _selectedLandType != null ||
+        _selectedCommercialSuitableFor != null ||
+        _selectedAreaRange != null ||
+        _selectedMinBedrooms != null ||
+        _selectedCarParking != null ||
+        _selectedMinFloors != null ||
+        _selectedBuildingAge != null ||
+        _selectedApartmentMinBedrooms != null ||
+        _selectedApartmentCarParking != null ||
+        _selectedApartmentFloor != null ||
+        _selectedApartmentTotalFloors != null ||
+        _selectedApartmentBuildingAge != null;
+  }
 
   String? _lastViewportAuthKey;
 
@@ -770,10 +793,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                         onSearchTap: _closeAnyPanel,
                         onFilterTap: (panelRect, arrowRect) =>
                             unawaited(_openFilters(panelRect, arrowRect)),
-                        hasActiveFilters: _selectedPropertyType != null ||
-                            _selectedListingType != null ||
-                            _selectedPriceRange != null ||
-                            _selectedLandType != null,
+                      hasActiveFilters: _hasAppliedNonDefaultFilters,
                       ),
               ],
             ),
