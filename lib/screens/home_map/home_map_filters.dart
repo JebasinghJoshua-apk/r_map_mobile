@@ -275,7 +275,9 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                   );
 
             return GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: () => Navigator.of(context).pop(),
+              onScaleStart: (_) => Navigator.of(context).pop(),
               child: Material(
                 color: Colors.transparent,
                 child: SafeArea(
