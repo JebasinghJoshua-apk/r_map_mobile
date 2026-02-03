@@ -73,7 +73,7 @@ class _FavoritesDialogState extends State<FavoritesDialog> {
       if (!mounted) return;
       setState(() {
         _items = const <SavedProperty>[];
-        _error = 'Failed to load favorites.';
+        _error = 'Failed to load shortlisted properties.';
       });
     } finally {
       if (mounted) {
@@ -105,7 +105,7 @@ class _FavoritesDialogState extends State<FavoritesDialog> {
       ToastMessage.show(context, ex.message);
     } catch (_) {
       if (!mounted) return;
-      ToastMessage.show(context, 'Failed to remove favorite');
+      ToastMessage.show(context, 'Failed to remove from shortlist');
     } finally {
       if (mounted) {
         setState(() => _removingIds.remove(propertyId));
@@ -157,8 +157,9 @@ class _FavoritesDialogState extends State<FavoritesDialog> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color:
-                    enabled ? (borderColor ?? const Color(0xFFE2E8F0)) : const Color(0xFFE5E7EB),
+                color: enabled
+                    ? (borderColor ?? const Color(0xFFE2E8F0))
+                    : const Color(0xFFE5E7EB),
               ),
             ),
             child: Icon(
@@ -210,7 +211,7 @@ class _FavoritesDialogState extends State<FavoritesDialog> {
                   ),
                   const SizedBox(width: 8),
                   const Text(
-                    'Favorites',
+                    'Shortlisted',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -276,7 +277,7 @@ class _FavoritesDialogState extends State<FavoritesDialog> {
                       padding: EdgeInsets.fromLTRB(16, 16, 16, 16),
                       child: Center(
                         child: Text(
-                          'No favorites yet.',
+                          'No shortlisted properties yet.',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: Color(0xFF475569),
@@ -309,9 +310,10 @@ class _FavoritesDialogState extends State<FavoritesDialog> {
                         final locationLabel = p.locationLabel.trim();
                         final locationMissing = locationLabel.isEmpty;
 
-                        final typeLabel = (p.propertyTypeName ?? '').trim().isEmpty
-                            ? 'Property'
-                            : p.propertyTypeName!.trim();
+                        final typeLabel =
+                            (p.propertyTypeName ?? '').trim().isEmpty
+                                ? 'Property'
+                                : p.propertyTypeName!.trim();
                         final dateLabel = _formatDate(saved.savedAt);
                         final isPending = p.isApproved == false;
                         final isNew = _isNew(saved.savedAt);
@@ -320,7 +322,8 @@ class _FavoritesDialogState extends State<FavoritesDialog> {
                           final center = p.centerPoint;
                           if (center == null) {
                             if (!mounted) return;
-                            ToastMessage.show(context, 'Location not available');
+                            ToastMessage.show(
+                                context, 'Location not available');
                             return;
                           }
 
@@ -399,8 +402,9 @@ class _FavoritesDialogState extends State<FavoritesDialog> {
                                                                     borderRadius:
                                                                         BorderRadius
                                                                             .circular(6),
-                                                                    border: Border
-                                                                        .all(
+                                                                    border:
+                                                                        Border
+                                                                            .all(
                                                                       color: const Color(
                                                                           0xFF34D399),
                                                                     ),
@@ -410,8 +414,10 @@ class _FavoritesDialogState extends State<FavoritesDialog> {
                                                                     padding:
                                                                         EdgeInsets
                                                                             .symmetric(
-                                                                      horizontal: 8,
-                                                                      vertical: 2,
+                                                                      horizontal:
+                                                                          8,
+                                                                      vertical:
+                                                                          2,
                                                                     ),
                                                                     child: Text(
                                                                       'NEW',
@@ -419,10 +425,10 @@ class _FavoritesDialogState extends State<FavoritesDialog> {
                                                                           TextStyle(
                                                                         color: Color(
                                                                             0xFF059669),
-                                                                        fontSize: 10,
+                                                                        fontSize:
+                                                                            10,
                                                                         fontWeight:
-                                                                            FontWeight
-                                                                                .w800,
+                                                                            FontWeight.w800,
                                                                       ),
                                                                     ),
                                                                   ),
@@ -481,8 +487,10 @@ class _FavoritesDialogState extends State<FavoritesDialog> {
                                                     fontSize: 13,
                                                     fontWeight: FontWeight.w600,
                                                     color: locationMissing
-                                                        ? const Color(0xFFDC2626)
-                                                        : const Color(0xFF475569),
+                                                        ? const Color(
+                                                            0xFFDC2626)
+                                                        : const Color(
+                                                            0xFF475569),
                                                   ),
                                                 ),
                                               ),

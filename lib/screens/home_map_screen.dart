@@ -468,7 +468,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         }
         _savedPropertyIds = next;
       });
-      ToastMessage.show(context, 'Failed to update favorites');
+      ToastMessage.show(context, 'Failed to update shortlist');
     } finally {
       if (mounted) {
         setState(() => _savingPropertyIds.remove(propertyId));

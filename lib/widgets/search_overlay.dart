@@ -108,7 +108,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
   Future<void> showFavoritesPopup() async {
     final token = AuthScope.of(context).session?.token;
     if (token == null || token.trim().isEmpty) {
-      ToastMessage.show(context, 'Please login to view favorites.');
+      ToastMessage.show(context, 'Please login to view shortlisted.');
       return;
     }
 
@@ -1094,7 +1094,7 @@ Future<_ProfileMenuAction?> _showProfileMenuPopover({
                             ),
                             buildItem(
                               icon: Icons.favorite_border,
-                              label: 'Favorites',
+                              label: 'Shortlisted',
                               action: _ProfileMenuAction.favorites,
                               badgeCount: favoritesCount,
                             ),

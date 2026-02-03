@@ -154,7 +154,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _isSaved = wasSaved);
-      ToastMessage.show(context, 'Failed to update favorites');
+      ToastMessage.show(context, 'Failed to update shortlist');
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);

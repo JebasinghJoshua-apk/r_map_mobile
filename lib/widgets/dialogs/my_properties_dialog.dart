@@ -96,8 +96,8 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
     List<LatLng>? initialPoints,
     bool showDetailsOnNext = false,
   }) async {
-    final points = await Navigator.of(context, rootNavigator: true)
-        .push<List<LatLng>>(
+    final points =
+        await Navigator.of(context, rootNavigator: true).push<List<LatLng>>(
       MaterialPageRoute(
         builder: (_) => PropertyPolygonEditorScreen(
           mode: mode,
@@ -106,8 +106,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
           popOnNext: !showDetailsOnNext,
           onNext: showDetailsOnNext
               ? (points) async {
-                  await Navigator.of(context, rootNavigator: true)
-                      .push<String>(
+                  await Navigator.of(context, rootNavigator: true).push<String>(
                     MaterialPageRoute(
                       builder: (_) => PropertyDetailsFormScreen(
                         boundaryPoints: points,
@@ -242,8 +241,9 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color:
-                    enabled ? (borderColor ?? const Color(0xFFE2E8F0)) : const Color(0xFFE5E7EB),
+                color: enabled
+                    ? (borderColor ?? const Color(0xFFE2E8F0))
+                    : const Color(0xFFE5E7EB),
               ),
             ),
             child: Icon(
@@ -395,7 +395,8 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                       itemBuilder: (context, index) {
                         final item = sorted[index];
                         final isNew = _isNew(item.createdAt);
-                        final isDeleting = _deletingIds.contains(item.id.trim());
+                        final isDeleting =
+                            _deletingIds.contains(item.id.trim());
 
                         final name = item.name.trim().isEmpty
                             ? (item.propertyType.trim().isEmpty
@@ -453,12 +454,13 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                             return;
                           }
 
-                          LatLng? center = item.centerPoint ??
-                              widget.getMapCenter?.call();
+                          LatLng? center =
+                              item.centerPoint ?? widget.getMapCenter?.call();
                           List<LatLng>? initialPoints;
 
                           try {
-                            final detail = await widget.mapApi.getPropertyDetail(
+                            final detail =
+                                await widget.mapApi.getPropertyDetail(
                               propertyId: item.id,
                               bearerToken: widget.bearerToken,
                             );
@@ -556,8 +558,9 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                                                                     borderRadius:
                                                                         BorderRadius
                                                                             .circular(6),
-                                                                    border: Border
-                                                                        .all(
+                                                                    border:
+                                                                        Border
+                                                                            .all(
                                                                       color: const Color(
                                                                           0xFF34D399),
                                                                     ),
@@ -567,8 +570,10 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                                                                     padding:
                                                                         EdgeInsets
                                                                             .symmetric(
-                                                                      horizontal: 8,
-                                                                      vertical: 2,
+                                                                      horizontal:
+                                                                          8,
+                                                                      vertical:
+                                                                          2,
                                                                     ),
                                                                     child: Text(
                                                                       'NEW',
@@ -576,10 +581,10 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                                                                           TextStyle(
                                                                         color: Color(
                                                                             0xFF059669),
-                                                                        fontSize: 10,
+                                                                        fontSize:
+                                                                            10,
                                                                         fontWeight:
-                                                                            FontWeight
-                                                                                .w800,
+                                                                            FontWeight.w800,
                                                                       ),
                                                                     ),
                                                                   ),
@@ -638,8 +643,10 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                                                     fontSize: 13,
                                                     fontWeight: FontWeight.w600,
                                                     color: locationMissing
-                                                        ? const Color(0xFFDC2626)
-                                                        : const Color(0xFF475569),
+                                                        ? const Color(
+                                                            0xFFDC2626)
+                                                        : const Color(
+                                                            0xFF475569),
                                                   ),
                                                 ),
                                               ),
@@ -698,10 +705,12 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                                           icon: Icons.delete_outline,
                                           tooltip: deleteDisabledReason,
                                           onTap: canDeleteProperty
-                                              ? () => unawaited(deleteProperty())
+                                              ? () =>
+                                                  unawaited(deleteProperty())
                                               : (isDeleting
                                                   ? null
-                                                  : () => ToastMessage.showAbove(
+                                                  : () =>
+                                                      ToastMessage.showAbove(
                                                         context,
                                                         hasMultiplePlots
                                                             ? 'Only single-plot properties can be deleted on mobile.'
