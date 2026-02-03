@@ -1039,7 +1039,9 @@ Future<_ProfileMenuAction?> _showProfileMenuPopover({
       }
 
       return GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () => Navigator.of(context).pop(),
+        onScaleStart: (_) => Navigator.of(context).pop(),
         child: Material(
           color: Colors.transparent,
           child: Stack(
