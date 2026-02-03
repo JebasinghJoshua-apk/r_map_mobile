@@ -15,11 +15,13 @@ import '../services/mobile_bff_plots_api.dart';
 import '../state/auth_scope.dart';
 import '../utils/geojson.dart';
 import '../widgets/api_key_missing_banner.dart';
+import '../widgets/auth_dialog.dart';
 import '../widgets/network_status_banner.dart';
 import '../widgets/plot_details_panel.dart';
 import '../widgets/property_details_panel.dart';
 import '../widgets/search_overlay.dart';
 import '../widgets/toast_message.dart';
+import '../services/mobile_bff_saved_properties_api.dart';
 import '../models/map_viewport_models.dart';
 import '../models/my_property_list_item.dart';
 import '../models/nearby_property_card.dart';
@@ -81,6 +83,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   GooglePlace? _googlePlace;
   late final MobileBffMapApi _mapApi;
   late final MobileBffPlotsApi _plotsApi;
+  late final MobileBffSavedPropertiesApi _savedPropertiesApi;
 
   void _safeSetState(VoidCallback fn) {
     if (!mounted) return;
@@ -161,6 +164,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   }
 
   String? _lastViewportAuthKey;
+
+  Set<String> _savedPropertyIds = <String>{};
+  final Set<String> _savingPropertyIds = <String>{};
 
   ModalRoute<void>? _routeSubscription;
 
@@ -293,6 +299,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     super.initState();
     _mapApi = MobileBffMapApi();
     _plotsApi = MobileBffPlotsApi();
+    _savedPropertiesApi = MobileBffSavedPropertiesApi();
     _initConnectivity();
     _loadLightMapStyle();
     if (googlePlacesApiKey != 'YOUR_GOOGLE_PLACES_API_KEY') {
@@ -306,6 +313,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     // restore focus to the last-focused text field, which reopens the keyboard.
     // Force-hide it for map UX.
     _dismissKeyboard();
+
+    // Favorites may have been toggled in a pushed screen.
+    unawaited(_refreshSavedPropertyIds());
   }
 
   @override
@@ -340,11 +350,130 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     _lastViewportSignature = null;
     _viewportCache.clear();
 
+    // Refresh favorites (saved properties) when auth changes.
+    if (authKey == null) {
+      _savedPropertyIds = <String>{};
+      _savingPropertyIds.clear();
+    } else {
+      unawaited(_refreshSavedPropertyIds());
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (_mapController == null) return;
       _fetchViewport();
     });
+  }
+
+  Future<void> _refreshSavedPropertyIds() async {
+    final token = AuthScope.of(context).session?.token;
+    if (token == null || token.trim().isEmpty) {
+      if (mounted) {
+        setState(() => _savedPropertyIds = <String>{});
+      }
+      return;
+    }
+
+    try {
+      final ids = await _savedPropertiesApi.getSavedPropertyIds(
+        bearerToken: token,
+      );
+      if (!mounted) return;
+      setState(() {
+        _savedPropertyIds =
+            ids.map((e) => e.trim()).where((e) => e.isNotEmpty).toSet();
+      });
+    } on SavedPropertiesApiException catch (ex) {
+      // Best-effort: don't block map UX.
+      debugPrint('Failed to load saved properties ids: ${ex.message}');
+    } catch (ex) {
+      debugPrint('Failed to load saved properties ids: $ex');
+    }
+  }
+
+  bool _isFeatureSaved(MapPropertyFeature feature) {
+    final id = feature.propertyId.trim();
+    if (id.isEmpty) return false;
+    return _savedPropertyIds.contains(id);
+  }
+
+  bool _isFeatureSaving(MapPropertyFeature feature) {
+    final id = feature.propertyId.trim();
+    if (id.isEmpty) return false;
+    return _savingPropertyIds.contains(id);
+  }
+
+  Future<void> _toggleFeatureSaved(MapPropertyFeature feature) async {
+    final propertyId = feature.propertyId.trim();
+    if (propertyId.isEmpty) {
+      ToastMessage.show(context, 'This listing cannot be saved');
+      return;
+    }
+
+    final session = AuthScope.of(context).session;
+    final token = session?.token;
+    if (token == null || token.trim().isEmpty) {
+      await AuthDialog.showLogin(context);
+      return;
+    }
+
+    if (_savingPropertyIds.contains(propertyId)) return;
+
+    final wasSaved = _savedPropertyIds.contains(propertyId);
+    setState(() {
+      _savingPropertyIds.add(propertyId);
+      // Optimistic update.
+      final next = Set<String>.from(_savedPropertyIds);
+      if (wasSaved) {
+        next.remove(propertyId);
+      } else {
+        next.add(propertyId);
+      }
+      _savedPropertyIds = next;
+    });
+
+    try {
+      if (wasSaved) {
+        await _savedPropertiesApi.unsaveProperty(
+          propertyId: propertyId,
+          bearerToken: token,
+        );
+      } else {
+        await _savedPropertiesApi.saveProperty(
+          propertyId: propertyId,
+          bearerToken: token,
+        );
+      }
+    } on SavedPropertiesApiException catch (ex) {
+      if (!mounted) return;
+      // Revert optimistic update.
+      setState(() {
+        final next = Set<String>.from(_savedPropertyIds);
+        if (wasSaved) {
+          next.add(propertyId);
+        } else {
+          next.remove(propertyId);
+        }
+        _savedPropertyIds = next;
+      });
+      ToastMessage.show(context, ex.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        final next = Set<String>.from(_savedPropertyIds);
+        if (wasSaved) {
+          next.add(propertyId);
+        } else {
+          next.remove(propertyId);
+        }
+        _savedPropertyIds = next;
+      });
+      ToastMessage.show(context, 'Failed to update favorites');
+    } finally {
+      if (mounted) {
+        setState(() => _savingPropertyIds.remove(propertyId));
+      }
+    }
   }
 
   Future<void> _initConnectivity() async {
@@ -793,7 +922,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                         onSearchTap: _closeAnyPanel,
                         onFilterTap: (panelRect, arrowRect) =>
                             unawaited(_openFilters(panelRect, arrowRect)),
-                      hasActiveFilters: _hasAppliedNonDefaultFilters,
+                        hasActiveFilters: _hasAppliedNonDefaultFilters,
                       ),
               ],
             ),
@@ -928,18 +1057,22 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
               left: 0,
               right: 0,
               bottom: 0,
-              child:
-                  _selectedProperty!.propertyType.trim() == 'IndependentHouse'
-                      ? _buildIndependentHouseCarouselPanel()
-                      : PropertyDetailsPanel(
-                          feature: _selectedProperty!,
-                          imageUrls: _selectedPropertyMediaUrls,
-                          isLoadingImages: _isSelectedPropertyMediaLoading,
-                          imagesError: _selectedPropertyMediaError,
-                          onOpenDetails: () =>
-                              _openPropertyDetails(_selectedProperty!),
-                          onClose: _closePropertyPanel,
-                        ),
+              child: _selectedProperty!.propertyType.trim() ==
+                      'IndependentHouse'
+                  ? _buildIndependentHouseCarouselPanel()
+                  : PropertyDetailsPanel(
+                      feature: _selectedProperty!,
+                      imageUrls: _selectedPropertyMediaUrls,
+                      isLoadingImages: _isSelectedPropertyMediaLoading,
+                      imagesError: _selectedPropertyMediaError,
+                      isSaved: _isFeatureSaved(_selectedProperty!),
+                      isSaving: _isFeatureSaving(_selectedProperty!),
+                      onToggleSaved: () =>
+                          unawaited(_toggleFeatureSaved(_selectedProperty!)),
+                      onOpenDetails: () =>
+                          _openPropertyDetails(_selectedProperty!),
+                      onClose: _closePropertyPanel,
+                    ),
             ),
         ],
       ),

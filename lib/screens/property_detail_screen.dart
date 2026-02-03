@@ -1,7 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/map_viewport_models.dart';
+import '../services/mobile_bff_saved_properties_api.dart';
+import '../state/auth_scope.dart';
+import '../widgets/auth_dialog.dart';
 import '../widgets/property_details_panel.dart';
 import '../widgets/toast_message.dart';
 
@@ -27,10 +32,205 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   int _activeIndex = 0;
   final PageController _pageController = PageController();
 
+  late final MobileBffSavedPropertiesApi _savedPropertiesApi;
+  bool _isSaved = false;
+  bool _isSaving = false;
+  String? _lastAuthKey;
+
+  String get _propertyId => widget.feature.propertyId.trim();
+
+  @override
+  void initState() {
+    super.initState();
+    _savedPropertiesApi = MobileBffSavedPropertiesApi();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final session = AuthScope.of(context).session;
+    final token = session?.token.trim();
+    final userId = session?.user.id.trim();
+
+    final authKey = (token != null &&
+            token.isNotEmpty &&
+            userId != null &&
+            userId.isNotEmpty)
+        ? '$userId:$token'
+        : null;
+
+    if (authKey == _lastAuthKey) return;
+    _lastAuthKey = authKey;
+
+    // Refresh saved state when auth changes.
+    if (authKey == null) {
+      if (mounted) {
+        setState(() {
+          _isSaved = false;
+          _isSaving = false;
+        });
+      }
+      return;
+    }
+
+    // Best-effort background refresh.
+    unawaited(_refreshSavedStateFromIds());
+  }
+
   @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshSavedStateFromIds() async {
+    final pid = _propertyId;
+    if (pid.isEmpty) {
+      if (mounted) setState(() => _isSaved = false);
+      return;
+    }
+
+    final token = AuthScope.of(context).session?.token;
+    if (token == null || token.trim().isEmpty) {
+      if (mounted) setState(() => _isSaved = false);
+      return;
+    }
+
+    try {
+      final ids = await _savedPropertiesApi.getSavedPropertyIds(
+        bearerToken: token,
+      );
+      if (!mounted) return;
+
+      final normalizedPid = pid.toLowerCase();
+      final set = ids
+          .map((e) => e.trim().toLowerCase())
+          .where((e) => e.isNotEmpty)
+          .toSet();
+      setState(() => _isSaved = set.contains(normalizedPid));
+    } catch (_) {
+      // Best-effort only; don't block details screen.
+    }
+  }
+
+  Future<void> _toggleSaved() async {
+    final pid = _propertyId;
+    if (pid.isEmpty) {
+      ToastMessage.show(context, 'This listing cannot be saved');
+      return;
+    }
+
+    final token = AuthScope.of(context).session?.token;
+    if (token == null || token.trim().isEmpty) {
+      await AuthDialog.showLogin(context);
+      return;
+    }
+
+    if (_isSaving) return;
+
+    final wasSaved = _isSaved;
+    setState(() {
+      _isSaving = true;
+      _isSaved = !wasSaved; // optimistic
+    });
+
+    try {
+      if (wasSaved) {
+        await _savedPropertiesApi.unsaveProperty(
+          propertyId: pid,
+          bearerToken: token,
+        );
+      } else {
+        await _savedPropertiesApi.saveProperty(
+          propertyId: pid,
+          bearerToken: token,
+        );
+      }
+    } on SavedPropertiesApiException catch (ex) {
+      if (!mounted) return;
+      setState(() => _isSaved = wasSaved);
+      ToastMessage.show(context, ex.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isSaved = wasSaved);
+      ToastMessage.show(context, 'Failed to update favorites');
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  Widget _favoriteButton() {
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: _isSaving ? null : _toggleSaved,
+        borderRadius: BorderRadius.circular(999),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: _isSaving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(Colors.white),
+                  ),
+                )
+              : (_isSaved
+                  ? const Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Icon(
+                          Icons.favorite,
+                          size: 28,
+                          color: Colors.white54,
+                          shadows: [
+                            Shadow(
+                              color: Colors.white54,
+                              blurRadius: 7,
+                            ),
+                          ],
+                        ),
+                        Icon(
+                          Icons.favorite,
+                          size: 24,
+                          color: Color(0xFFE11D48),
+                          shadows: [
+                            Shadow(
+                              color: Color(0x80000000),
+                              blurRadius: 6,
+                            ),
+                          ],
+                        ),
+                      ],
+                    )
+                  : Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Icon(
+                          Icons.favorite,
+                          size: 24,
+                          color: const Color(0xFF0F172A).withOpacity(0.18),
+                        ),
+                        const Icon(
+                          Icons.favorite_border,
+                          size: 23,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                              color: Color(0x80000000),
+                              blurRadius: 6,
+                            ),
+                          ],
+                        ),
+                      ],
+                    )),
+        ),
+      ),
+    );
   }
 
   String _trimOrEmpty(String? value) => (value ?? '').trim();
@@ -172,14 +372,23 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
       body: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [
-          _HeroCarousel(
-            height: 360,
-            images: images,
-            loading: widget.isLoadingImages,
-            error: widget.imagesError,
-            onIndexChanged: (idx) => setState(() => _activeIndex = idx),
-            controller: _pageController,
-            activeIndex: _activeIndex,
+          Stack(
+            children: [
+              _HeroCarousel(
+                height: 360,
+                images: images,
+                loading: widget.isLoadingImages,
+                error: widget.imagesError,
+                onIndexChanged: (idx) => setState(() => _activeIndex = idx),
+                controller: _pageController,
+                activeIndex: _activeIndex,
+              ),
+              Positioned(
+                top: 6,
+                right: 6,
+                child: _favoriteButton(),
+              ),
+            ],
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),

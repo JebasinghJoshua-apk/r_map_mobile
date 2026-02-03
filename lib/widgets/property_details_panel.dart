@@ -12,6 +12,9 @@ class PropertyDetailsPanel extends StatelessWidget {
     this.imageUrls,
     this.isLoadingImages = false,
     this.imagesError,
+    this.isSaved,
+    this.isSaving = false,
+    this.onToggleSaved,
     this.onOpenDetails,
     this.outerPadding = const EdgeInsets.fromLTRB(12, 0, 12, 12),
     required this.onClose,
@@ -21,6 +24,9 @@ class PropertyDetailsPanel extends StatelessWidget {
   final List<String>? imageUrls;
   final bool isLoadingImages;
   final String? imagesError;
+  final bool? isSaved;
+  final bool isSaving;
+  final VoidCallback? onToggleSaved;
   final VoidCallback? onOpenDetails;
   final EdgeInsetsGeometry outerPadding;
   final VoidCallback onClose;
@@ -292,6 +298,7 @@ class PropertyDetailsPanel extends StatelessWidget {
     }
 
     Widget imagePanel(double aspectRatio) {
+      final canToggleSaved = onToggleSaved != null;
       return DecoratedBox(
         decoration: BoxDecoration(
           color: const Color(0xFFF1F5F9),
@@ -302,7 +309,86 @@ class PropertyDetailsPanel extends StatelessWidget {
           borderRadius: imageBorderRadius,
           child: AspectRatio(
             aspectRatio: aspectRatio,
-            child: imagePanelChild(),
+            child: Stack(
+              children: [
+                Positioned.fill(child: imagePanelChild()),
+                if (canToggleSaved)
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: InkWell(
+                        onTap: isSaving ? null : onToggleSaved,
+                        borderRadius: BorderRadius.circular(999),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: isSaving
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor:
+                                        AlwaysStoppedAnimation(Colors.white),
+                                  ),
+                                )
+                              : ((isSaved ?? false)
+                                  ? const Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.favorite,
+                                          size: 28,
+                                          color: Colors.white54,
+                                          shadows: [
+                                            Shadow(
+                                              color: Colors.white54,
+                                              blurRadius: 7,
+                                            ),
+                                          ],
+                                        ),
+                                        Icon(
+                                          Icons.favorite,
+                                          size: 24,
+                                          color: Color(0xFFE11D48),
+                                          shadows: [
+                                            Shadow(
+                                              color: Color(0x80000000),
+                                              blurRadius: 6,
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    )
+                                  : Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.favorite,
+                                          size: 24,
+                                          color: const Color(0xFF0F172A)
+                                              .withOpacity(0.18),
+                                        ),
+                                        const Icon(
+                                          Icons.favorite_border,
+                                          size: 23,
+                                          color: Colors.white,
+                                          shadows: [
+                                            Shadow(
+                                              color: Color(0x80000000),
+                                              blurRadius: 6,
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    )),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       );
