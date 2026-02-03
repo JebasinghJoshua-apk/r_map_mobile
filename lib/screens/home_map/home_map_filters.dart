@@ -348,32 +348,47 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                                                                   .shrinkWrap,
                                                         ),
                                                         onPressed: () {
-                                                          Navigator.of(context)
-                                                              .pop(
-                                                            (
-                                                              type: null,
-                                                              listingType:
-                                                                  'Sell',
-                                                              price: null,
-                                                              landType: null,
-                                                              suitableFor: null,
-                                                              areaRange: null,
-                                                              minBedrooms: null,
-                                                              carParking: null,
-                                                              minFloors: null,
-                                                              buildingAge: null,
-                                                              apartmentMinBedrooms:
-                                                                  null,
-                                                              apartmentCarParking:
-                                                                  null,
-                                                              apartmentFloor:
-                                                                  null,
-                                                              apartmentTotalFloors:
-                                                                  null,
-                                                              apartmentBuildingAge:
-                                                                  null,
-                                                            ),
-                                                          );
+                                                          setModalState(() {
+                                                            localType = null;
+                                                            localListingType =
+                                                                'Sell';
+                                                            localPrice = null;
+                                                            localLandType =
+                                                                null;
+                                                            localSuitableFor =
+                                                                null;
+                                                            localAreaRange =
+                                                                null;
+                                                            localMinBedrooms =
+                                                                null;
+                                                            localCarParking =
+                                                                null;
+                                                            localMinFloors =
+                                                                null;
+                                                            localBuildingAge =
+                                                                null;
+                                                            localShowIndependentMoreFilters =
+                                                                false;
+
+                                                            localApartmentMinBedrooms =
+                                                                null;
+                                                            localApartmentCarParking =
+                                                                null;
+                                                            localApartmentFloor =
+                                                                null;
+                                                            localApartmentTotalFloors =
+                                                                null;
+                                                            localApartmentBuildingAge =
+                                                                null;
+                                                            localShowApartmentMoreFilters =
+                                                                false;
+
+                                                            if (scrollController
+                                                                .hasClients) {
+                                                              scrollController
+                                                                  .jumpTo(0);
+                                                            }
+                                                          });
                                                         },
                                                         child: const Text(
                                                           'CLEAR',
