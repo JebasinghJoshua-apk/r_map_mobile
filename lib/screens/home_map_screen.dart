@@ -767,10 +767,31 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                     zoom: focusZoom ?? 20.0,
                   )
               : isLayout
-                  ? () => _focusPropertyOnMap(
-                        target: focusCenter ?? center,
-                        zoom: focusZoom ?? _layoutFocusZoomTarget,
-                      )
+                  ? (shouldShowLayoutBadge
+                      ? () => _focusPropertyOnMap(
+                            target: focusCenter ?? center,
+                            zoom: focusZoom ?? _layoutFocusZoomTarget,
+                          )
+                      : () {
+                          final layoutId = feature.featureId.trim();
+                          if (layoutId.isEmpty) {
+                            ToastMessage.show(
+                              context,
+                              'Layout details not available',
+                            );
+                            return;
+                          }
+                          _dismissKeyboard();
+                          _closeAnyPanel();
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => LayoutDetailScreen(
+                                layoutId: layoutId,
+                                fallbackFeature: feature,
+                              ),
+                            ),
+                          );
+                        })
                   : () => unawaited(
                         _handlePropertyTapped(
                           feature,
