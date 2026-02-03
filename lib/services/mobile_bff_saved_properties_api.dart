@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../constants/api_constants.dart';
+import '../models/saved_property.dart';
 
 class MobileBffSavedPropertiesApi {
   MobileBffSavedPropertiesApi({http.Client? client})
@@ -71,6 +72,47 @@ class MobileBffSavedPropertiesApi {
     return decoded
         .map((e) => (e ?? '').toString().trim())
         .where((e) => e.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  Future<List<SavedProperty>> getSavedProperties({
+    required String bearerToken,
+  }) async {
+    final uri = _uri('/mobile/saved-properties');
+
+    http.Response response;
+    try {
+      response = await _client
+          .get(uri, headers: _authHeaders(bearerToken))
+          .timeout(_timeout);
+    } on SocketException {
+      throw const SavedPropertiesApiException(
+        'Cannot connect to the server. Please check your network and try again.',
+      );
+    } on HttpException {
+      throw const SavedPropertiesApiException(
+          'Network error. Please try again.');
+    } on TimeoutException {
+      throw const SavedPropertiesApiException(
+          'Request timed out. Please try again.');
+    } on FormatException {
+      throw const SavedPropertiesApiException(
+          'Unexpected response from server');
+    }
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw SavedPropertiesApiException(_extractError(response));
+    }
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) {
+      throw const SavedPropertiesApiException(
+          'Unexpected response from server');
+    }
+
+    return decoded
+        .whereType<Map>()
+        .map((e) => SavedProperty.fromJson(e.cast<String, dynamic>()))
         .toList(growable: false);
   }
 

@@ -923,6 +923,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                         onFilterTap: (panelRect, arrowRect) =>
                             unawaited(_openFilters(panelRect, arrowRect)),
                         hasActiveFilters: _hasAppliedNonDefaultFilters,
+                        favoritesCount: _savedPropertyIds.length,
                       ),
               ],
             ),
