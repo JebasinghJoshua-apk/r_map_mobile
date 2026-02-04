@@ -37,6 +37,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
   bool _isLoading = true;
   String? _error;
   final Set<String> _deletingIds = <String>{};
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -46,6 +47,12 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
       widget.onOpened?.call();
     });
     unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   bool _isNew(DateTime createdAt) {
@@ -387,351 +394,364 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                         ),
                       ),
                     )
-                  : ListView.separated(
-                      shrinkWrap: shouldShrink,
-                      physics: shouldShrink
-                          ? const NeverScrollableScrollPhysics()
-                          : null,
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                      itemCount: sorted.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        final item = sorted[index];
-                        final isNew = _isNew(item.createdAt);
-                        final isDeleting =
-                            _deletingIds.contains(item.id.trim());
+                  : Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      thickness: 3,
+                      radius: const Radius.circular(999),
+                      child: ListView.separated(
+                        controller: _scrollController,
+                        shrinkWrap: shouldShrink,
+                        physics: shouldShrink
+                            ? const NeverScrollableScrollPhysics()
+                            : null,
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                        itemCount: sorted.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final item = sorted[index];
+                          final isNew = _isNew(item.createdAt);
+                          final isDeleting =
+                              _deletingIds.contains(item.id.trim());
 
-                        final name = item.name.trim().isEmpty
-                            ? (item.propertyType.trim().isEmpty
-                                ? 'Property'
-                                : item.propertyType.trim())
-                            : item.name.trim();
+                          final name = item.name.trim().isEmpty
+                              ? (item.propertyType.trim().isEmpty
+                                  ? 'Property'
+                                  : item.propertyType.trim())
+                              : item.name.trim();
 
-                        final locationLabel = item.locationLabel.trim();
-                        final locationMissing = locationLabel.isEmpty;
+                          final locationLabel = item.locationLabel.trim();
+                          final locationMissing = locationLabel.isEmpty;
 
-                        final typeLabel = item.propertyType.trim().isEmpty
-                            ? 'Property'
-                            : item.propertyType.trim();
-                        final normalizedType =
-                            item.propertyType.trim().toLowerCase();
-                        final normalizedCompact =
-                            normalizedType.replaceAll(RegExp(r'\s+'), '');
-                        final plotsCount = item.plotsCount ?? 0;
-                        final hasMultiplePlots =
-                            normalizedCompact == 'plot' && plotsCount > 1;
-                        final isLayoutProperty =
-                            normalizedType.contains('layout');
-                        final isEditableProperty = const <String>{
-                              'plot',
-                              'apartment',
-                              'independenthouse',
-                              'commercialspace',
-                              'land',
-                            }.contains(normalizedCompact) &&
-                            !hasMultiplePlots;
-                        final canDeleteProperty = !isDeleting &&
-                            isEditableProperty &&
-                            !isLayoutProperty;
-                        final deleteDisabledReason = canDeleteProperty
-                            ? 'Delete'
-                            : (isDeleting
-                                ? 'Deleting...'
-                                : (hasMultiplePlots
-                                    ? 'Delete disabled'
-                                    : 'Delete (web only)'));
+                          final typeLabel = item.propertyType.trim().isEmpty
+                              ? 'Property'
+                              : item.propertyType.trim();
+                          final normalizedType =
+                              item.propertyType.trim().toLowerCase();
+                          final normalizedCompact =
+                              normalizedType.replaceAll(RegExp(r'\s+'), '');
+                          final plotsCount = item.plotsCount ?? 0;
+                          final hasMultiplePlots =
+                              normalizedCompact == 'plot' && plotsCount > 1;
+                          final isLayoutProperty =
+                              normalizedType.contains('layout');
+                          final isEditableProperty = const <String>{
+                                'plot',
+                                'apartment',
+                                'independenthouse',
+                                'commercialspace',
+                                'land',
+                              }.contains(normalizedCompact) &&
+                              !hasMultiplePlots;
+                          final canDeleteProperty = !isDeleting &&
+                              isEditableProperty &&
+                              !isLayoutProperty;
+                          final deleteDisabledReason = canDeleteProperty
+                              ? 'Delete'
+                              : (isDeleting
+                                  ? 'Deleting...'
+                                  : (hasMultiplePlots
+                                      ? 'Delete disabled'
+                                      : 'Delete (web only)'));
 
-                        final dateSource = item.createdAt ==
-                                DateTime.fromMillisecondsSinceEpoch(0)
-                            ? item.updatedAt
-                            : item.createdAt;
-                        final dateLabel = _formatDate(dateSource);
+                          final dateSource = item.createdAt ==
+                                  DateTime.fromMillisecondsSinceEpoch(0)
+                              ? item.updatedAt
+                              : item.createdAt;
+                          final dateLabel = _formatDate(dateSource);
 
-                        Future<void> focus() async {
-                          Navigator.of(context).pop();
-                          await widget.onMyPropertySelected?.call(item);
-                        }
-
-                        Future<void> edit() async {
-                          if (!isEditableProperty || isLayoutProperty) {
-                            return;
+                          Future<void> focus() async {
+                            Navigator.of(context).pop();
+                            await widget.onMyPropertySelected?.call(item);
                           }
 
-                          LatLng? center =
-                              item.centerPoint ?? widget.getMapCenter?.call();
-                          List<LatLng>? initialPoints;
+                          Future<void> edit() async {
+                            if (!isEditableProperty || isLayoutProperty) {
+                              return;
+                            }
 
-                          try {
-                            final detail =
-                                await widget.mapApi.getPropertyDetail(
-                              propertyId: item.id,
-                              bearerToken: widget.bearerToken,
-                            );
-                            final polygons = GeoJson.tryParsePolygons(
-                              detail.propertyBoundaryGeoJson,
-                            );
-                            if (polygons.isNotEmpty) {
-                              initialPoints = polygons.first;
-                              center ??= GeoJson.tryParsePoint(
-                                detail.centerPointGeoJson,
+                            LatLng? center =
+                                item.centerPoint ?? widget.getMapCenter?.call();
+                            List<LatLng>? initialPoints;
+
+                            try {
+                              final detail =
+                                  await widget.mapApi.getPropertyDetail(
+                                propertyId: item.id,
+                                bearerToken: widget.bearerToken,
+                              );
+                              final polygons = GeoJson.tryParsePolygons(
+                                detail.propertyBoundaryGeoJson,
+                              );
+                              if (polygons.isNotEmpty) {
+                                initialPoints = polygons.first;
+                                center ??= GeoJson.tryParsePoint(
+                                  detail.centerPointGeoJson,
+                                );
+                              }
+                            } on MapApiException catch (ex) {
+                              if (!mounted) return;
+                              ToastMessage.show(this.context, ex.message);
+                            } catch (_) {
+                              if (!mounted) return;
+                              ToastMessage.show(
+                                this.context,
+                                'Failed to load property boundary.',
                               );
                             }
-                          } on MapApiException catch (ex) {
+
                             if (!mounted) return;
-                            ToastMessage.show(this.context, ex.message);
-                          } catch (_) {
-                            if (!mounted) return;
-                            ToastMessage.show(
-                              this.context,
-                              'Failed to load property boundary.',
+                            await _openEditor(
+                              mode: PropertyPolygonEditorMode.edit,
+                              center: center,
+                              initialPoints: initialPoints,
                             );
                           }
 
-                          if (!mounted) return;
-                          await _openEditor(
-                            mode: PropertyPolygonEditorMode.edit,
-                            center: center,
-                            initialPoints: initialPoints,
-                          );
-                        }
+                          Future<void> deleteProperty() async {
+                            await _deleteProperty(item);
+                          }
 
-                        Future<void> deleteProperty() async {
-                          await _deleteProperty(item);
-                        }
-
-                        return Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(10),
-                            onTap: () => unawaited(focus()),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: const Color(0xFFE2E8F0),
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x14000000),
-                                    blurRadius: 10,
-                                    offset: Offset(0, 4),
+                          return Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () => unawaited(focus()),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E8F0),
                                   ),
-                                ],
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 12,
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x14000000),
+                                      blurRadius: 10,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
                                 ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: isNew
-                                                    ? Text.rich(
-                                                        TextSpan(
-                                                          children: [
-                                                            TextSpan(
-                                                              text: name,
-                                                            ),
-                                                            WidgetSpan(
-                                                              alignment:
-                                                                  PlaceholderAlignment
-                                                                      .middle,
-                                                              child: Padding(
-                                                                padding:
-                                                                    const EdgeInsets
-                                                                        .only(
-                                                                  left: 8,
-                                                                ),
-                                                                child:
-                                                                    DecoratedBox(
-                                                                  decoration:
-                                                                      BoxDecoration(
-                                                                    color: const Color(
-                                                                        0xFFECFDF5),
-                                                                    borderRadius:
-                                                                        BorderRadius
-                                                                            .circular(6),
-                                                                    border:
-                                                                        Border
-                                                                            .all(
-                                                                      color: const Color(
-                                                                          0xFF34D399),
-                                                                    ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 12,
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: isNew
+                                                      ? Text.rich(
+                                                          TextSpan(
+                                                            children: [
+                                                              TextSpan(
+                                                                text: name,
+                                                              ),
+                                                              WidgetSpan(
+                                                                alignment:
+                                                                    PlaceholderAlignment
+                                                                        .middle,
+                                                                child: Padding(
+                                                                  padding:
+                                                                      const EdgeInsets
+                                                                          .only(
+                                                                    left: 8,
                                                                   ),
                                                                   child:
-                                                                      const Padding(
-                                                                    padding:
-                                                                        EdgeInsets
-                                                                            .symmetric(
-                                                                      horizontal:
-                                                                          8,
-                                                                      vertical:
-                                                                          2,
+                                                                      DecoratedBox(
+                                                                    decoration:
+                                                                        BoxDecoration(
+                                                                      color: const Color(
+                                                                          0xFFECFDF5),
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                              6),
+                                                                      border:
+                                                                          Border
+                                                                              .all(
+                                                                        color: const Color(
+                                                                            0xFF34D399),
+                                                                      ),
                                                                     ),
-                                                                    child: Text(
-                                                                      'NEW',
-                                                                      style:
-                                                                          TextStyle(
-                                                                        color: Color(
-                                                                            0xFF059669),
-                                                                        fontSize:
-                                                                            10,
-                                                                        fontWeight:
-                                                                            FontWeight.w800,
+                                                                    child:
+                                                                        const Padding(
+                                                                      padding:
+                                                                          EdgeInsets
+                                                                              .symmetric(
+                                                                        horizontal:
+                                                                            8,
+                                                                        vertical:
+                                                                            2,
+                                                                      ),
+                                                                      child:
+                                                                          Text(
+                                                                        'NEW',
+                                                                        style:
+                                                                            TextStyle(
+                                                                          color:
+                                                                              Color(0xFF059669),
+                                                                          fontSize:
+                                                                              10,
+                                                                          fontWeight:
+                                                                              FontWeight.w800,
+                                                                        ),
                                                                       ),
                                                                     ),
                                                                   ),
                                                                 ),
                                                               ),
-                                                            ),
-                                                          ],
+                                                            ],
+                                                          ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          style:
+                                                              const TextStyle(
+                                                            fontSize: 15,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                            color: Color(
+                                                                0xFF0F766E),
+                                                          ),
+                                                        )
+                                                      : Text(
+                                                          name,
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          style:
+                                                              const TextStyle(
+                                                            fontSize: 15,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                            color: Color(
+                                                                0xFF0F766E),
+                                                          ),
                                                         ),
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        style: const TextStyle(
-                                                          fontSize: 15,
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                          color:
-                                                              Color(0xFF0F766E),
-                                                        ),
-                                                      )
-                                                    : Text(
-                                                        name,
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        style: const TextStyle(
-                                                          fontSize: 15,
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                          color:
-                                                              Color(0xFF0F766E),
-                                                        ),
-                                                      ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            children: [
-                                              Icon(
-                                                Icons.location_on_outlined,
-                                                size: 16,
-                                                color: locationMissing
-                                                    ? const Color(0xFFDC2626)
-                                                    : const Color(0xFF64748B),
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Expanded(
-                                                child: Text(
-                                                  locationMissing
-                                                      ? 'Location not added'
-                                                      : locationLabel,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: locationMissing
-                                                        ? const Color(
-                                                            0xFFDC2626)
-                                                        : const Color(
-                                                            0xFF475569),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.location_on_outlined,
+                                                  size: 16,
+                                                  color: locationMissing
+                                                      ? const Color(0xFFDC2626)
+                                                      : const Color(0xFF64748B),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Expanded(
+                                                  child: Text(
+                                                    locationMissing
+                                                        ? 'Location not added'
+                                                        : locationLabel,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: locationMissing
+                                                          ? const Color(
+                                                              0xFFDC2626)
+                                                          : const Color(
+                                                              0xFF475569),
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 10),
-                                          Wrap(
-                                            spacing: 14,
-                                            runSpacing: 8,
-                                            children: [
-                                              _metaChip(
-                                                Icons.category_outlined,
-                                                typeLabel,
-                                              ),
-                                              _metaChip(
-                                                Icons.schedule,
-                                                dateLabel,
-                                              ),
-                                              if (!item.isApproved)
+                                              ],
+                                            ),
+                                            const SizedBox(height: 10),
+                                            Wrap(
+                                              spacing: 14,
+                                              runSpacing: 8,
+                                              children: [
                                                 _metaChip(
-                                                  Icons
-                                                      .pending_actions_outlined,
-                                                  'Pending',
+                                                  Icons.category_outlined,
+                                                  typeLabel,
                                                 ),
-                                            ],
+                                                _metaChip(
+                                                  Icons.schedule,
+                                                  dateLabel,
+                                                ),
+                                                if (!item.isApproved)
+                                                  _metaChip(
+                                                    Icons
+                                                        .pending_actions_outlined,
+                                                    'Pending',
+                                                  ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          _actionIcon(
+                                            icon: Icons.edit_outlined,
+                                            tooltip: isEditableProperty &&
+                                                    !isLayoutProperty
+                                                ? 'Edit'
+                                                : (hasMultiplePlots
+                                                    ? 'Edit disabled'
+                                                    : 'Edit (web only)'),
+                                            onTap: isEditableProperty &&
+                                                    !isLayoutProperty
+                                                ? () => unawaited(edit())
+                                                : () => ToastMessage.showAbove(
+                                                      context,
+                                                      hasMultiplePlots
+                                                          ? 'Only single-plot properties can be edited on mobile.'
+                                                          : 'Layout editable only in web screen.',
+                                                    ),
+                                            enabled: isEditableProperty &&
+                                                !isLayoutProperty,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          _actionIcon(
+                                            icon: Icons.delete_outline,
+                                            tooltip: deleteDisabledReason,
+                                            onTap: canDeleteProperty
+                                                ? () =>
+                                                    unawaited(deleteProperty())
+                                                : (isDeleting
+                                                    ? null
+                                                    : () =>
+                                                        ToastMessage.showAbove(
+                                                          context,
+                                                          hasMultiplePlots
+                                                              ? 'Only single-plot properties can be deleted on mobile.'
+                                                              : 'Layout deletions are available on the web screen.',
+                                                        )),
+                                            enabled: canDeleteProperty,
+                                            iconColor: const Color(0xFFDC2626),
+                                            borderColor:
+                                                const Color(0xFFFEE2E2),
                                           ),
                                         ],
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        _actionIcon(
-                                          icon: Icons.edit_outlined,
-                                          tooltip: isEditableProperty &&
-                                                  !isLayoutProperty
-                                              ? 'Edit'
-                                              : (hasMultiplePlots
-                                                  ? 'Edit disabled'
-                                                  : 'Edit (web only)'),
-                                          onTap: isEditableProperty &&
-                                                  !isLayoutProperty
-                                              ? () => unawaited(edit())
-                                              : () => ToastMessage.showAbove(
-                                                    context,
-                                                    hasMultiplePlots
-                                                        ? 'Only single-plot properties can be edited on mobile.'
-                                                        : 'Layout editable only in web screen.',
-                                                  ),
-                                          enabled: isEditableProperty &&
-                                              !isLayoutProperty,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        _actionIcon(
-                                          icon: Icons.delete_outline,
-                                          tooltip: deleteDisabledReason,
-                                          onTap: canDeleteProperty
-                                              ? () =>
-                                                  unawaited(deleteProperty())
-                                              : (isDeleting
-                                                  ? null
-                                                  : () =>
-                                                      ToastMessage.showAbove(
-                                                        context,
-                                                        hasMultiplePlots
-                                                            ? 'Only single-plot properties can be deleted on mobile.'
-                                                            : 'Layout deletions are available on the web screen.',
-                                                      )),
-                                          enabled: canDeleteProperty,
-                                          iconColor: const Color(0xFFDC2626),
-                                          borderColor: const Color(0xFFFEE2E2),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
             ),
           ],
