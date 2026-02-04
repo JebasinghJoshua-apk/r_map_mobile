@@ -869,6 +869,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   @override
   Widget build(BuildContext context) {
     final selectedPlot = _selectedPlot;
+    final bottomSystemInset = MediaQuery.of(context).viewPadding.bottom;
+    final bottomPanelInset = bottomSystemInset > 0 ? bottomSystemInset : 0.0;
+    final isBottomPanelOpen = selectedPlot != null || _selectedProperty != null;
     final markers = <Marker>{
       ..._viewportMarkers,
       ..._plotLabelMarkers,
@@ -953,51 +956,53 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
               ],
             ),
           ),
-          Positioned(
-            left: 16,
-            bottom: 24,
-            child: _mapControlButton(
-              icon: _mapType == MapType.hybrid
-                  ? Icons.map_outlined
-                  : Icons.satellite_alt_outlined,
-              tooltip: _mapType == MapType.hybrid
-                  ? 'Switch to map view'
-                  : 'Switch to satellite view',
-              onPressed: _toggleSatelliteMode,
+          if (!isBottomPanelOpen)
+            Positioned(
+              left: 16,
+              bottom: 12 + bottomPanelInset,
+              child: _mapControlButton(
+                icon: _mapType == MapType.hybrid
+                    ? Icons.map_outlined
+                    : Icons.satellite_alt_outlined,
+                tooltip: _mapType == MapType.hybrid
+                    ? 'Switch to map view'
+                    : 'Switch to satellite view',
+                onPressed: _toggleSatelliteMode,
+              ),
             ),
-          ),
-          Positioned(
-            right: 16,
-            bottom: 24,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _mapControlButton(
-                  icon: Icons.list_alt_outlined,
-                  tooltip: 'Nearby layouts',
-                  highlight: _isNearbyLayoutsReopenHintOn,
-                  onPressed: () {
-                    _nearbyLayoutsReopenHintTimer?.cancel();
-                    _nearbyLayoutsReopenHintTimer = null;
-                    _updateState(() {
-                      _isNearbyLayoutsReopenHintOn = false;
-                    });
+          if (!isBottomPanelOpen)
+            Positioned(
+              right: 16,
+              bottom: 12 + bottomPanelInset,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _mapControlButton(
+                    icon: Icons.list_alt_outlined,
+                    tooltip: 'Nearby layouts',
+                    highlight: _isNearbyLayoutsReopenHintOn,
+                    onPressed: () {
+                      _nearbyLayoutsReopenHintTimer?.cancel();
+                      _nearbyLayoutsReopenHintTimer = null;
+                      _updateState(() {
+                        _isNearbyLayoutsReopenHintOn = false;
+                      });
 
-                    final anchor = _lastCameraPosition.target;
-                    unawaited(
-                      _openNearbyLayoutsPopup(
-                        anchor: anchor,
-                        showWhenEmpty: true,
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 10),
-                _mapZoomControl(),
-              ],
+                      final anchor = _lastCameraPosition.target;
+                      unawaited(
+                        _openNearbyLayoutsPopup(
+                          anchor: anchor,
+                          showWhenEmpty: true,
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _mapZoomControl(),
+                ],
+              ),
             ),
-          ),
           if (_isViewportLoading)
             Positioned.fill(
               child: IgnorePointer(
@@ -1043,44 +1048,52 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
               left: 0,
               right: 0,
               bottom: 0,
-              child: PlotDetailsPanel(
-                plot: selectedPlot,
-                isSold:
-                    selectedPlot.layoutId != null && _isSoldPlot(selectedPlot),
-                areaLabel: _plotAreaLabel(selectedPlot),
-                tags: _plotTags(selectedPlot),
-                onClose: _closePlotPanel,
-                contactNumbers: _layoutContactNumbersForPlot(selectedPlot),
-                onLayoutDetails: () {
-                  final layoutId = selectedPlot.layoutId;
-                  if (layoutId == null || layoutId.trim().isEmpty) {
-                    ToastMessage.show(context, 'Layout details not available');
-                    return;
-                  }
-                  _dismissKeyboard();
-                  final feature = _propertyByFeatureId[layoutId.trim()];
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => LayoutDetailScreen(
-                        layoutId: layoutId.trim(),
-                        fallbackFeature: feature,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: bottomPanelInset),
+                child: PlotDetailsPanel(
+                  plot: selectedPlot,
+                  isSold: selectedPlot.layoutId != null &&
+                      _isSoldPlot(selectedPlot),
+                  areaLabel: _plotAreaLabel(selectedPlot),
+                  tags: _plotTags(selectedPlot),
+                  onClose: _closePlotPanel,
+                  contactNumbers: _layoutContactNumbersForPlot(selectedPlot),
+                  onLayoutDetails: () {
+                    final layoutId = selectedPlot.layoutId;
+                    if (layoutId == null || layoutId.trim().isEmpty) {
+                      ToastMessage.show(
+                        context,
+                        'Layout details not available',
+                      );
+                      return;
+                    }
+                    _dismissKeyboard();
+                    final feature = _propertyByFeatureId[layoutId.trim()];
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => LayoutDetailScreen(
+                          layoutId: layoutId.trim(),
+                          fallbackFeature: feature,
+                        ),
                       ),
-                    ),
-                  );
-                },
-                onUpdateStatus: () {
-                  final isAuthenticated = AuthScope.of(context).isAuthenticated;
-                  final layoutId = selectedPlot.layoutId?.trim();
-                  final canEditStatus = isAuthenticated &&
-                      layoutId != null &&
-                      layoutId.isNotEmpty &&
-                      _ownedLayoutIds.contains(layoutId);
+                    );
+                  },
+                  onUpdateStatus: () {
+                    final isAuthenticated =
+                        AuthScope.of(context).isAuthenticated;
+                    final layoutId = selectedPlot.layoutId?.trim();
+                    final canEditStatus = isAuthenticated &&
+                        layoutId != null &&
+                        layoutId.isNotEmpty &&
+                        _ownedLayoutIds.contains(layoutId);
 
-                  if (!canEditStatus) {
-                    return null;
-                  }
-                  return (status) => _updatePlotStatus(selectedPlot, status);
-                }(),
+                    if (!canEditStatus) {
+                      return null;
+                    }
+                    return (status) =>
+                        _updatePlotStatus(selectedPlot, status);
+                  }(),
+                ),
               ),
             ),
           if (selectedPlot == null && _selectedProperty != null)
@@ -1088,22 +1101,26 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
               left: 0,
               right: 0,
               bottom: 0,
-              child: _selectedProperty!.propertyType.trim() ==
-                      'IndependentHouse'
-                  ? _buildIndependentHouseCarouselPanel()
-                  : PropertyDetailsPanel(
-                      feature: _selectedProperty!,
-                      imageUrls: _selectedPropertyMediaUrls,
-                      isLoadingImages: _isSelectedPropertyMediaLoading,
-                      imagesError: _selectedPropertyMediaError,
-                      isSaved: _isFeatureSaved(_selectedProperty!),
-                      isSaving: _isFeatureSaving(_selectedProperty!),
-                      onToggleSaved: () =>
-                          unawaited(_toggleFeatureSaved(_selectedProperty!)),
-                      onOpenDetails: () =>
-                          _openPropertyDetails(_selectedProperty!),
-                      onClose: _closePropertyPanel,
-                    ),
+              child: Padding(
+                padding: EdgeInsets.only(bottom: bottomPanelInset),
+                child: _selectedProperty!.propertyType.trim() ==
+                        'IndependentHouse'
+                    ? _buildIndependentHouseCarouselPanel()
+                    : PropertyDetailsPanel(
+                        feature: _selectedProperty!,
+                        imageUrls: _selectedPropertyMediaUrls,
+                        isLoadingImages: _isSelectedPropertyMediaLoading,
+                        imagesError: _selectedPropertyMediaError,
+                        isSaved: _isFeatureSaved(_selectedProperty!),
+                        isSaving: _isFeatureSaving(_selectedProperty!),
+                        onToggleSaved: () => unawaited(
+                          _toggleFeatureSaved(_selectedProperty!),
+                        ),
+                        onOpenDetails: () =>
+                            _openPropertyDetails(_selectedProperty!),
+                        onClose: _closePropertyPanel,
+                      ),
+              ),
             ),
         ],
       ),

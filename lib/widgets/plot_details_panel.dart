@@ -181,6 +181,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                   color: Colors.white,
                   child: SafeArea(
                     top: false,
+                    bottom: false,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -193,179 +194,159 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                               LayoutBuilder(
                                 builder: (context, constraints) {
                                   const gap = 12.0;
-                                  const leftFlex = 3.0;
-                                  const rightFlex = 2.0;
-                                  const sketchAspectRatio = 152 / 112;
-
-                                  final contentWidth = constraints.maxWidth;
-                                  final leftWidth = (contentWidth - gap) *
-                                      (leftFlex / (leftFlex + rightFlex));
-                                  final sketchHeight =
-                                      leftWidth / sketchAspectRatio;
-
-                                  return SizedBox(
-                                    height: sketchHeight,
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
-                                        Expanded(
-                                          flex: 3,
-                                          child: _PlotSketchCard(
-                                            borderColor:
-                                                const Color(0xFF15803D),
-                                            dimensions: dimensions,
-                                            boundaryRing: plotRing,
-                                          ),
+                                  return Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        flex: 3,
+                                        child: _PlotSketchCard(
+                                          borderColor: const Color(0xFF15803D),
+                                          dimensions: dimensions,
+                                          boundaryRing: plotRing,
                                         ),
-                                        const SizedBox(width: gap),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Padding(
-                                            // Leave a touch of breathing room from the top.
-                                            padding:
-                                                const EdgeInsets.only(top: 6),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.center,
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.start,
-                                              mainAxisSize: MainAxisSize.max,
-                                              children: [
-                                                Text(
-                                                  'Plot #$plotNumber',
-                                                  textAlign: TextAlign.center,
-                                                  style: const TextStyle(
-                                                    fontSize: 16,
+                                      ),
+                                      const SizedBox(width: gap),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Padding(
+                                          // Leave a touch of breathing room from the top.
+                                          padding:
+                                              const EdgeInsets.only(top: 6),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.center,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.start,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                'Plot #$plotNumber',
+                                                textAlign: TextAlign.center,
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: Color(0xFF111827),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                totalSqftText,
+                                                textAlign: TextAlign.center,
+                                                style: const TextStyle(
+                                                  color: Color(0xFF4B5563),
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 10,
+                                                  vertical: 5,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: statusTheme.bg,
+                                                  border: Border.all(
+                                                    color: statusTheme.border,
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          999),
+                                                ),
+                                                child: Text(
+                                                  statusText,
+                                                  style: TextStyle(
+                                                    color: statusTheme.color,
                                                     fontWeight: FontWeight.w800,
-                                                    color: Color(0xFF111827),
+                                                    fontSize: 11,
+                                                    letterSpacing: 0.8,
                                                   ),
                                                 ),
-                                                const SizedBox(height: 8),
-                                                Text(
-                                                  totalSqftText,
-                                                  textAlign: TextAlign.center,
-                                                  style: const TextStyle(
-                                                    color: Color(0xFF4B5563),
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w700,
+                                              ),
+                                              const SizedBox(height: 14),
+                                              TextButton.icon(
+                                                onPressed: _showShareSheet,
+                                                style: TextButton.styleFrom(
+                                                  backgroundColor:
+                                                      const Color(0xFF2563EB)
+                                                          .withOpacity(0.10),
+                                                  side: const BorderSide(
+                                                    color: Color(0xFF93C5FD),
+                                                    width: 1,
                                                   ),
-                                                ),
-                                                const SizedBox(height: 8),
-                                                Container(
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                  ),
                                                   padding: const EdgeInsets
                                                       .symmetric(
                                                     horizontal: 10,
-                                                    vertical: 5,
+                                                    vertical: 8,
                                                   ),
-                                                  decoration: BoxDecoration(
-                                                    color: statusTheme.bg,
-                                                    border: Border.all(
-                                                      color: statusTheme.border,
-                                                    ),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            999),
-                                                  ),
-                                                  child: Text(
-                                                    statusText,
-                                                    style: TextStyle(
-                                                      color: statusTheme.color,
-                                                      fontWeight:
-                                                          FontWeight.w800,
-                                                      fontSize: 11,
-                                                      letterSpacing: 0.8,
-                                                    ),
-                                                  ),
+                                                  minimumSize:
+                                                      const Size(0, 32),
+                                                  tapTargetSize:
+                                                      MaterialTapTargetSize
+                                                          .shrinkWrap,
+                                                  visualDensity:
+                                                      VisualDensity.compact,
                                                 ),
-                                                const SizedBox(height: 14),
-                                                TextButton.icon(
-                                                  onPressed: _showShareSheet,
-                                                  style: TextButton.styleFrom(
-                                                    backgroundColor:
-                                                        const Color(0xFF2563EB)
-                                                            .withOpacity(0.10),
-                                                    side: const BorderSide(
-                                                      color: Color(0xFF93C5FD),
-                                                      width: 1,
-                                                    ),
-                                                    shape:
-                                                        RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              8),
-                                                    ),
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                      horizontal: 10,
-                                                      vertical: 8,
-                                                    ),
-                                                    minimumSize:
-                                                        const Size(0, 32),
-                                                    tapTargetSize:
-                                                        MaterialTapTargetSize
-                                                            .shrinkWrap,
-                                                    visualDensity:
-                                                        VisualDensity.compact,
-                                                  ),
-                                                  icon: const Icon(
-                                                    Icons.share_outlined,
-                                                    size: 14,
+                                                icon: const Icon(
+                                                  Icons.share_outlined,
+                                                  size: 14,
+                                                  color: Color(0xFF1D4ED8),
+                                                ),
+                                                label: const Text(
+                                                  'Share',
+                                                  style: TextStyle(
                                                     color: Color(0xFF1D4ED8),
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w500,
+                                                    height: 1,
                                                   ),
-                                                  label: const Text(
-                                                    'Share',
-                                                    style: TextStyle(
-                                                      color: Color(0xFF1D4ED8),
-                                                      fontSize: 11,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                      height: 1,
+                                                ),
+                                              ),
+                                              if (showLayoutDetailsLink) ...[
+                                                const SizedBox(height: 16),
+                                                Center(
+                                                  child: TextButton(
+                                                    onPressed:
+                                                        _handleLayoutDetailsPressed,
+                                                    style: TextButton.styleFrom(
+                                                      padding: EdgeInsets.zero,
+                                                      minimumSize:
+                                                          const Size(0, 0),
+                                                      tapTargetSize:
+                                                          MaterialTapTargetSize
+                                                              .shrinkWrap,
+                                                      visualDensity:
+                                                          VisualDensity.compact,
+                                                    ),
+                                                    child: const Text(
+                                                      'Layout Details →',
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: TextStyle(
+                                                        color:
+                                                            Color(0xFF1D4ED8),
+                                                        fontSize: 14,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        height: 1,
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
-                                                if (showLayoutDetailsLink) ...[
-                                                  const SizedBox(height: 16),
-                                                  Center(
-                                                    child: TextButton(
-                                                      onPressed:
-                                                          _handleLayoutDetailsPressed,
-                                                      style:
-                                                          TextButton.styleFrom(
-                                                        padding:
-                                                            EdgeInsets.zero,
-                                                        minimumSize:
-                                                            const Size(0, 0),
-                                                        tapTargetSize:
-                                                            MaterialTapTargetSize
-                                                                .shrinkWrap,
-                                                        visualDensity:
-                                                            VisualDensity
-                                                                .compact,
-                                                      ),
-                                                      child: const Text(
-                                                        'Layout Details →',
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        style: TextStyle(
-                                                          color:
-                                                              Color(0xFF1D4ED8),
-                                                          fontSize: 14,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          height: 1,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
                                               ],
-                                            ),
+                                            ],
                                           ),
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   );
                                 },
                               ),

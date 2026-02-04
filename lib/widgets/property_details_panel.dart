@@ -483,6 +483,7 @@ class PropertyDetailsPanel extends StatelessWidget {
                     onTap: canOpenDetails ? onOpenDetails : null,
                     child: SafeArea(
                       top: false,
+                      bottom: false,
                       child: LayoutBuilder(
                         builder: (context, constraints) {
                           // The panel itself is width-constrained; keep the left/right
