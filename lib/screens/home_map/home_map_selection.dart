@@ -420,9 +420,40 @@ extension _HomeMapSelection on _HomeMapScreenState {
     if (polygons.isEmpty) return const <Polygon>{};
 
     final zoom = _effectiveZoom ?? _lastCameraPosition.zoom;
-    final baseStrokeWidth =
-        _bumpPlotStrokeWidthForHighZoom(zoom, _plotStrokeWidth);
+    final kind = _plotElementKind(plot);
+    final isSold = plot.layoutId != null && _isSoldPlot(plot);
+
+    Color stroke;
+    Color fill;
+    int baseStrokeWidth;
+    double fillOpacity;
+
+    if (kind == 'road') {
+      stroke = _roadStroke;
+      fill = _roadFill;
+      baseStrokeWidth = _roadStrokeWidth;
+      fillOpacity = _roadFillOpacity;
+    } else if (kind == 'boundary') {
+      stroke = _layoutBoundaryStroke;
+      fill = _layoutBoundaryFill;
+      baseStrokeWidth = _layoutBoundaryStrokeWidth;
+      fillOpacity =
+          zoom >= _layoutFillHideZoom ? 0.0 : _layoutBoundaryFillOpacity;
+    } else if (isSold) {
+      stroke = _soldPlotStroke;
+      fill = _soldPlotFill;
+      baseStrokeWidth = _bumpPlotStrokeWidthForHighZoom(zoom, _plotStrokeWidth);
+      fillOpacity = _soldPlotFillOpacity;
+    } else {
+      stroke = _plotStroke;
+      fill = _plotFill;
+      baseStrokeWidth = _bumpPlotStrokeWidthForHighZoom(zoom, _plotStrokeWidth);
+      fillOpacity = _plotFillOpacity;
+    }
+
     final strokeWidth = baseStrokeWidth + _selectedPlotStrokeWidthBump;
+    final outlineStrokeWidth =
+        strokeWidth + _selectedPlotOutlineStrokeWidthExtra;
 
     final next = <Polygon>{};
     for (var i = 0; i < polygons.length; i++) {
@@ -430,12 +461,24 @@ extension _HomeMapSelection on _HomeMapScreenState {
       if (points.length < 3) continue;
       next.add(
         Polygon(
+          polygonId: PolygonId('plot-selected-outline:${plot.plotId}:$i'),
+          points: points,
+          strokeWidth: outlineStrokeWidth,
+          strokeColor: _selectedPlotOutlineStroke
+              .withOpacity(_selectedPlotOutlineOpacity),
+          fillColor: Colors.transparent,
+          consumeTapEvents: false,
+          zIndex: _selectedPlotOutlineZIndex,
+        ),
+      );
+
+      next.add(
+        Polygon(
           polygonId: PolygonId('plot-selected:${plot.plotId}:$i'),
           points: points,
           strokeWidth: strokeWidth,
-          strokeColor:
-              _selectedPlotStroke.withOpacity(_selectedPlotStrokeOpacity),
-          fillColor: _selectedPlotFill.withOpacity(_selectedPlotFillOpacity),
+          strokeColor: stroke.withOpacity(1.0),
+          fillColor: fill.withOpacity(fillOpacity),
           consumeTapEvents: false,
           zIndex: _selectedPlotZIndex,
         ),

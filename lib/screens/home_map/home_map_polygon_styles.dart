@@ -28,12 +28,14 @@ const double _soldPlotStrokeOpacity = 0.70;
 const double _soldPlotFillOpacity = 0.55;
 
 // Selected plot highlight overlay (mobile-only UX affordance).
-const Color _selectedPlotStroke = Color(0xFF2563EB);
-const Color _selectedPlotFill = Color(0xFF93C5FD);
-const double _selectedPlotStrokeOpacity = 1.0;
-const double _selectedPlotFillOpacity = 0.22;
+// Match selected property UX: keep same base colors, but add a white outline
+// so the selection reads clearly over adjacent polygons.
+const Color _selectedPlotOutlineStroke = Color(0xFFFFFFFF);
+const double _selectedPlotOutlineOpacity = 0.95;
 const int _selectedPlotStrokeWidthBump = 2;
+const int _selectedPlotOutlineStrokeWidthExtra = 3;
 const int _selectedPlotZIndex = 999999;
+const int _selectedPlotOutlineZIndex = 999998;
 
 // Selected property highlight overlay (mobile-only UX affordance).
 // Keep the same color as the property type, but increase stroke width and add

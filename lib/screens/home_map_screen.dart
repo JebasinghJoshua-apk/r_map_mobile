@@ -908,6 +908,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
             onCameraIdle: _onCameraIdle,
             mapType: _mapType,
             style: _mapType == MapType.normal ? _lightMapStyle : null,
+            mapToolbarEnabled: false,
             markers: markers,
             polygons: {
               ..._layoutPolygons,

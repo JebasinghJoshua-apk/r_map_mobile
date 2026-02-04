@@ -712,7 +712,7 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
 
       if (feature.propertyType.trim() == 'Layout' &&
           feature.isOwnedByCurrentUser) {
-        final layoutId = feature.propertyId.trim();
+        final layoutId = feature.featureId.trim();
         if (layoutId.isNotEmpty) {
           ownedLayoutIds.add(layoutId);
         }
