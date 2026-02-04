@@ -41,7 +41,10 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
   @override
   void initState() {
     super.initState();
-    widget.onOpened?.call();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.onOpened?.call();
+    });
     unawaited(_load());
   }
 

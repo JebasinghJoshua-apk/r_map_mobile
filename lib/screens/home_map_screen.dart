@@ -781,16 +781,19 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                             );
                             return;
                           }
-                          _dismissKeyboard();
-                          _closeAnyPanel();
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => LayoutDetailScreen(
-                                layoutId: layoutId,
-                                fallbackFeature: feature,
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (!mounted) return;
+                            _dismissKeyboard();
+                            _closeAnyPanel();
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => LayoutDetailScreen(
+                                  layoutId: layoutId,
+                                  fallbackFeature: feature,
+                                ),
                               ),
-                            ),
-                          );
+                            );
+                          });
                         })
                   : () => unawaited(
                         _handlePropertyTapped(
