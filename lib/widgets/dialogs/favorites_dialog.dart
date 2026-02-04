@@ -31,6 +31,7 @@ class _FavoritesDialogState extends State<FavoritesDialog> {
   bool _isLoading = true;
   String? _error;
   final Set<String> _removingIds = <String>{};
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -40,6 +41,12 @@ class _FavoritesDialogState extends State<FavoritesDialog> {
       widget.onOpened?.call();
     });
     unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   bool _isNew(DateTime createdAt) {
@@ -288,274 +295,288 @@ class _FavoritesDialogState extends State<FavoritesDialog> {
                         ),
                       ),
                     )
-                  : ListView.separated(
-                      shrinkWrap: shouldShrink,
-                      physics: shouldShrink
-                          ? const NeverScrollableScrollPhysics()
-                          : null,
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                      itemCount: sorted.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        final saved = sorted[index];
-                        final propertyId = saved.propertyId.trim().isEmpty
-                            ? saved.property.id.trim()
-                            : saved.propertyId.trim();
-                        final isRemoving = _removingIds.contains(propertyId);
+                  : Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      thickness: 3,
+                      radius: const Radius.circular(999),
+                      child: ListView.separated(
+                        controller: _scrollController,
+                        shrinkWrap: shouldShrink,
+                        physics: shouldShrink
+                            ? const NeverScrollableScrollPhysics()
+                            : null,
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                        itemCount: sorted.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final saved = sorted[index];
+                          final propertyId = saved.propertyId.trim().isEmpty
+                              ? saved.property.id.trim()
+                              : saved.propertyId.trim();
+                          final isRemoving = _removingIds.contains(propertyId);
 
-                        final p = saved.property;
-                        final name = p.name.trim().isEmpty
-                            ? (p.propertyTypeName?.trim().isEmpty ?? true
-                                ? 'Property'
-                                : p.propertyTypeName!.trim())
-                            : p.name.trim();
+                          final p = saved.property;
+                          final name = p.name.trim().isEmpty
+                              ? (p.propertyTypeName?.trim().isEmpty ?? true
+                                  ? 'Property'
+                                  : p.propertyTypeName!.trim())
+                              : p.name.trim();
 
-                        final locationLabel = p.locationLabel.trim();
-                        final locationMissing = locationLabel.isEmpty;
+                          final locationLabel = p.locationLabel.trim();
+                          final locationMissing = locationLabel.isEmpty;
 
-                        final typeLabel =
-                            (p.propertyTypeName ?? '').trim().isEmpty
-                                ? 'Property'
-                                : p.propertyTypeName!.trim();
-                        final dateLabel = _formatDate(saved.savedAt);
-                        final isPending = p.isApproved == false;
-                        final isNew = _isNew(saved.savedAt);
+                          final typeLabel =
+                              (p.propertyTypeName ?? '').trim().isEmpty
+                                  ? 'Property'
+                                  : p.propertyTypeName!.trim();
+                          final dateLabel = _formatDate(saved.savedAt);
+                          final isPending = p.isApproved == false;
+                          final isNew = _isNew(saved.savedAt);
 
-                        Future<void> focus() async {
-                          final center = p.centerPoint;
-                          if (center == null) {
-                            if (!mounted) return;
-                            ToastMessage.show(
-                                context, 'Location not available');
-                            return;
+                          Future<void> focus() async {
+                            final center = p.centerPoint;
+                            if (center == null) {
+                              if (!mounted) return;
+                              ToastMessage.show(
+                                  context, 'Location not available');
+                              return;
+                            }
+
+                            Navigator.of(context).pop();
+                            await widget.onPlaceSelected(center, name, 18);
                           }
 
-                          Navigator.of(context).pop();
-                          await widget.onPlaceSelected(center, name, 18);
-                        }
-
-                        Future<void> remove() async {
-                          if (propertyId.isEmpty) {
-                            if (!mounted) return;
-                            ToastMessage.show(context, 'Invalid property id');
-                            return;
+                          Future<void> remove() async {
+                            if (propertyId.isEmpty) {
+                              if (!mounted) return;
+                              ToastMessage.show(context, 'Invalid property id');
+                              return;
+                            }
+                            await _removeFavorite(propertyId);
                           }
-                          await _removeFavorite(propertyId);
-                        }
 
-                        return Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(10),
-                            onTap: isRemoving ? null : () => unawaited(focus()),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: const Color(0xFFE2E8F0),
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x14000000),
-                                    blurRadius: 10,
-                                    offset: Offset(0, 4),
+                          return Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap:
+                                  isRemoving ? null : () => unawaited(focus()),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E8F0),
                                   ),
-                                ],
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 12,
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x14000000),
+                                      blurRadius: 10,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
                                 ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: isNew
-                                                    ? Text.rich(
-                                                        TextSpan(
-                                                          children: [
-                                                            TextSpan(
-                                                              text: name,
-                                                            ),
-                                                            WidgetSpan(
-                                                              alignment:
-                                                                  PlaceholderAlignment
-                                                                      .middle,
-                                                              child: Padding(
-                                                                padding:
-                                                                    const EdgeInsets
-                                                                        .only(
-                                                                  left: 8,
-                                                                ),
-                                                                child:
-                                                                    DecoratedBox(
-                                                                  decoration:
-                                                                      BoxDecoration(
-                                                                    color: const Color(
-                                                                        0xFFECFDF5),
-                                                                    borderRadius:
-                                                                        BorderRadius
-                                                                            .circular(6),
-                                                                    border:
-                                                                        Border
-                                                                            .all(
-                                                                      color: const Color(
-                                                                          0xFF34D399),
-                                                                    ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 12,
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: isNew
+                                                      ? Text.rich(
+                                                          TextSpan(
+                                                            children: [
+                                                              TextSpan(
+                                                                text: name,
+                                                              ),
+                                                              WidgetSpan(
+                                                                alignment:
+                                                                    PlaceholderAlignment
+                                                                        .middle,
+                                                                child: Padding(
+                                                                  padding:
+                                                                      const EdgeInsets
+                                                                          .only(
+                                                                    left: 8,
                                                                   ),
                                                                   child:
-                                                                      const Padding(
-                                                                    padding:
-                                                                        EdgeInsets
-                                                                            .symmetric(
-                                                                      horizontal:
-                                                                          8,
-                                                                      vertical:
-                                                                          2,
+                                                                      DecoratedBox(
+                                                                    decoration:
+                                                                        BoxDecoration(
+                                                                      color: const Color(
+                                                                          0xFFECFDF5),
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                              6),
+                                                                      border:
+                                                                          Border
+                                                                              .all(
+                                                                        color: const Color(
+                                                                            0xFF34D399),
+                                                                      ),
                                                                     ),
-                                                                    child: Text(
-                                                                      'NEW',
-                                                                      style:
-                                                                          TextStyle(
-                                                                        color: Color(
-                                                                            0xFF059669),
-                                                                        fontSize:
-                                                                            10,
-                                                                        fontWeight:
-                                                                            FontWeight.w800,
+                                                                    child:
+                                                                        const Padding(
+                                                                      padding:
+                                                                          EdgeInsets
+                                                                              .symmetric(
+                                                                        horizontal:
+                                                                            8,
+                                                                        vertical:
+                                                                            2,
+                                                                      ),
+                                                                      child:
+                                                                          Text(
+                                                                        'NEW',
+                                                                        style:
+                                                                            TextStyle(
+                                                                          color:
+                                                                              Color(0xFF059669),
+                                                                          fontSize:
+                                                                              10,
+                                                                          fontWeight:
+                                                                              FontWeight.w800,
+                                                                        ),
                                                                       ),
                                                                     ),
                                                                   ),
                                                                 ),
                                                               ),
-                                                            ),
-                                                          ],
+                                                            ],
+                                                          ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          style:
+                                                              const TextStyle(
+                                                            fontSize: 15,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                            color: Color(
+                                                                0xFF0F766E),
+                                                          ),
+                                                        )
+                                                      : Text(
+                                                          name,
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          style:
+                                                              const TextStyle(
+                                                            fontSize: 15,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                            color: Color(
+                                                                0xFF0F766E),
+                                                          ),
                                                         ),
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        style: const TextStyle(
-                                                          fontSize: 15,
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                          color:
-                                                              Color(0xFF0F766E),
-                                                        ),
-                                                      )
-                                                    : Text(
-                                                        name,
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        style: const TextStyle(
-                                                          fontSize: 15,
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                          color:
-                                                              Color(0xFF0F766E),
-                                                        ),
-                                                      ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            children: [
-                                              Icon(
-                                                Icons.location_on_outlined,
-                                                size: 16,
-                                                color: locationMissing
-                                                    ? const Color(0xFFDC2626)
-                                                    : const Color(0xFF64748B),
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Expanded(
-                                                child: Text(
-                                                  locationMissing
-                                                      ? 'Location not added'
-                                                      : locationLabel,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: locationMissing
-                                                        ? const Color(
-                                                            0xFFDC2626)
-                                                        : const Color(
-                                                            0xFF475569),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.location_on_outlined,
+                                                  size: 16,
+                                                  color: locationMissing
+                                                      ? const Color(0xFFDC2626)
+                                                      : const Color(0xFF64748B),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Expanded(
+                                                  child: Text(
+                                                    locationMissing
+                                                        ? 'Location not added'
+                                                        : locationLabel,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: locationMissing
+                                                          ? const Color(
+                                                              0xFFDC2626)
+                                                          : const Color(
+                                                              0xFF475569),
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 10),
-                                          Wrap(
-                                            spacing: 14,
-                                            runSpacing: 8,
-                                            children: [
-                                              _metaChip(
-                                                Icons.category_outlined,
-                                                typeLabel,
-                                              ),
-                                              _metaChip(
-                                                Icons.schedule,
-                                                dateLabel,
-                                              ),
-                                              if (isPending)
+                                              ],
+                                            ),
+                                            const SizedBox(height: 10),
+                                            Wrap(
+                                              spacing: 14,
+                                              runSpacing: 8,
+                                              children: [
                                                 _metaChip(
-                                                  Icons
-                                                      .pending_actions_outlined,
-                                                  'Pending',
+                                                  Icons.category_outlined,
+                                                  typeLabel,
                                                 ),
-                                            ],
+                                                _metaChip(
+                                                  Icons.schedule,
+                                                  dateLabel,
+                                                ),
+                                                if (isPending)
+                                                  _metaChip(
+                                                    Icons
+                                                        .pending_actions_outlined,
+                                                    'Pending',
+                                                  ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          _actionIcon(
+                                            icon: Icons.visibility_outlined,
+                                            tooltip: 'View',
+                                            onTap: isRemoving
+                                                ? null
+                                                : () => unawaited(focus()),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          _actionIcon(
+                                            icon: Icons.delete_outline,
+                                            tooltip: isRemoving
+                                                ? 'Removing...'
+                                                : 'Remove',
+                                            onTap: isRemoving
+                                                ? null
+                                                : () => unawaited(remove()),
+                                            enabled: !isRemoving,
+                                            iconColor: const Color(0xFFDC2626),
+                                            borderColor:
+                                                const Color(0xFFFEE2E2),
                                           ),
                                         ],
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        _actionIcon(
-                                          icon: Icons.visibility_outlined,
-                                          tooltip: 'View',
-                                          onTap: isRemoving
-                                              ? null
-                                              : () => unawaited(focus()),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        _actionIcon(
-                                          icon: Icons.delete_outline,
-                                          tooltip: isRemoving
-                                              ? 'Removing...'
-                                              : 'Remove',
-                                          onTap: isRemoving
-                                              ? null
-                                              : () => unawaited(remove()),
-                                          enabled: !isRemoving,
-                                          iconColor: const Color(0xFFDC2626),
-                                          borderColor: const Color(0xFFFEE2E2),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
             ),
           ],
