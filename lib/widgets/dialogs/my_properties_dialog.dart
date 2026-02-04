@@ -283,6 +283,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+      clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
@@ -397,7 +398,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                   : Scrollbar(
                       controller: _scrollController,
                       thumbVisibility: true,
-                      thickness: 3,
+                      thickness: 4,
                       radius: const Radius.circular(999),
                       child: ListView.separated(
                         controller: _scrollController,
