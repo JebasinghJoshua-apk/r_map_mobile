@@ -29,6 +29,7 @@ import '../models/property_detail.dart';
 import 'layout_detail_screen.dart';
 import 'property_detail_screen.dart';
 import '../utils/route_observer.dart';
+import '../utils/anchored_popover_geometry.dart';
 
 part 'home_map_screen.helpers.dart';
 part 'home_map/home_map_filters.dart';
@@ -959,7 +960,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
           if (!isBottomPanelOpen)
             Positioned(
               left: 16,
-              bottom: 12 + bottomPanelInset,
+              bottom: 10 + bottomPanelInset,
               child: _mapControlButton(
                 icon: _mapType == MapType.hybrid
                     ? Icons.map_outlined
@@ -973,7 +974,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
           if (!isBottomPanelOpen)
             Positioned(
               right: 16,
-              bottom: 12 + bottomPanelInset,
+              bottom: 10 + bottomPanelInset,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -1090,8 +1091,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                     if (!canEditStatus) {
                       return null;
                     }
-                    return (status) =>
-                        _updatePlotStatus(selectedPlot, status);
+                    return (status) => _updatePlotStatus(selectedPlot, status);
                   }(),
                 ),
               ),
@@ -1103,23 +1103,23 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
               bottom: 0,
               child: Padding(
                 padding: EdgeInsets.only(bottom: bottomPanelInset),
-                child: _selectedProperty!.propertyType.trim() ==
-                        'IndependentHouse'
-                    ? _buildIndependentHouseCarouselPanel()
-                    : PropertyDetailsPanel(
-                        feature: _selectedProperty!,
-                        imageUrls: _selectedPropertyMediaUrls,
-                        isLoadingImages: _isSelectedPropertyMediaLoading,
-                        imagesError: _selectedPropertyMediaError,
-                        isSaved: _isFeatureSaved(_selectedProperty!),
-                        isSaving: _isFeatureSaving(_selectedProperty!),
-                        onToggleSaved: () => unawaited(
-                          _toggleFeatureSaved(_selectedProperty!),
-                        ),
-                        onOpenDetails: () =>
-                            _openPropertyDetails(_selectedProperty!),
-                        onClose: _closePropertyPanel,
-                      ),
+                child:
+                    _selectedProperty!.propertyType.trim() == 'IndependentHouse'
+                        ? _buildIndependentHouseCarouselPanel()
+                        : PropertyDetailsPanel(
+                            feature: _selectedProperty!,
+                            imageUrls: _selectedPropertyMediaUrls,
+                            isLoadingImages: _isSelectedPropertyMediaLoading,
+                            imagesError: _selectedPropertyMediaError,
+                            isSaved: _isFeatureSaved(_selectedProperty!),
+                            isSaving: _isFeatureSaving(_selectedProperty!),
+                            onToggleSaved: () => unawaited(
+                              _toggleFeatureSaved(_selectedProperty!),
+                            ),
+                            onOpenDetails: () =>
+                                _openPropertyDetails(_selectedProperty!),
+                            onClose: _closePropertyPanel,
+                          ),
               ),
             ),
         ],

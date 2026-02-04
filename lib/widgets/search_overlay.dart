@@ -13,6 +13,7 @@ import '../models/recent_place.dart';
 import '../services/mobile_bff_map_api.dart';
 import '../services/mobile_bff_saved_properties_api.dart';
 import '../state/auth_scope.dart';
+import '../utils/anchored_popover_geometry.dart';
 import 'auth_dialog.dart';
 import 'dialogs/favorites_dialog.dart';
 import 'dialogs/my_properties_dialog.dart';
@@ -960,25 +961,16 @@ Future<_ProfileMenuAction?> _showProfileMenuPopover({
     transitionDuration: const Duration(milliseconds: 140),
     pageBuilder: (context, _, __) {
       final media = MediaQuery.of(context);
-      final size = media.size;
-
-      final safeTop = media.padding.top;
-      final popupTopRaw = anchorRect.bottom + popupGap - popupOverlapIntoAnchor;
-      final popupTop = popupTopRaw < safeTop + 4 ? safeTop + 4 : popupTopRaw;
-
-      final anchorCenterX = anchorRect.left + (anchorRect.width / 2);
-      final popupLeftRaw = anchorCenterX - (popupWidth / 2);
-      final popupLeftMax = size.width - horizontalPadding - popupWidth;
-      final popupLeft = popupLeftRaw < horizontalPadding
-          ? horizontalPadding
-          : (popupLeftRaw > popupLeftMax ? popupLeftMax : popupLeftRaw);
-
-      final arrowLeftMin = popupLeft + 12;
-      final arrowLeftMax = popupLeft + popupWidth - 12 - arrowWidth;
-      final arrowLeftRaw = anchorCenterX - (arrowWidth / 2);
-      final arrowLeft = arrowLeftRaw < arrowLeftMin
-          ? arrowLeftMin
-          : (arrowLeftRaw > arrowLeftMax ? arrowLeftMax : arrowLeftRaw);
+      final geometry = AnchoredPopoverGeometry.compute(
+        media: media,
+        popupAnchorRect: anchorRect,
+        arrowAnchorRect: anchorRect,
+        horizontalPadding: horizontalPadding,
+        popupWidth: popupWidth,
+        arrowWidth: arrowWidth,
+        popupGap: popupGap,
+        popupOverlapIntoAnchor: popupOverlapIntoAnchor,
+      );
 
       final fullName = session == null
           ? ''
@@ -1047,8 +1039,8 @@ Future<_ProfileMenuAction?> _showProfileMenuPopover({
           child: Stack(
             children: [
               Positioned(
-                top: popupTop,
-                left: popupLeft,
+                top: geometry.popupTop,
+                left: geometry.popupLeft,
                 width: popupWidth,
                 child: GestureDetector(
                   onTap: () {},
@@ -1119,8 +1111,8 @@ Future<_ProfileMenuAction?> _showProfileMenuPopover({
                 ),
               ),
               Positioned(
-                top: popupTop - arrowHeight + arrowOverlapIntoPopup,
-                left: arrowLeft,
+                top: geometry.popupTop - arrowHeight + arrowOverlapIntoPopup,
+                left: geometry.arrowLeft,
                 child: const IgnorePointer(
                   child: _ProfilePopoverArrow(
                     width: arrowWidth,

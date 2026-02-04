@@ -16,7 +16,7 @@ class PlotDetailsPanel extends StatefulWidget {
     required this.isSold,
     required this.areaLabel,
     required this.tags,
-    this.outerPadding = const EdgeInsets.fromLTRB(12, 0, 12, 12),
+    this.outerPadding = const EdgeInsets.fromLTRB(12, 0, 12, 10),
     required this.onClose,
     this.contactNumbers,
     this.onLayoutDetails,

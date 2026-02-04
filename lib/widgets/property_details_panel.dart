@@ -16,7 +16,7 @@ class PropertyDetailsPanel extends StatelessWidget {
     this.isSaving = false,
     this.onToggleSaved,
     this.onOpenDetails,
-    this.outerPadding = const EdgeInsets.fromLTRB(12, 0, 12, 12),
+    this.outerPadding = const EdgeInsets.fromLTRB(12, 0, 12, 10),
     required this.onClose,
   });
 
