@@ -54,6 +54,16 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     'Lease',
   ];
 
+  static const List<String> _commercialTypeOptions = <String>[
+    'Office Space',
+    'Showroom',
+    'Shop',
+    'Godown',
+    'Industrial',
+    'Co-working',
+    'Restaurant',
+  ];
+
   static const Map<String, int> _propertyTypeValueMap = {
     'Plot': 1,
     'Apartment': 2,
@@ -956,6 +966,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         'contactName': contactName,
         'contactNumber': normalizedContact,
         'boundaryGeoJson': boundaryGeoJson,
+        'roads': const <Map<String, dynamic>>[],
       };
       createType = 'commercial-spaces';
     }
@@ -1880,7 +1891,46 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         ];
       default:
         return [
-          _sectionTitle('Commercial Space Details'),
+          _dropdown(
+            label: 'Commercial Type',
+            value:
+                _commercialSpaceType.isEmpty ? 'Select' : _commercialSpaceType,
+            options: <String>['Select', ..._commercialTypeOptions],
+            onChanged: (v) => setState(() {
+              final next = (v ?? '').trim();
+              _commercialSpaceType = next == 'Select' ? '' : next;
+              _applyCommercialAutoTitleIfAllowed();
+            }),
+          ),
+          const SizedBox(height: 12),
+          _textField(
+            label: 'Built-up Area (Sq.ft)',
+            value: _commercialBuiltUpArea,
+            onChanged: (v) => setState(() => _commercialBuiltUpArea = v),
+            hint: 'e.g., 1200',
+            keyboard: TextInputType.number,
+          ),
+          const SizedBox(height: 12),
+          _textField(
+            label: 'Price / Rent',
+            value: _commercialPrice,
+            controller: _commercialPriceController,
+            inputFormatters: indianPriceFormatters,
+            onChanged: (v) => setState(() => _commercialPrice = v),
+            hint: 'e.g., ₹1,20,000 per month',
+            keyboard: TextInputType.number,
+          ),
+          const SizedBox(height: 12),
+          _textField(
+            label: 'Locality / Landmark',
+            value: _commercialLocation,
+            onChanged: (v) => setState(() {
+              _commercialLocation = v;
+              _applyCommercialAutoTitleIfAllowed();
+            }),
+            hint: 'e.g., Anna Nagar, Chennai',
+          ),
+          const SizedBox(height: 12),
           _textField(
             label: 'Property Title',
             value: _commercialTitle,
@@ -1889,62 +1939,40 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
               _commercialTitle = v;
               _commercialTitleManuallyEdited = v.trim().isNotEmpty;
             }),
+            hint: 'e.g., Office Space for Rent in T. Nagar',
           ),
           const SizedBox(height: 12),
           _textField(
-            label: 'Space Type (optional)',
-            value: _commercialSpaceType,
-            onChanged: (v) => setState(() {
-              _commercialSpaceType = v;
-              _applyCommercialAutoTitleIfAllowed();
-            }),
-          ),
-          const SizedBox(height: 12),
-          _textField(
-            label: 'Built-up Area (sq.ft.)',
-            value: _commercialBuiltUpArea,
-            onChanged: (v) => setState(() => _commercialBuiltUpArea = v),
-            keyboard: TextInputType.number,
-          ),
-          const SizedBox(height: 12),
-          _textField(
-            label: 'Price',
-            value: _commercialPrice,
-            controller: _commercialPriceController,
-            inputFormatters: indianPriceFormatters,
-            onChanged: (v) => setState(() => _commercialPrice = v),
-            keyboard: TextInputType.number,
-          ),
-          const SizedBox(height: 12),
-          _textField(
-            label: 'Location',
-            value: _commercialLocation,
-            onChanged: (v) => setState(() {
-              _commercialLocation = v;
-              _applyCommercialAutoTitleIfAllowed();
-            }),
-          ),
-          const SizedBox(height: 12),
-          _textField(
-            label: 'Additional Details',
+            label: 'Description',
             value: _commercialAdditionalDetails,
             onChanged: (v) => setState(() => _commercialAdditionalDetails = v),
-            hint: 'Optional',
+            hint: 'e.g., Ground Floor, Road Facing, Car Parking Available',
+            maxLines: 3,
+            minLines: 3,
           ),
           const SizedBox(height: 12),
-          _textField(
-            label: 'Contact Name',
-            value: _commercialContactName,
-            controller: _commercialContactNameController,
-            onChanged: (v) => setState(() => _commercialContactName = v),
-          ),
-          const SizedBox(height: 12),
-          _textField(
-            label: 'Contact Number',
-            value: _commercialContactNumber,
-            controller: _commercialContactNumberController,
-            onChanged: (v) => setState(() => _commercialContactNumber = v),
-            keyboard: TextInputType.phone,
+          Row(
+            children: [
+              Expanded(
+                child: _textField(
+                  label: 'Contact Name',
+                  value: _commercialContactName,
+                  controller: _commercialContactNameController,
+                  onChanged: (v) => setState(() => _commercialContactName = v),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _textField(
+                  label: 'Contact Number',
+                  value: _commercialContactNumber,
+                  controller: _commercialContactNumberController,
+                  onChanged: (v) =>
+                      setState(() => _commercialContactNumber = v),
+                  keyboard: TextInputType.phone,
+                ),
+              ),
+            ],
           ),
         ];
     }
