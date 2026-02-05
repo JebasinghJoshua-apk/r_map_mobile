@@ -26,6 +26,7 @@ import '../models/map_viewport_models.dart';
 import '../models/my_property_list_item.dart';
 import '../models/nearby_property_card.dart';
 import '../models/property_detail.dart';
+import '../models/saved_property.dart';
 import 'layout_detail_screen.dart';
 import 'property_detail_screen.dart';
 import '../utils/route_observer.dart';
@@ -945,6 +946,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                         googlePlace: _googlePlace!,
                         onPlaceSelected: _moveCameraTo,
                         onShortlistedPlaceSelected: _moveCameraToFromShortlist,
+                        onShortlistedPropertySelected:
+                            _onShortlistedPropertySelected,
                         onMyPropertySelected: _onMyPropertySelected,
                         onMyPropertyDeleted: _onMyPropertyDeleted,
                         onMyPropertiesOpened: _closeAnyPanel,

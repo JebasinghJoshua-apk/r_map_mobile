@@ -10,6 +10,7 @@ import '../constants/search_constants.dart';
 import '../models/auth_session.dart';
 import '../models/my_property_list_item.dart';
 import '../models/recent_place.dart';
+import '../models/saved_property.dart';
 import '../services/mobile_bff_map_api.dart';
 import '../services/mobile_bff_saved_properties_api.dart';
 import '../state/auth_scope.dart';
@@ -25,6 +26,7 @@ class SearchOverlay extends StatefulWidget {
     required this.googlePlace,
     required this.onPlaceSelected,
     this.onShortlistedPlaceSelected,
+    this.onShortlistedPropertySelected,
     this.onMyPropertySelected,
     this.onMyPropertyDeleted,
     this.onMyPropertiesOpened,
@@ -41,6 +43,9 @@ class SearchOverlay extends StatefulWidget {
 
   final Future<void> Function(LatLng target, String label, double zoom)?
       onShortlistedPlaceSelected;
+
+  final Future<void> Function(SavedProperty saved)?
+      onShortlistedPropertySelected;
 
   final Future<void> Function(MyPropertyListItem item)? onMyPropertySelected;
   final Future<void> Function(MyPropertyListItem item)? onMyPropertyDeleted;
@@ -125,6 +130,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
         savedPropertiesApi: _savedPropertiesApi,
         onPlaceSelected:
             widget.onShortlistedPlaceSelected ?? widget.onPlaceSelected,
+        onSavedPropertySelected: widget.onShortlistedPropertySelected,
         onOpened: widget.onMyPropertiesOpened,
       ),
     );

@@ -13,6 +13,7 @@ class FavoritesDialog extends StatefulWidget {
     required this.bearerToken,
     required this.savedPropertiesApi,
     required this.onPlaceSelected,
+    this.onSavedPropertySelected,
     required this.onOpened,
   });
 
@@ -20,6 +21,7 @@ class FavoritesDialog extends StatefulWidget {
   final MobileBffSavedPropertiesApi savedPropertiesApi;
   final Future<void> Function(LatLng target, String label, double zoom)
       onPlaceSelected;
+  final Future<void> Function(SavedProperty saved)? onSavedPropertySelected;
   final VoidCallback? onOpened;
 
   @override
@@ -345,7 +347,12 @@ class _FavoritesDialogState extends State<FavoritesDialog> {
                             }
 
                             Navigator.of(context).pop();
-                            await widget.onPlaceSelected(center, name, 18);
+                            final onSaved = widget.onSavedPropertySelected;
+                            if (onSaved != null) {
+                              await onSaved(saved);
+                            } else {
+                              await widget.onPlaceSelected(center, name, 18);
+                            }
                           }
 
                           Future<void> remove() async {
