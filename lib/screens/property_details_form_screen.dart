@@ -982,14 +982,110 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         toastMessage = 'Property saved';
       }
 
-      // Use root overlay so the toast remains visible even after popping
-      // all the way back to the map screen.
-      ToastMessage.showAbove(context, toastMessage);
+      // Unfreeze the screen now that the save finished.
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
 
-      // Return to the map screen (previous state) by closing the entire
-      // add flow stack: details -> polygon editor -> my properties dialog.
-      Navigator.of(context, rootNavigator: true)
-          .popUntil((route) => route.isFirst);
+      if (!mounted) return;
+
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        useRootNavigator: true,
+        builder: (dialogContext) {
+          final size = MediaQuery.of(dialogContext).size;
+          final maxWidth = size.width - 64;
+          final dialogWidth = maxWidth < 332 ? maxWidth : 332.0;
+          return WillPopScope(
+            onWillPop: () async => false,
+            child: Dialog(
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: dialogWidth),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                      child: Row(
+                        children: const [
+                          Text(
+                            'Successfully saved',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            toastMessage,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF475569),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Tap OK to return to the map.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 14),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF0FAD97),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            onPressed: () {
+                              Navigator.of(dialogContext, rootNavigator: true)
+                                  .pop();
+                              Navigator.of(context, rootNavigator: true)
+                                  .popUntil((route) => route.isFirst);
+                            },
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+
+      return;
     } on MapApiException catch (ex) {
       if (!mounted) return;
       ToastMessage.show(context, ex.message);
@@ -1719,75 +1815,130 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         widget.initialPropertyType?.trim() == 'Independent House';
     final showListingType =
         _propertyType != 'Plot' && _propertyType != 'Layouts';
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text(
-          'Property Details',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF0F172A),
-          ),
-        ),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        elevation: 0,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: FilledButton(
-              onPressed: _isSaving ? null : _handleSave,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF0FAD97),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: Text(_isSaving ? 'Saving...' : 'Save'),
+    return WillPopScope(
+      onWillPop: () async => !_isSaving,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          title: const Text(
+            'Property Details',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0F172A),
             ),
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          children: [
-            if (showListingType) ...[
-              _dropdown(
-                label: 'Listing Type',
-                value: _listingType,
-                options: _listingTypes,
-                onChanged: (v) => setState(() => _listingType = v ?? 'Buy'),
-              ),
-              const SizedBox(height: 12),
-            ],
-            if (!guidedIndependentHouse) ...[
-              _dropdown(
-                label: 'Property Type',
-                value: _propertyType,
-                options: _propertyTypes,
-                onChanged: (v) => setState(() => _propertyType = v ?? 'Plot'),
-              ),
-              const SizedBox(height: 10),
-            ],
-            ..._buildPropertyFields(),
-            const SizedBox(height: 16),
-            _buildPhotosSection(),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: _isSaving ? null : _handleSave,
-              icon: const Icon(Icons.save_outlined),
-              label: Text(_isSaving ? 'Saving...' : 'Save Property'),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(44),
-                backgroundColor: const Color(0xFF0FAD97),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          elevation: 0,
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: FilledButton(
+                onPressed: _isSaving ? null : _handleSave,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF0FAD97),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
+                child: Text(_isSaving ? 'Saving...' : 'Save'),
               ),
             ),
           ],
+        ),
+        body: SafeArea(
+          child: Stack(
+            children: [
+              ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                children: [
+                  if (showListingType) ...[
+                    _dropdown(
+                      label: 'Listing Type',
+                      value: _listingType,
+                      options: _listingTypes,
+                      onChanged: (v) =>
+                          setState(() => _listingType = v ?? 'Buy'),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (!guidedIndependentHouse) ...[
+                    _dropdown(
+                      label: 'Property Type',
+                      value: _propertyType,
+                      options: _propertyTypes,
+                      onChanged: (v) =>
+                          setState(() => _propertyType = v ?? 'Plot'),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  ..._buildPropertyFields(),
+                  const SizedBox(height: 16),
+                  _buildPhotosSection(),
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: _isSaving ? null : _handleSave,
+                    icon: const Icon(Icons.save_outlined),
+                    label: Text(_isSaving ? 'Saving...' : 'Save Property'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(44),
+                      backgroundColor: const Color(0xFF0FAD97),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (_isSaving) ...[
+                const ModalBarrier(
+                  dismissible: false,
+                  color: Color(0x1A000000),
+                ),
+                const Center(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0x22000000),
+                          blurRadius: 16,
+                          offset: Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 14,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          SizedBox(width: 12),
+                          Text(
+                            'Saving…',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
