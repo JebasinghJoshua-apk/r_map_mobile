@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dotted_border/dotted_border.dart';
@@ -27,8 +28,17 @@ class PropertyDetailsFormScreen extends StatefulWidget {
       _PropertyDetailsFormScreenState();
 }
 
+class _SelectedPhoto {
+  const _SelectedPhoto({required this.id, required this.file});
+
+  final String id;
+  final XFile file;
+}
+
 class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   static const int _maxPhotos = 12;
+
+  int _photoSequence = 0;
 
   static const List<String> _propertyTypes = <String>[
     'Plot',
@@ -118,7 +128,13 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   String _commercialContactName = '';
   String _commercialContactNumber = '';
 
-  final List<XFile> _photos = <XFile>[];
+  final List<_SelectedPhoto> _photos = <_SelectedPhoto>[];
+
+  _SelectedPhoto _wrapPhoto(XFile file) {
+    _photoSequence += 1;
+    final id = '${DateTime.now().microsecondsSinceEpoch}_$_photoSequence';
+    return _SelectedPhoto(id: id, file: file);
+  }
 
   late final TextEditingController _plotTitleController;
   late final TextEditingController _houseTitleController;
@@ -406,26 +422,114 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     return int.tryParse(cleaned) ?? 0;
   }
 
-  Future<void> _pickImages() async {
+  Future<void> _pickFromGallery() async {
     if (_photos.length >= _maxPhotos) {
       _showError('You can add up to $_maxPhotos photos.');
       return;
     }
 
-    final picks = await _imagePicker.pickMultiImage(imageQuality: 85);
-    if (picks.isEmpty) return;
-    if (!mounted) return;
-    setState(() {
-      final remaining = _maxPhotos - _photos.length;
-      if (remaining <= 0) {
-        return;
-      }
-      _photos.addAll(picks.take(remaining));
-    });
+    try {
+      final beforeCount = _photos.length;
+      final picks = await _imagePicker.pickMultiImage(imageQuality: 85);
+      if (picks.isEmpty) return;
+      if (!mounted) return;
+      setState(() {
+        final remaining = _maxPhotos - _photos.length;
+        if (remaining <= 0) {
+          return;
+        }
+        _photos.addAll(picks.take(remaining).map(_wrapPhoto));
+      });
 
-    if (mounted && (picks.length + _photos.length) > _maxPhotos) {
-      ToastMessage.show(
-          context, 'Only the first $_maxPhotos photos were kept.');
+      if (mounted && (beforeCount + picks.length) > _maxPhotos) {
+        ToastMessage.show(
+            context, 'Only the first $_maxPhotos photos were kept.');
+      }
+    } catch (e) {
+      _showError('Could not open gallery. Please try again.');
+      if (kDebugMode) {
+        debugPrint('Gallery pick failed: $e');
+      }
+    }
+  }
+
+  Future<void> _captureFromCamera() async {
+    if (_photos.length >= _maxPhotos) {
+      _showError('You can add up to $_maxPhotos photos.');
+      return;
+    }
+
+    try {
+      final shot = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+      if (shot == null) return;
+      if (!mounted) return;
+      setState(() {
+        if (_photos.length >= _maxPhotos) return;
+        _photos.add(_wrapPhoto(shot));
+      });
+    } catch (e) {
+      _showError('Could not open camera. Please allow camera permission.');
+      if (kDebugMode) {
+        debugPrint('Camera capture failed: $e');
+      }
+    }
+  }
+
+  Future<void> _showAddPhotoOptions() async {
+    if (_photos.length >= _maxPhotos) {
+      _showError('You can add up to $_maxPhotos photos.');
+      return;
+    }
+
+    if (!mounted) return;
+
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 6),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Add photos',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Gallery'),
+                onTap: () => Navigator.pop(context, 'gallery'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: const Text('Camera'),
+                onTap: () => Navigator.pop(context, 'camera'),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (!mounted || action == null) return;
+    if (action == 'camera') {
+      await _captureFromCamera();
+    } else {
+      await _pickFromGallery();
     }
   }
 
@@ -513,6 +617,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       }
 
       payload = <String, dynamic>{
+        'listingType': _listingTypeForPayload(),
         'propertyTitle': title,
         'areaLabel': _plotArea.trim().isEmpty ? null : _plotArea.trim(),
         'price': price,
@@ -527,6 +632,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             'polygonGeoJson': boundaryGeoJson,
           }
         ],
+        'roads': const <Map<String, dynamic>>[],
       };
       createType = 'individual-plots';
     } else if (_propertyType == 'Independent House') {
@@ -830,7 +936,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       final failedUploads = <String>[];
       if (_photos.isNotEmpty) {
         for (var i = 0; i < _photos.length; i += 1) {
-          final picked = _photos[i];
+          final picked = _photos[i].file;
           try {
             await _api.uploadPropertyImage(
               propertyId: createdId,
@@ -855,7 +961,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         );
       } catch (_) {
         if (mounted) {
-          ToastMessage.show(
+          ToastMessage.showAbove(
             context,
             'Property saved, but failed to refresh details.',
           );
@@ -863,20 +969,27 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       }
 
       if (!mounted) return;
+
+      String toastMessage;
       if (failedUploads.isNotEmpty) {
         for (final msg in failedUploads) {
           debugPrint('Photo upload failed: $msg');
         }
-        ToastMessage.show(
-          context,
-          failedUploads.length == 1
-              ? 'Property saved, but 1 photo failed to upload. ${failedUploads.first}'
-              : 'Property saved, but ${failedUploads.length} photo(s) failed to upload. First: ${failedUploads.first}',
-        );
+        toastMessage = failedUploads.length == 1
+            ? 'Property saved, but 1 photo failed to upload. ${failedUploads.first}'
+            : 'Property saved, but ${failedUploads.length} photo(s) failed to upload. First: ${failedUploads.first}';
       } else {
-        ToastMessage.show(context, 'Property saved');
+        toastMessage = 'Property saved';
       }
-      Navigator.of(context).pop(createdId);
+
+      // Use root overlay so the toast remains visible even after popping
+      // all the way back to the map screen.
+      ToastMessage.showAbove(context, toastMessage);
+
+      // Return to the map screen (previous state) by closing the entire
+      // add flow stack: details -> polygon editor -> my properties dialog.
+      Navigator.of(context, rootNavigator: true)
+          .popUntil((route) => route.isFirst);
     } on MapApiException catch (ex) {
       if (!mounted) return;
       ToastMessage.show(context, ex.message);
@@ -1023,7 +1136,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             ),
             const SizedBox(width: 10),
             InkWell(
-              onTap: _pickImages,
+              onTap: _showAddPhotoOptions,
               child: const Text(
                 'Add',
                 style: TextStyle(
@@ -1052,25 +1165,17 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
               ),
               child: Center(
                 child: InkWell(
-                  onTap: _pickImages,
+                  onTap: _showAddPhotoOptions,
                   borderRadius: BorderRadius.circular(10),
                   child: const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.add_a_photo_outlined,
-                            size: 18, color: Color(0xFF64748B)),
-                        SizedBox(width: 8),
-                        Text(
-                          'Add photos',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      'No photos added yet.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF64748B),
+                      ),
                     ),
                   ),
                 ),
@@ -1094,9 +1199,10 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                 );
               },
               itemBuilder: (context, index) {
-                final photo = _photos[index];
+                final selected = _photos[index];
+                final photo = selected.file;
                 return Padding(
-                  key: ValueKey('photo:${photo.path}'),
+                  key: ValueKey('photo:${selected.id}'),
                   padding: EdgeInsets.only(
                       right: index == _photos.length - 1 ? 0 : 10),
                   child: ReorderableDelayedDragStartListener(
@@ -1202,23 +1308,12 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     switch (_propertyType) {
       case 'Plot':
         return [
-          _sectionTitle('Plot Details'),
           _textField(
-            label: 'Property Title',
-            value: _plotTitle,
-            controller: _plotTitleController,
-            onChanged: (v) => setState(() {
-              _plotTitle = v;
-              _plotTitleManuallyEdited = v.trim().isNotEmpty;
-            }),
-            hint: 'e.g., Residential plot in Anna Nagar',
-          ),
-          const SizedBox(height: 12),
-          _textField(
-            label: 'Area (optional)',
+            label: 'Plot Area (Sq.ft)',
             value: _plotArea,
             onChanged: (v) => setState(() => _plotArea = v),
-            hint: 'e.g., 2400 sqft',
+            hint: 'e.g., 2400',
+            keyboard: TextInputType.number,
           ),
           const SizedBox(height: 12),
           _textField(
@@ -1227,38 +1322,61 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             controller: _plotPriceController,
             inputFormatters: indianPriceFormatters,
             onChanged: (v) => setState(() => _plotPrice = v),
+            hint: 'e.g., ₹50,00,000',
             keyboard: TextInputType.number,
           ),
           const SizedBox(height: 12),
           _textField(
-            label: 'Location',
+            label: 'Locality / Landmark',
             value: _plotLocation,
             onChanged: (v) => setState(() {
               _plotLocation = v;
               _applyPlotAutoTitleIfAllowed();
             }),
+            hint: 'e.g., Anna Nagar, Chennai',
           ),
           const SizedBox(height: 12),
           _textField(
-            label: 'Additional Information',
+            label: 'Property Title',
+            value: _plotTitle,
+            controller: _plotTitleController,
+            onChanged: (v) => setState(() {
+              _plotTitle = v;
+              _plotTitleManuallyEdited = v.trim().isNotEmpty;
+            }),
+            hint: 'e.g., Residential Plot in Anna Nagar',
+          ),
+          const SizedBox(height: 12),
+          _textField(
+            label: 'Description',
             value: _plotMoreDetails,
             onChanged: (v) => setState(() => _plotMoreDetails = v),
-            hint: 'Optional',
+            hint: 'e.g., East Facing, DTCP Approved',
+            maxLines: 3,
+            minLines: 3,
           ),
           const SizedBox(height: 12),
-          _textField(
-            label: 'Contact Name',
-            value: _plotContactName,
-            controller: _plotContactNameController,
-            onChanged: (v) => setState(() => _plotContactName = v),
-          ),
-          const SizedBox(height: 12),
-          _textField(
-            label: 'Contact Number',
-            value: _plotContactNumber,
-            controller: _plotContactNumberController,
-            onChanged: (v) => setState(() => _plotContactNumber = v),
-            keyboard: TextInputType.phone,
+          Row(
+            children: [
+              Expanded(
+                child: _textField(
+                  label: 'Contact Name',
+                  value: _plotContactName,
+                  controller: _plotContactNameController,
+                  onChanged: (v) => setState(() => _plotContactName = v),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _textField(
+                  label: 'Contact Number',
+                  value: _plotContactNumber,
+                  controller: _plotContactNumberController,
+                  onChanged: (v) => setState(() => _plotContactNumber = v),
+                  keyboard: TextInputType.phone,
+                ),
+              ),
+            ],
           ),
         ];
       case 'Independent House':
