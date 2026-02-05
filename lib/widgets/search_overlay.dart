@@ -24,6 +24,7 @@ class SearchOverlay extends StatefulWidget {
     super.key,
     required this.googlePlace,
     required this.onPlaceSelected,
+    this.onShortlistedPlaceSelected,
     this.onMyPropertySelected,
     this.onMyPropertyDeleted,
     this.onMyPropertiesOpened,
@@ -37,6 +38,9 @@ class SearchOverlay extends StatefulWidget {
   final GooglePlace googlePlace;
   final Future<void> Function(LatLng target, String label, double zoom)
       onPlaceSelected;
+
+  final Future<void> Function(LatLng target, String label, double zoom)?
+      onShortlistedPlaceSelected;
 
   final Future<void> Function(MyPropertyListItem item)? onMyPropertySelected;
   final Future<void> Function(MyPropertyListItem item)? onMyPropertyDeleted;
@@ -119,7 +123,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
       builder: (_) => FavoritesDialog(
         bearerToken: token,
         savedPropertiesApi: _savedPropertiesApi,
-        onPlaceSelected: widget.onPlaceSelected,
+        onPlaceSelected:
+            widget.onShortlistedPlaceSelected ?? widget.onPlaceSelected,
         onOpened: widget.onMyPropertiesOpened,
       ),
     );

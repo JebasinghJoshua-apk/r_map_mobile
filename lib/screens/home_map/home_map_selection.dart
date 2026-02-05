@@ -35,6 +35,23 @@ extension _HomeMapSelection on _HomeMapScreenState {
     unawaited(_openNearbyLayoutsPopup(anchor: target));
   }
 
+  Future<void> _moveCameraToFromShortlist(
+    LatLng target,
+    String label,
+    double zoom,
+  ) async {
+    if (_mapController == null) return;
+    await _animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: target, zoom: zoom),
+      ),
+    );
+
+    if (!mounted) return;
+    final safeLabel = label.trim().isEmpty ? 'Selected place' : label.trim();
+    ToastMessage.show(context, safeLabel);
+  }
+
   Future<void> _onMyPropertySelected(MyPropertyListItem item) async {
     final center = item.centerPoint;
     if (center == null) {

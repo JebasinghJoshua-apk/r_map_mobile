@@ -944,6 +944,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                     : SearchOverlay(
                         googlePlace: _googlePlace!,
                         onPlaceSelected: _moveCameraTo,
+                        onShortlistedPlaceSelected: _moveCameraToFromShortlist,
                         onMyPropertySelected: _onMyPropertySelected,
                         onMyPropertyDeleted: _onMyPropertyDeleted,
                         onMyPropertiesOpened: _closeAnyPanel,
