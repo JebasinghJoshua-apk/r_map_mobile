@@ -150,17 +150,120 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
 
     return showDialog<String>(
       context: context,
-      builder: (context) => SimpleDialog(
-        title: const Text('Add Property'),
-        children: options
-            .map(
-              (opt) => SimpleDialogOption(
-                onPressed: () => Navigator.of(context).pop(opt),
-                child: Text(opt),
-              ),
-            )
-            .toList(growable: false),
-      ),
+      builder: (context) {
+        final size = MediaQuery.of(context).size;
+        final maxWidth = size.width - 64;
+        final dialogWidth = maxWidth < 332 ? maxWidth : 332.0;
+        final dialogMaxHeight = (size.height - 96).clamp(240.0, 520.0);
+
+        return Dialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: dialogWidth,
+              maxHeight: dialogMaxHeight,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Add Property',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        tooltip: 'Close',
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  itemCount: options.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final opt = options[index];
+                    return Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        overlayColor: WidgetStateProperty.resolveWith(
+                          (states) {
+                            if (states.contains(WidgetState.pressed)) {
+                              return const Color(0xFF0FAD97).withOpacity(0.10);
+                            }
+                            if (states.contains(WidgetState.hovered)) {
+                              return const Color(0xFF0FAD97).withOpacity(0.06);
+                            }
+                            return null;
+                          },
+                        ),
+                        onTap: () => Navigator.of(context).pop(opt),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: const Color(0xFFE2E8F0),
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x14000000),
+                                blurRadius: 10,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    opt,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

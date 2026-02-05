@@ -41,7 +41,7 @@ class _PropertyPolygonEditorScreenState
   static const LatLng _fallbackCenter = LatLng(20.5937, 78.9629); // India
 
   late final LatLng _center;
-  final List<LatLng> _points = <LatLng>[];
+  List<LatLng> _points = <LatLng>[];
   int _geometryRevision = 0;
 
   final Map<String, BitmapDescriptor> _labelIconCache =
@@ -56,6 +56,10 @@ class _PropertyPolygonEditorScreenState
   int _autocompleteSeq = 0;
   bool _isAutocompleteLoading = false;
   final List<AutocompletePrediction> _predictions = <AutocompletePrediction>[];
+
+  Timer? _dragUpdateThrottle;
+  int? _pendingDragIndex;
+  LatLng? _pendingDragPoint;
 
   GoogleMapController? _controller;
 
@@ -73,7 +77,7 @@ class _PropertyPolygonEditorScreenState
     final seedPoints = widget.initialPoints ?? const <LatLng>[];
     if (seedPoints.isNotEmpty) {
       final normalized = _normalizeInitialPoints(seedPoints);
-      _points.addAll(normalized);
+      _points = normalized;
       if (_points.isNotEmpty) {
         _geometryRevision = 1;
         unawaited(_refreshEdgeLabels());
@@ -332,7 +336,7 @@ class _PropertyPolygonEditorScreenState
 
   void _addPoint(LatLng p) {
     setState(() {
-      _points.add(p);
+      _points = <LatLng>[..._points, p];
       _geometryRevision++;
       _predictions.clear();
       _isAutocompleteLoading = false;
@@ -345,7 +349,7 @@ class _PropertyPolygonEditorScreenState
   void _undo() {
     if (_points.isEmpty) return;
     setState(() {
-      _points.removeLast();
+      _points = _points.sublist(0, _points.length - 1);
       _geometryRevision++;
     });
     unawaited(_refreshEdgeLabels());
@@ -354,7 +358,7 @@ class _PropertyPolygonEditorScreenState
   void _clear() {
     if (_points.isEmpty) return;
     setState(() {
-      _points.clear();
+      _points = <LatLng>[];
       _geometryRevision++;
     });
     unawaited(_refreshEdgeLabels());
@@ -363,10 +367,35 @@ class _PropertyPolygonEditorScreenState
   void _updatePoint(int index, LatLng p) {
     if (index < 0 || index >= _points.length) return;
     setState(() {
-      _points[index] = p;
+      final next = List<LatLng>.from(_points);
+      next[index] = p;
+      _points = next;
       _geometryRevision++;
     });
     unawaited(_refreshEdgeLabels());
+  }
+
+  void _updatePointDuringDrag(int index, LatLng p) {
+    if (index < 0 || index >= _points.length) return;
+
+    _pendingDragIndex = index;
+    _pendingDragPoint = p;
+
+    if (_dragUpdateThrottle?.isActive ?? false) return;
+    _dragUpdateThrottle = Timer(const Duration(milliseconds: 16), () {
+      if (!mounted) return;
+      final i = _pendingDragIndex;
+      final point = _pendingDragPoint;
+      if (i == null || point == null) return;
+      if (i < 0 || i >= _points.length) return;
+
+      setState(() {
+        final next = List<LatLng>.from(_points);
+        next[i] = point;
+        _points = next;
+        _geometryRevision++;
+      });
+    });
   }
 
   bool get _canFinish => _points.length >= 3;
@@ -741,6 +770,7 @@ class _PropertyPolygonEditorScreenState
   void dispose() {
     _controller?.dispose();
     _searchDebounce?.cancel();
+    _dragUpdateThrottle?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -926,6 +956,7 @@ class _PropertyPolygonEditorScreenState
           markerId: MarkerId('v$i'),
           position: _points[i],
           draggable: true,
+          onDrag: (p) => _updatePointDuringDrag(i, p),
           onDragEnd: (p) => _updatePoint(i, p),
           icon: BitmapDescriptor.defaultMarkerWithHue(
             BitmapDescriptor.hueAzure,
@@ -934,7 +965,8 @@ class _PropertyPolygonEditorScreenState
     };
 
     final edgeMarkers = <Marker>{};
-    if (_points.length >= 2) {
+    final showEdgeMarkers = widget.mode == PropertyPolygonEditorMode.edit;
+    if (showEdgeMarkers && _points.length >= 2) {
       final willClose = _points.length >= 3;
       final lastIndex = _points.length - 1;
       final edgeCount = willClose ? _points.length : lastIndex;
@@ -943,7 +975,7 @@ class _PropertyPolygonEditorScreenState
         final b = _points[(i + 1) % _points.length];
         final mid = _midpoint(a, b);
         final icon = _edgeLabelIcons[i] ??
-            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
         edgeMarkers.add(
           Marker(
             markerId: MarkerId('e$i'),

@@ -530,16 +530,18 @@ class MobileBffMapApi {
         request.headers['Authorization'] = 'Bearer $token';
       }
 
-      request.fields['isPrimary'] = isPrimary ? 'true' : 'false';
-      request.fields['displayOrder'] = displayOrder.toString();
+      // IMPORTANT: keep these names aligned with
+      // R.MAP.MobileBff.Models.PropertyImageUploadRequest
+      request.fields['IsPrimary'] = isPrimary ? 'true' : 'false';
+      request.fields['DisplayOrder'] = displayOrder.toString();
       if (description != null && description.trim().isNotEmpty) {
-        request.fields['description'] = description.trim();
+        request.fields['Description'] = description.trim();
       }
       if (altText != null && altText.trim().isNotEmpty) {
-        request.fields['altText'] = altText.trim();
+        request.fields['AltText'] = altText.trim();
       }
 
-      request.files.add(await http.MultipartFile.fromPath('file', file.path));
+      request.files.add(await http.MultipartFile.fromPath('File', file.path));
 
       response = await request.send().timeout(_timeout);
     } on SocketException {

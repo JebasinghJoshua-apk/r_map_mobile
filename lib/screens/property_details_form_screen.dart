@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -38,7 +39,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   ];
 
   static const List<String> _listingTypes = <String>[
-    'Sell',
+    'Buy',
     'Rent',
     'Lease',
   ];
@@ -63,7 +64,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   bool _isSaving = false;
 
   late String _propertyType;
-  String _listingType = 'Sell';
+  String _listingType = 'Buy';
 
   // Plot fields
   String _plotTitle = '';
@@ -119,18 +120,264 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
 
   final List<XFile> _photos = <XFile>[];
 
+  late final TextEditingController _plotTitleController;
+  late final TextEditingController _houseTitleController;
+  late final TextEditingController _apartmentTitleController;
+  late final TextEditingController _landTitleController;
+  late final TextEditingController _commercialTitleController;
+
+  late final TextEditingController _plotPriceController;
+  late final TextEditingController _housePriceController;
+  late final TextEditingController _apartmentPriceController;
+  late final TextEditingController _landPriceController;
+  late final TextEditingController _commercialPriceController;
+
+  late final TextEditingController _plotContactNameController;
+  late final TextEditingController _plotContactNumberController;
+  late final TextEditingController _houseContactNameController;
+  late final TextEditingController _houseContactNumberController;
+  late final TextEditingController _landContactNameController;
+  late final TextEditingController _landContactNumberController;
+  late final TextEditingController _commercialContactNameController;
+  late final TextEditingController _commercialContactNumberController;
+
+  bool _didPrefillContactFromUser = false;
+
+  bool _plotTitleManuallyEdited = false;
+  bool _houseTitleManuallyEdited = false;
+  bool _apartmentTitleManuallyEdited = false;
+  bool _landTitleManuallyEdited = false;
+  bool _commercialTitleManuallyEdited = false;
+
   @override
   void initState() {
     super.initState();
     final initial = widget.initialPropertyType?.trim();
     _propertyType = _propertyTypes.contains(initial) ? initial! : 'Plot';
     _landType = _landTypeValueMap.keys.first;
+
+    _plotTitleController = TextEditingController(text: _plotTitle);
+    _houseTitleController = TextEditingController(text: _houseTitle);
+    _apartmentTitleController = TextEditingController(text: _apartmentTitle);
+    _landTitleController = TextEditingController(text: _landTitle);
+    _commercialTitleController = TextEditingController(text: _commercialTitle);
+
+    _plotPriceController = TextEditingController(text: _plotPrice);
+    _housePriceController = TextEditingController(text: _housePrice);
+    _apartmentPriceController = TextEditingController(text: _apartmentPrice);
+    _landPriceController = TextEditingController(text: _landPrice);
+    _commercialPriceController = TextEditingController(text: _commercialPrice);
+
+    _plotContactNameController = TextEditingController(text: _plotContactName);
+    _plotContactNumberController =
+        TextEditingController(text: _plotContactNumber);
+    _houseContactNameController =
+        TextEditingController(text: _houseContactName);
+    _houseContactNumberController =
+        TextEditingController(text: _houseContactNumber);
+    _landContactNameController = TextEditingController(text: _landContactName);
+    _landContactNumberController =
+        TextEditingController(text: _landContactNumber);
+    _commercialContactNameController =
+        TextEditingController(text: _commercialContactName);
+    _commercialContactNumberController =
+        TextEditingController(text: _commercialContactNumber);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_didPrefillContactFromUser) return;
+    final session = AuthScope.of(context).session;
+    final user = session?.user;
+    if (user == null) return;
+
+    final name = user.displayName.trim();
+    final phone = user.phoneNumber.trim();
+
+    bool changed = false;
+
+    if (name.isNotEmpty) {
+      if (_plotContactNameController.text.trim().isEmpty) {
+        _plotContactName = name;
+        _setControllerText(_plotContactNameController, name);
+        changed = true;
+      }
+      if (_houseContactNameController.text.trim().isEmpty) {
+        _houseContactName = name;
+        _setControllerText(_houseContactNameController, name);
+        changed = true;
+      }
+      if (_landContactNameController.text.trim().isEmpty) {
+        _landContactName = name;
+        _setControllerText(_landContactNameController, name);
+        changed = true;
+      }
+      if (_commercialContactNameController.text.trim().isEmpty) {
+        _commercialContactName = name;
+        _setControllerText(_commercialContactNameController, name);
+        changed = true;
+      }
+    }
+
+    if (phone.isNotEmpty) {
+      if (_plotContactNumberController.text.trim().isEmpty) {
+        _plotContactNumber = phone;
+        _setControllerText(_plotContactNumberController, phone);
+        changed = true;
+      }
+      if (_houseContactNumberController.text.trim().isEmpty) {
+        _houseContactNumber = phone;
+        _setControllerText(_houseContactNumberController, phone);
+        changed = true;
+      }
+      if (_landContactNumberController.text.trim().isEmpty) {
+        _landContactNumber = phone;
+        _setControllerText(_landContactNumberController, phone);
+        changed = true;
+      }
+      if (_commercialContactNumberController.text.trim().isEmpty) {
+        _commercialContactNumber = phone;
+        _setControllerText(_commercialContactNumberController, phone);
+        changed = true;
+      }
+    }
+
+    _didPrefillContactFromUser = true;
+    if (changed) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    _plotTitleController.dispose();
+    _houseTitleController.dispose();
+    _apartmentTitleController.dispose();
+    _landTitleController.dispose();
+    _commercialTitleController.dispose();
+
+    _plotPriceController.dispose();
+    _housePriceController.dispose();
+    _apartmentPriceController.dispose();
+    _landPriceController.dispose();
+    _commercialPriceController.dispose();
+
+    _plotContactNameController.dispose();
+    _plotContactNumberController.dispose();
+    _houseContactNameController.dispose();
+    _houseContactNumberController.dispose();
+    _landContactNameController.dispose();
+    _landContactNumberController.dispose();
+    _commercialContactNameController.dispose();
+    _commercialContactNumberController.dispose();
+
+    super.dispose();
+  }
+
+  void _setControllerText(TextEditingController controller, String text) {
+    final value = controller.value;
+    controller.value = value.copyWith(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+      composing: TextRange.empty,
+    );
+  }
+
+  String _generatePlotTitle() {
+    final loc = _plotLocation.trim();
+    if (loc.isEmpty) return 'Plot';
+    return 'Plot in $loc';
+  }
+
+  String _generateHouseTitle() {
+    final loc = _houseLocation.trim();
+    final bedrooms = _parseInt(_houseBedrooms);
+    final bhk = (bedrooms != null && bedrooms > 0) ? '$bedrooms BHK ' : '';
+    final base = '${bhk}Independent House'.trim();
+    if (loc.isEmpty) return base.isEmpty ? 'Independent House' : base;
+    return '$base in $loc';
+  }
+
+  String _generateApartmentTitle() {
+    final loc = _apartmentLocation.trim();
+    final bedrooms = _parseInt(_apartmentBedrooms);
+    final bhk = (bedrooms != null && bedrooms > 0) ? '$bedrooms BHK ' : '';
+    final base = '${bhk}Apartment'.trim();
+    if (loc.isEmpty) return base.isEmpty ? 'Apartment' : base;
+    return '$base in $loc';
+  }
+
+  String _generateLandTitle() {
+    final loc = _landLocation.trim();
+    if (loc.isEmpty) return 'Land';
+    return 'Land in $loc';
+  }
+
+  String _generateCommercialTitle() {
+    final loc = _commercialLocation.trim();
+    final space = _commercialSpaceType.trim();
+    final base = space.isEmpty ? 'Commercial Space' : space;
+    if (loc.isEmpty) return base;
+    return '$base in $loc';
+  }
+
+  void _applyPlotAutoTitleIfAllowed() {
+    final generated = _generatePlotTitle().trim();
+    if (generated.isEmpty) return;
+    if (_plotTitleManuallyEdited && _plotTitle.trim().isNotEmpty) return;
+    _plotTitle = generated;
+    _setControllerText(_plotTitleController, generated);
+  }
+
+  void _applyHouseAutoTitleIfAllowed() {
+    final generated = _generateHouseTitle().trim();
+    if (generated.isEmpty) return;
+    if (_houseTitleManuallyEdited && _houseTitle.trim().isNotEmpty) return;
+    _houseTitle = generated;
+    _setControllerText(_houseTitleController, generated);
+  }
+
+  void _applyApartmentAutoTitleIfAllowed() {
+    final generated = _generateApartmentTitle().trim();
+    if (generated.isEmpty) return;
+    if (_apartmentTitleManuallyEdited && _apartmentTitle.trim().isNotEmpty) {
+      return;
+    }
+    _apartmentTitle = generated;
+    _setControllerText(_apartmentTitleController, generated);
+  }
+
+  void _applyLandAutoTitleIfAllowed() {
+    final generated = _generateLandTitle().trim();
+    if (generated.isEmpty) return;
+    if (_landTitleManuallyEdited && _landTitle.trim().isNotEmpty) return;
+    _landTitle = generated;
+    _setControllerText(_landTitleController, generated);
+  }
+
+  void _applyCommercialAutoTitleIfAllowed() {
+    final generated = _generateCommercialTitle().trim();
+    if (generated.isEmpty) return;
+    if (_commercialTitleManuallyEdited && _commercialTitle.trim().isNotEmpty) {
+      return;
+    }
+    _commercialTitle = generated;
+    _setControllerText(_commercialTitleController, generated);
   }
 
   double? _parseDouble(String raw) {
     final cleaned = raw.trim();
     if (cleaned.isEmpty) return null;
     return double.tryParse(cleaned.replaceAll(',', ''));
+  }
+
+  String _listingTypeForPayload() {
+    final v = _listingType.trim();
+    if (v.isEmpty) return 'Sell';
+    if (v == 'Buy') return 'Sell';
+    return v;
   }
 
   int? _parseInt(String raw) {
@@ -182,6 +429,26 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     }
   }
 
+  void _clearNewPhotos() {
+    if (_photos.isEmpty) return;
+    setState(() {
+      _photos.clear();
+    });
+  }
+
+  void _reorderPhotos(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= _photos.length) return;
+    setState(() {
+      if (newIndex > oldIndex) {
+        newIndex -= 1;
+      }
+      if (newIndex < 0) newIndex = 0;
+      if (newIndex >= _photos.length) newIndex = _photos.length - 1;
+      final item = _photos.removeAt(oldIndex);
+      _photos.insert(newIndex, item);
+    });
+  }
+
   Future<void> _removeImage(int index) async {
     if (index < 0 || index >= _photos.length) return;
     setState(() {
@@ -209,6 +476,12 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     String createType;
 
     if (_propertyType == 'Plot') {
+      if (_plotTitle.trim().isEmpty) {
+        setState(() {
+          _applyPlotAutoTitleIfAllowed();
+        });
+      }
+
       final title = _plotTitle.trim();
       if (title.isEmpty) {
         _showError('Enter a property title.');
@@ -240,7 +513,6 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       }
 
       payload = <String, dynamic>{
-        'listingType': _listingType,
         'propertyTitle': title,
         'areaLabel': _plotArea.trim().isEmpty ? null : _plotArea.trim(),
         'price': price,
@@ -258,12 +530,6 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       };
       createType = 'individual-plots';
     } else if (_propertyType == 'Independent House') {
-      final title = _houseTitle.trim();
-      if (title.isEmpty) {
-        _showError('Enter a property title.');
-        return;
-      }
-
       final location = _houseLocation.trim();
       if (location.isEmpty) {
         _showError('Provide a location or neighborhood description.');
@@ -318,8 +584,20 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         return;
       }
 
+      if (_houseTitle.trim().isEmpty) {
+        setState(() {
+          _applyHouseAutoTitleIfAllowed();
+        });
+      }
+
+      final title = _houseTitle.trim();
+      if (title.isEmpty) {
+        _showError('Enter a property title.');
+        return;
+      }
+
       payload = <String, dynamic>{
-        'listingType': _listingType,
+        'listingType': _listingTypeForPayload(),
         'propertyType': _propertyTypeValueMap['Independent House'],
         'propertyTitle': title,
         'bedrooms': bedrooms,
@@ -337,6 +615,12 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       };
       createType = 'independent-houses';
     } else if (_propertyType == 'Apartment') {
+      if (_apartmentTitle.trim().isEmpty) {
+        setState(() {
+          _applyApartmentAutoTitleIfAllowed();
+        });
+      }
+
       final title = _apartmentTitle.trim();
       if (title.isEmpty) {
         _showError('Enter a property title.');
@@ -385,7 +669,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       }
 
       payload = <String, dynamic>{
-        'listingType': _listingType,
+        'listingType': _listingTypeForPayload(),
         'propertyTitle': title,
         'bedrooms': bedrooms,
         'areaInSquareFeet': area,
@@ -400,6 +684,12 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       };
       createType = 'apartment-flats';
     } else if (_propertyType == 'Land') {
+      if (_landTitle.trim().isEmpty) {
+        setState(() {
+          _applyLandAutoTitleIfAllowed();
+        });
+      }
+
       final title = _landTitle.trim();
       if (title.isEmpty) {
         _showError('Enter a property title.');
@@ -438,7 +728,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       }
 
       payload = <String, dynamic>{
-        'listingType': _listingType,
+        'listingType': _listingTypeForPayload(),
         'propertyTitle': title,
         'landType': landTypeValue,
         'areaLabel': _landArea.trim().isEmpty ? null : _landArea.trim(),
@@ -452,6 +742,12 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       };
       createType = 'lands';
     } else {
+      if (_commercialTitle.trim().isEmpty) {
+        setState(() {
+          _applyCommercialAutoTitleIfAllowed();
+        });
+      }
+
       final title = _commercialTitle.trim();
       if (title.isEmpty) {
         _showError('Enter a property title.');
@@ -489,7 +785,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       }
 
       payload = <String, dynamic>{
-        'listingType': _listingType,
+        'listingType': _listingTypeForPayload(),
         'propertyTitle': title,
         'spaceType': _commercialSpaceType.trim().isEmpty
             ? null
@@ -523,16 +819,24 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             'Created property response was missing an id.');
       }
 
+      final failedUploads = <String>[];
       if (_photos.isNotEmpty) {
         for (var i = 0; i < _photos.length; i += 1) {
-          final file = _photos[i];
-          await _api.uploadPropertyImage(
-            propertyId: createdId,
-            file: File(file.path),
-            bearerToken: token,
-            isPrimary: i == 0,
-            displayOrder: i + 1,
-          );
+          final picked = _photos[i];
+          try {
+            await _api.uploadPropertyImage(
+              propertyId: createdId,
+              file: File(picked.path),
+              bearerToken: token,
+              isPrimary: i == 0,
+              displayOrder: i + 1,
+              altText: picked.name,
+            );
+          } on MapApiException catch (ex) {
+            failedUploads.add('${picked.name}: ${ex.message}');
+          } catch (_) {
+            failedUploads.add('${picked.name}: upload failed');
+          }
         }
       }
 
@@ -551,7 +855,19 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       }
 
       if (!mounted) return;
-      ToastMessage.show(context, 'Property saved');
+      if (failedUploads.isNotEmpty) {
+        for (final msg in failedUploads) {
+          debugPrint('Photo upload failed: $msg');
+        }
+        ToastMessage.show(
+          context,
+          failedUploads.length == 1
+              ? 'Property saved, but 1 photo failed to upload. ${failedUploads.first}'
+              : 'Property saved, but ${failedUploads.length} photo(s) failed to upload. First: ${failedUploads.first}',
+        );
+      } else {
+        ToastMessage.show(context, 'Property saved');
+      }
       Navigator.of(context).pop(createdId);
     } on MapApiException catch (ex) {
       if (!mounted) return;
@@ -572,6 +888,8 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     required String label,
     required String value,
     required ValueChanged<String> onChanged,
+    TextEditingController? controller,
+    List<TextInputFormatter>? inputFormatters,
     String? hint,
     TextInputType? keyboard,
     int maxLines = 1,
@@ -592,13 +910,19 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         const SizedBox(height: 6),
         TextFormField(
           key: fieldKey,
-          initialValue: value,
+          controller: controller,
+          initialValue: controller == null ? value : null,
           onChanged: onChanged,
           keyboardType: keyboard,
+          inputFormatters: inputFormatters,
           maxLines: maxLines,
           minLines: minLines,
           decoration: InputDecoration(
             hintText: hint,
+            hintStyle: const TextStyle(
+              color: Color(0xFF94A3B8),
+              fontWeight: FontWeight.w500,
+            ),
             isDense: true,
             filled: true,
             fillColor: Colors.white,
@@ -704,52 +1028,169 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           ],
         ),
         const SizedBox(height: 10),
-        DottedBorder(
-          color: const Color(0xFFCBD5E1),
-          strokeWidth: 1.2,
-          dashPattern: const <double>[6, 4],
-          borderType: BorderType.RRect,
-          radius: const Radius.circular(12),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: _photos.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No photos added yet.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF94A3B8),
-                      ),
-                    ),
-                  )
-                : Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: List<Widget>.generate(
-                      _photos.length,
-                      (index) => Chip(
-                        label: Text(
-                          _photos[index].name,
-                          overflow: TextOverflow.ellipsis,
+        if (_photos.isEmpty)
+          DottedBorder(
+            color: const Color(0xFFCBD5E1),
+            strokeWidth: 1.2,
+            dashPattern: const <double>[6, 4],
+            borderType: BorderType.RRect,
+            radius: const Radius.circular(12),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: InkWell(
+                  onTap: _pickImages,
+                  borderRadius: BorderRadius.circular(10),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.add_a_photo_outlined,
+                            size: 18, color: Color(0xFF64748B)),
+                        SizedBox(width: 8),
+                        Text(
+                          'Add photos',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF64748B),
+                          ),
                         ),
-                        onDeleted: () => _removeImage(index),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          )
+        else ...[
+          SizedBox(
+            height: 86,
+            child: ReorderableListView.builder(
+              scrollDirection: Axis.horizontal,
+              buildDefaultDragHandles: false,
+              onReorder: _reorderPhotos,
+              itemCount: _photos.length,
+              proxyDecorator: (child, _, __) {
+                return Material(
+                  elevation: 6,
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  child: child,
+                );
+              },
+              itemBuilder: (context, index) {
+                final photo = _photos[index];
+                return Padding(
+                  key: ValueKey('photo:${photo.path}'),
+                  padding: EdgeInsets.only(
+                      right: index == _photos.length - 1 ? 0 : 10),
+                  child: ReorderableDelayedDragStartListener(
+                    index: index,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Stack(
+                        children: [
+                          Container(
+                            width: 112,
+                            height: 86,
+                            color: const Color(0xFFF1F5F9),
+                            child: Image.file(
+                              File(photo.path),
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Center(
+                                child: Icon(Icons.broken_image_outlined,
+                                    color: Color(0xFF94A3B8)),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 6,
+                            right: 6,
+                            child: Material(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(16),
+                              child: InkWell(
+                                onTap: () => _removeImage(index),
+                                borderRadius: BorderRadius.circular(16),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(6),
+                                  child: Icon(Icons.close,
+                                      size: 14, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 6,
+                            left: 6,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Text(
+                                index == 0 ? 'Primary' : '${index + 1}',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
+                );
+              },
+            ),
           ),
-        ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(
+                '${_photos.length} new image${_photos.length == 1 ? '' : 's'} added',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: _clearNewPhotos,
+                child: const Text(
+                  'Clear New Photos',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFEF4444),
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
 
   List<Widget> _buildPropertyFields() {
     const carParkingOptions = <String>['None', '1', '2', '3', '4+'];
+    const indianPriceFormatters = <TextInputFormatter>[
+      IndianCurrencyInputFormatter(),
+    ];
     switch (_propertyType) {
       case 'Plot':
         return [
@@ -757,7 +1198,11 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _textField(
             label: 'Property Title',
             value: _plotTitle,
-            onChanged: (v) => setState(() => _plotTitle = v),
+            controller: _plotTitleController,
+            onChanged: (v) => setState(() {
+              _plotTitle = v;
+              _plotTitleManuallyEdited = v.trim().isNotEmpty;
+            }),
             hint: 'e.g., Residential plot in Anna Nagar',
           ),
           const SizedBox(height: 12),
@@ -771,6 +1216,8 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _textField(
             label: 'Price',
             value: _plotPrice,
+            controller: _plotPriceController,
+            inputFormatters: indianPriceFormatters,
             onChanged: (v) => setState(() => _plotPrice = v),
             keyboard: TextInputType.number,
           ),
@@ -778,7 +1225,10 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _textField(
             label: 'Location',
             value: _plotLocation,
-            onChanged: (v) => setState(() => _plotLocation = v),
+            onChanged: (v) => setState(() {
+              _plotLocation = v;
+              _applyPlotAutoTitleIfAllowed();
+            }),
           ),
           const SizedBox(height: 12),
           _textField(
@@ -791,12 +1241,14 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _textField(
             label: 'Contact Name',
             value: _plotContactName,
+            controller: _plotContactNameController,
             onChanged: (v) => setState(() => _plotContactName = v),
           ),
           const SizedBox(height: 12),
           _textField(
             label: 'Contact Number',
             value: _plotContactNumber,
+            controller: _plotContactNumberController,
             onChanged: (v) => setState(() => _plotContactNumber = v),
             keyboard: TextInputType.phone,
           ),
@@ -809,7 +1261,10 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                 child: _textField(
                   label: 'Bedrooms',
                   value: _houseBedrooms,
-                  onChanged: (v) => setState(() => _houseBedrooms = v),
+                  onChanged: (v) => setState(() {
+                    _houseBedrooms = v;
+                    _applyHouseAutoTitleIfAllowed();
+                  }),
                   hint: 'e.g., 3',
                   keyboard: TextInputType.number,
                 ),
@@ -862,6 +1317,8 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _textField(
             label: 'Price',
             value: _housePrice,
+            controller: _housePriceController,
+            inputFormatters: indianPriceFormatters,
             onChanged: (v) => setState(() => _housePrice = v),
             hint: 'e.g., 75,00,000',
             keyboard: TextInputType.number,
@@ -870,14 +1327,21 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _textField(
             label: 'Locality / Landmark',
             value: _houseLocation,
-            onChanged: (v) => setState(() => _houseLocation = v),
+            onChanged: (v) => setState(() {
+              _houseLocation = v;
+              _applyHouseAutoTitleIfAllowed();
+            }),
             hint: 'e.g., Anna Nagar, Chennai',
           ),
           const SizedBox(height: 12),
           _textField(
             label: 'Property Title',
             value: _houseTitle,
-            onChanged: (v) => setState(() => _houseTitle = v),
+            controller: _houseTitleController,
+            onChanged: (v) => setState(() {
+              _houseTitle = v;
+              _houseTitleManuallyEdited = v.trim().isNotEmpty;
+            }),
             hint: 'e.g., 2 BHK Independent House in Anna Nagar',
           ),
           const SizedBox(height: 12),
@@ -896,6 +1360,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                 child: _textField(
                   label: 'Contact Name',
                   value: _houseContactName,
+                  controller: _houseContactNameController,
                   onChanged: (v) => setState(() => _houseContactName = v),
                 ),
               ),
@@ -904,6 +1369,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                 child: _textField(
                   label: 'Contact Number',
                   value: _houseContactNumber,
+                  controller: _houseContactNumberController,
                   onChanged: (v) => setState(() => _houseContactNumber = v),
                   keyboard: TextInputType.phone,
                 ),
@@ -917,13 +1383,20 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _textField(
             label: 'Property Title',
             value: _apartmentTitle,
-            onChanged: (v) => setState(() => _apartmentTitle = v),
+            controller: _apartmentTitleController,
+            onChanged: (v) => setState(() {
+              _apartmentTitle = v;
+              _apartmentTitleManuallyEdited = v.trim().isNotEmpty;
+            }),
           ),
           const SizedBox(height: 12),
           _textField(
             label: 'Bedrooms',
             value: _apartmentBedrooms,
-            onChanged: (v) => setState(() => _apartmentBedrooms = v),
+            onChanged: (v) => setState(() {
+              _apartmentBedrooms = v;
+              _applyApartmentAutoTitleIfAllowed();
+            }),
             keyboard: TextInputType.number,
           ),
           const SizedBox(height: 12),
@@ -951,6 +1424,8 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _textField(
             label: 'Price',
             value: _apartmentPrice,
+            controller: _apartmentPriceController,
+            inputFormatters: indianPriceFormatters,
             onChanged: (v) => setState(() => _apartmentPrice = v),
             keyboard: TextInputType.number,
           ),
@@ -958,7 +1433,10 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _textField(
             label: 'Location',
             value: _apartmentLocation,
-            onChanged: (v) => setState(() => _apartmentLocation = v),
+            onChanged: (v) => setState(() {
+              _apartmentLocation = v;
+              _applyApartmentAutoTitleIfAllowed();
+            }),
           ),
           const SizedBox(height: 12),
           _textField(
@@ -974,14 +1452,21 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _textField(
             label: 'Property Title',
             value: _landTitle,
-            onChanged: (v) => setState(() => _landTitle = v),
+            controller: _landTitleController,
+            onChanged: (v) => setState(() {
+              _landTitle = v;
+              _landTitleManuallyEdited = v.trim().isNotEmpty;
+            }),
           ),
           const SizedBox(height: 12),
           _dropdown(
             label: 'Land Type',
             value: _landType.isEmpty ? 'Residential' : _landType,
             options: _landTypeValueMap.keys.toList(growable: false),
-            onChanged: (v) => setState(() => _landType = v ?? ''),
+            onChanged: (v) => setState(() {
+              _landType = v ?? '';
+              _applyLandAutoTitleIfAllowed();
+            }),
           ),
           const SizedBox(height: 12),
           _textField(
@@ -993,6 +1478,8 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _textField(
             label: 'Price',
             value: _landPrice,
+            controller: _landPriceController,
+            inputFormatters: indianPriceFormatters,
             onChanged: (v) => setState(() => _landPrice = v),
             keyboard: TextInputType.number,
           ),
@@ -1000,7 +1487,10 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _textField(
             label: 'Location',
             value: _landLocation,
-            onChanged: (v) => setState(() => _landLocation = v),
+            onChanged: (v) => setState(() {
+              _landLocation = v;
+              _applyLandAutoTitleIfAllowed();
+            }),
           ),
           const SizedBox(height: 12),
           _textField(
@@ -1013,12 +1503,14 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _textField(
             label: 'Contact Name',
             value: _landContactName,
+            controller: _landContactNameController,
             onChanged: (v) => setState(() => _landContactName = v),
           ),
           const SizedBox(height: 12),
           _textField(
             label: 'Contact Number',
             value: _landContactNumber,
+            controller: _landContactNumberController,
             onChanged: (v) => setState(() => _landContactNumber = v),
             keyboard: TextInputType.phone,
           ),
@@ -1029,13 +1521,20 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _textField(
             label: 'Property Title',
             value: _commercialTitle,
-            onChanged: (v) => setState(() => _commercialTitle = v),
+            controller: _commercialTitleController,
+            onChanged: (v) => setState(() {
+              _commercialTitle = v;
+              _commercialTitleManuallyEdited = v.trim().isNotEmpty;
+            }),
           ),
           const SizedBox(height: 12),
           _textField(
             label: 'Space Type (optional)',
             value: _commercialSpaceType,
-            onChanged: (v) => setState(() => _commercialSpaceType = v),
+            onChanged: (v) => setState(() {
+              _commercialSpaceType = v;
+              _applyCommercialAutoTitleIfAllowed();
+            }),
           ),
           const SizedBox(height: 12),
           _textField(
@@ -1048,6 +1547,8 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _textField(
             label: 'Price',
             value: _commercialPrice,
+            controller: _commercialPriceController,
+            inputFormatters: indianPriceFormatters,
             onChanged: (v) => setState(() => _commercialPrice = v),
             keyboard: TextInputType.number,
           ),
@@ -1055,7 +1556,10 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _textField(
             label: 'Location',
             value: _commercialLocation,
-            onChanged: (v) => setState(() => _commercialLocation = v),
+            onChanged: (v) => setState(() {
+              _commercialLocation = v;
+              _applyCommercialAutoTitleIfAllowed();
+            }),
           ),
           const SizedBox(height: 12),
           _textField(
@@ -1068,12 +1572,14 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _textField(
             label: 'Contact Name',
             value: _commercialContactName,
+            controller: _commercialContactNameController,
             onChanged: (v) => setState(() => _commercialContactName = v),
           ),
           const SizedBox(height: 12),
           _textField(
             label: 'Contact Number',
             value: _commercialContactNumber,
+            controller: _commercialContactNumberController,
             onChanged: (v) => setState(() => _commercialContactNumber = v),
             keyboard: TextInputType.phone,
           ),
@@ -1085,6 +1591,8 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   Widget build(BuildContext context) {
     final guidedIndependentHouse =
         widget.initialPropertyType?.trim() == 'Independent House';
+    final showListingType =
+        _propertyType != 'Plot' && _propertyType != 'Layouts';
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -1119,14 +1627,16 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: [
-            if (!guidedIndependentHouse) ...[
+            if (showListingType) ...[
               _dropdown(
-                label: 'Listing Type:',
+                label: 'Listing Type',
                 value: _listingType,
                 options: _listingTypes,
-                onChanged: (v) => setState(() => _listingType = v ?? 'Sell'),
+                onChanged: (v) => setState(() => _listingType = v ?? 'Buy'),
               ),
               const SizedBox(height: 12),
+            ],
+            if (!guidedIndependentHouse) ...[
               _dropdown(
                 label: 'Property Type',
                 value: _propertyType,
@@ -1155,5 +1665,77 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         ),
       ),
     );
+  }
+}
+
+class IndianCurrencyInputFormatter extends TextInputFormatter {
+  const IndianCurrencyInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digitsOnly = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.isEmpty) {
+      return const TextEditingValue(
+        text: '',
+        selection: TextSelection.collapsed(offset: 0),
+      );
+    }
+
+    final formatted = _formatIndianDigits(digitsOnly);
+    final digitsBeforeCursor = _countDigitsBeforeCursor(newValue);
+    final cursor = _cursorOffsetForDigits(formatted, digitsBeforeCursor);
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: cursor),
+      composing: TextRange.empty,
+    );
+  }
+
+  int _countDigitsBeforeCursor(TextEditingValue v) {
+    final cursor = v.selection.baseOffset;
+    final safe =
+        cursor < 0 ? 0 : (cursor > v.text.length ? v.text.length : cursor);
+    final before = v.text.substring(0, safe);
+    return before.replaceAll(RegExp(r'\D'), '').length;
+  }
+
+  int _cursorOffsetForDigits(String formatted, int digitsCount) {
+    if (digitsCount <= 0) return 0;
+    var seen = 0;
+    for (var i = 0; i < formatted.length; i += 1) {
+      final ch = formatted.codeUnitAt(i);
+      final isDigit = ch >= 48 && ch <= 57;
+      if (isDigit) {
+        seen += 1;
+        if (seen >= digitsCount) {
+          return i + 1;
+        }
+      }
+    }
+    return formatted.length;
+  }
+
+  String _formatIndianDigits(String digits) {
+    var d = digits.replaceFirst(RegExp(r'^0+(?=\d)'), '');
+    if (d.isEmpty) return '';
+    if (d.length <= 3) return d;
+
+    final last3 = d.substring(d.length - 3);
+    var rest = d.substring(0, d.length - 3);
+
+    final parts = <String>[];
+    while (rest.length > 2) {
+      parts.insert(0, rest.substring(rest.length - 2));
+      rest = rest.substring(0, rest.length - 2);
+    }
+    if (rest.isNotEmpty) {
+      parts.insert(0, rest);
+    }
+
+    return '${parts.join(',')},$last3';
   }
 }
