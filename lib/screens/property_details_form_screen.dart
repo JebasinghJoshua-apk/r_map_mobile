@@ -49,7 +49,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   ];
 
   static const List<String> _listingTypes = <String>[
-    'Buy',
+    'Sell',
     'Rent',
     'Lease',
   ];
@@ -74,7 +74,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   bool _isSaving = false;
 
   late String _propertyType;
-  String _listingType = 'Buy';
+  String _listingType = 'Sell';
 
   // Plot fields
   String _plotTitle = '';
@@ -104,9 +104,13 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   String _apartmentArea = '';
   String _apartmentFloor = '';
   String _apartmentTotalFloors = '';
+  String _apartmentCarParking = 'None';
+  String _apartmentBuildingAgeYears = '';
   String _apartmentPrice = '';
   String _apartmentLocation = '';
   String _apartmentMoreInfo = '';
+  String _apartmentContactName = '';
+  String _apartmentContactNumber = '';
 
   // Land fields
   String _landTitle = '';
@@ -152,6 +156,8 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   late final TextEditingController _plotContactNumberController;
   late final TextEditingController _houseContactNameController;
   late final TextEditingController _houseContactNumberController;
+  late final TextEditingController _apartmentContactNameController;
+  late final TextEditingController _apartmentContactNumberController;
   late final TextEditingController _landContactNameController;
   late final TextEditingController _landContactNumberController;
   late final TextEditingController _commercialContactNameController;
@@ -170,7 +176,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     super.initState();
     final initial = widget.initialPropertyType?.trim();
     _propertyType = _propertyTypes.contains(initial) ? initial! : 'Plot';
-    _landType = _landTypeValueMap.keys.first;
+    _landType = '';
 
     _plotTitleController = TextEditingController(text: _plotTitle);
     _houseTitleController = TextEditingController(text: _houseTitle);
@@ -191,6 +197,10 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         TextEditingController(text: _houseContactName);
     _houseContactNumberController =
         TextEditingController(text: _houseContactNumber);
+    _apartmentContactNameController =
+        TextEditingController(text: _apartmentContactName);
+    _apartmentContactNumberController =
+        TextEditingController(text: _apartmentContactNumber);
     _landContactNameController = TextEditingController(text: _landContactName);
     _landContactNumberController =
         TextEditingController(text: _landContactNumber);
@@ -225,6 +235,11 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         _setControllerText(_houseContactNameController, name);
         changed = true;
       }
+      if (_apartmentContactNameController.text.trim().isEmpty) {
+        _apartmentContactName = name;
+        _setControllerText(_apartmentContactNameController, name);
+        changed = true;
+      }
       if (_landContactNameController.text.trim().isEmpty) {
         _landContactName = name;
         _setControllerText(_landContactNameController, name);
@@ -246,6 +261,11 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       if (_houseContactNumberController.text.trim().isEmpty) {
         _houseContactNumber = phone;
         _setControllerText(_houseContactNumberController, phone);
+        changed = true;
+      }
+      if (_apartmentContactNumberController.text.trim().isEmpty) {
+        _apartmentContactNumber = phone;
+        _setControllerText(_apartmentContactNumberController, phone);
         changed = true;
       }
       if (_landContactNumberController.text.trim().isEmpty) {
@@ -284,6 +304,8 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     _plotContactNumberController.dispose();
     _houseContactNameController.dispose();
     _houseContactNumberController.dispose();
+    _apartmentContactNameController.dispose();
+    _apartmentContactNumberController.dispose();
     _landContactNameController.dispose();
     _landContactNumberController.dispose();
     _commercialContactNameController.dispose();
@@ -751,6 +773,18 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         return;
       }
 
+      final carParkingCount = _parseCarParkingCount(_apartmentCarParking);
+      if (carParkingCount < 0) {
+        _showError('Invalid car parking value.');
+        return;
+      }
+
+      final buildingAge = _parseInt(_apartmentBuildingAgeYears);
+      if (buildingAge != null && buildingAge < 0) {
+        _showError('Building age cannot be negative.');
+        return;
+      }
+
       final floor = _parseInt(_apartmentFloor);
       if (floor == null || floor < 0) {
         _showError('Floor must be zero or greater.');
@@ -774,6 +808,18 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         return;
       }
 
+      final contactName = _apartmentContactName.trim();
+      if (contactName.isEmpty) {
+        _showError('Contact name is required.');
+        return;
+      }
+
+      final normalizedContact = _normalizeContact(_apartmentContactNumber);
+      if (normalizedContact.isEmpty || normalizedContact.length < 6) {
+        _showError('Enter a valid contact number.');
+        return;
+      }
+
       payload = <String, dynamic>{
         'listingType': _listingTypeForPayload(),
         'propertyTitle': title,
@@ -781,11 +827,15 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         'areaInSquareFeet': area,
         'floor': floor,
         'totalFloors': totalFloors,
+        'carParkingCount': carParkingCount,
+        'buildingAge': buildingAge,
         'price': price,
         'location': location,
         'additionalInformation': _apartmentMoreInfo.trim().isEmpty
             ? null
             : _apartmentMoreInfo.trim(),
+        'contactName': contactName,
+        'contactNumber': normalizedContact,
         'boundaryGeoJson': boundaryGeoJson,
       };
       createType = 'apartment-flats';
@@ -845,6 +895,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         'contactName': contactName,
         'contactNumber': normalizedContact,
         'boundaryGeoJson': boundaryGeoJson,
+        'roads': const <Map<String, dynamic>>[],
       };
       createType = 'lands';
     } else {
@@ -1601,46 +1652,82 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         ];
       case 'Apartment':
         return [
-          _sectionTitle('Apartment Details'),
-          _textField(
-            label: 'Property Title',
-            value: _apartmentTitle,
-            controller: _apartmentTitleController,
-            onChanged: (v) => setState(() {
-              _apartmentTitle = v;
-              _apartmentTitleManuallyEdited = v.trim().isNotEmpty;
-            }),
+          Row(
+            children: [
+              Expanded(
+                child: _textField(
+                  label: 'BHK',
+                  value: _apartmentBedrooms,
+                  onChanged: (v) => setState(() {
+                    _apartmentBedrooms = v;
+                    _applyApartmentAutoTitleIfAllowed();
+                  }),
+                  hint: 'e.g., 2',
+                  keyboard: TextInputType.number,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _textField(
+                  label: 'Area (sq.ft.)',
+                  value: _apartmentArea,
+                  onChanged: (v) => setState(() => _apartmentArea = v),
+                  hint: 'e.g., 950',
+                  keyboard: TextInputType.number,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
-          _textField(
-            label: 'Bedrooms',
-            value: _apartmentBedrooms,
-            onChanged: (v) => setState(() {
-              _apartmentBedrooms = v;
-              _applyApartmentAutoTitleIfAllowed();
-            }),
-            keyboard: TextInputType.number,
+          Row(
+            children: [
+              Expanded(
+                child: _textField(
+                  label: 'Property Floor',
+                  value: _apartmentFloor,
+                  onChanged: (v) => setState(() => _apartmentFloor = v),
+                  hint: 'e.g., 3',
+                  keyboard: TextInputType.number,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _textField(
+                  label: 'Total Floors',
+                  value: _apartmentTotalFloors,
+                  onChanged: (v) => setState(() => _apartmentTotalFloors = v),
+                  hint: 'e.g., 10',
+                  keyboard: TextInputType.number,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
-          _textField(
-            label: 'Area (sq.ft.)',
-            value: _apartmentArea,
-            onChanged: (v) => setState(() => _apartmentArea = v),
-            keyboard: TextInputType.number,
-          ),
-          const SizedBox(height: 12),
-          _textField(
-            label: 'Floor',
-            value: _apartmentFloor,
-            onChanged: (v) => setState(() => _apartmentFloor = v),
-            keyboard: TextInputType.number,
-          ),
-          const SizedBox(height: 12),
-          _textField(
-            label: 'Total Floors',
-            value: _apartmentTotalFloors,
-            onChanged: (v) => setState(() => _apartmentTotalFloors = v),
-            keyboard: TextInputType.number,
+          Row(
+            children: [
+              Expanded(
+                child: _dropdown(
+                  label: 'Car Parking',
+                  value: _apartmentCarParking,
+                  options: carParkingOptions,
+                  onChanged: (v) => setState(() {
+                    _apartmentCarParking =
+                        (v == null || v.trim().isEmpty) ? 'None' : v;
+                  }),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _textField(
+                  label: 'Building Age (Years)',
+                  value: _apartmentBuildingAgeYears,
+                  onChanged: (v) =>
+                      setState(() => _apartmentBuildingAgeYears = v),
+                  hint: 'e.g., 10',
+                  keyboard: TextInputType.number,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           _textField(
@@ -1649,52 +1736,83 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             controller: _apartmentPriceController,
             inputFormatters: indianPriceFormatters,
             onChanged: (v) => setState(() => _apartmentPrice = v),
+            hint: 'e.g., ₹65,00,000',
             keyboard: TextInputType.number,
           ),
           const SizedBox(height: 12),
           _textField(
-            label: 'Location',
+            label: 'Locality / Landmark',
             value: _apartmentLocation,
             onChanged: (v) => setState(() {
               _apartmentLocation = v;
               _applyApartmentAutoTitleIfAllowed();
             }),
+            hint: 'e.g., Anna Nagar, Chennai',
+          ),
+          const SizedBox(height: 12),
+          _textField(
+            label: 'Property Title',
+            value: _apartmentTitle,
+            controller: _apartmentTitleController,
+            onChanged: (v) => setState(() {
+              _apartmentTitle = v;
+              _apartmentTitleManuallyEdited = v.trim().isNotEmpty;
+            }),
+            hint: 'e.g., 2 BHK Apartment in Anna Nagar',
           ),
           const SizedBox(height: 12),
           _textField(
             label: 'Additional Information',
             value: _apartmentMoreInfo,
             onChanged: (v) => setState(() => _apartmentMoreInfo = v),
-            hint: 'Optional',
+            hint:
+                'e.g., Near metro station, includes covered parking, recently renovated',
+            maxLines: 3,
+            minLines: 3,
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _textField(
+                  label: 'Contact Name',
+                  value: _apartmentContactName,
+                  controller: _apartmentContactNameController,
+                  onChanged: (v) => setState(() => _apartmentContactName = v),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _textField(
+                  label: 'Contact Number',
+                  value: _apartmentContactNumber,
+                  controller: _apartmentContactNumberController,
+                  onChanged: (v) => setState(() => _apartmentContactNumber = v),
+                  keyboard: TextInputType.phone,
+                ),
+              ),
+            ],
           ),
         ];
       case 'Land':
         return [
-          _sectionTitle('Land Details'),
-          _textField(
-            label: 'Property Title',
-            value: _landTitle,
-            controller: _landTitleController,
-            onChanged: (v) => setState(() {
-              _landTitle = v;
-              _landTitleManuallyEdited = v.trim().isNotEmpty;
-            }),
-          ),
-          const SizedBox(height: 12),
           _dropdown(
             label: 'Land Type',
-            value: _landType.isEmpty ? 'Residential' : _landType,
-            options: _landTypeValueMap.keys.toList(growable: false),
+            value: _landType.isEmpty ? 'Select' : _landType,
+            options: <String>['Select', ..._landTypeValueMap.keys],
             onChanged: (v) => setState(() {
-              _landType = v ?? '';
+              final next = (v ?? '').trim();
+              _landType = next == 'Select' ? '' : next;
               _applyLandAutoTitleIfAllowed();
             }),
           ),
           const SizedBox(height: 12),
           _textField(
-            label: 'Area (optional)',
+            label: 'Area (sq.ft)',
             value: _landArea,
             onChanged: (v) => setState(() => _landArea = v),
+            hint: 'e.g., 2400 sq.ft',
+            keyboard: TextInputType.number,
           ),
           const SizedBox(height: 12),
           _textField(
@@ -1703,38 +1821,61 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             controller: _landPriceController,
             inputFormatters: indianPriceFormatters,
             onChanged: (v) => setState(() => _landPrice = v),
+            hint: 'e.g., ₹50,00,000',
             keyboard: TextInputType.number,
           ),
           const SizedBox(height: 12),
           _textField(
-            label: 'Location',
+            label: 'Locality / Landmark',
             value: _landLocation,
             onChanged: (v) => setState(() {
               _landLocation = v;
               _applyLandAutoTitleIfAllowed();
             }),
+            hint: 'e.g., Anna Nagar, Chennai',
           ),
           const SizedBox(height: 12),
           _textField(
-            label: 'Additional Information',
+            label: 'Property Title',
+            value: _landTitle,
+            controller: _landTitleController,
+            onChanged: (v) => setState(() {
+              _landTitle = v;
+              _landTitleManuallyEdited = v.trim().isNotEmpty;
+            }),
+            hint: 'e.g., Residential Plot in Anna Nagar',
+          ),
+          const SizedBox(height: 12),
+          _textField(
+            label: 'More Information',
             value: _landMoreInfo,
             onChanged: (v) => setState(() => _landMoreInfo = v),
-            hint: 'Optional',
+            hint: 'e.g., Near school, 30 ft road access',
+            maxLines: 3,
+            minLines: 3,
           ),
           const SizedBox(height: 12),
-          _textField(
-            label: 'Contact Name',
-            value: _landContactName,
-            controller: _landContactNameController,
-            onChanged: (v) => setState(() => _landContactName = v),
-          ),
-          const SizedBox(height: 12),
-          _textField(
-            label: 'Contact Number',
-            value: _landContactNumber,
-            controller: _landContactNumberController,
-            onChanged: (v) => setState(() => _landContactNumber = v),
-            keyboard: TextInputType.phone,
+          Row(
+            children: [
+              Expanded(
+                child: _textField(
+                  label: 'Contact Name',
+                  value: _landContactName,
+                  controller: _landContactNameController,
+                  onChanged: (v) => setState(() => _landContactName = v),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _textField(
+                  label: 'Contact Number',
+                  value: _landContactNumber,
+                  controller: _landContactNumberController,
+                  onChanged: (v) => setState(() => _landContactNumber = v),
+                  keyboard: TextInputType.phone,
+                ),
+              ),
+            ],
           ),
         ];
       default:
@@ -1811,10 +1952,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final guidedIndependentHouse =
-        widget.initialPropertyType?.trim() == 'Independent House';
-    final showListingType =
-        _propertyType != 'Plot' && _propertyType != 'Layouts';
+    final showListingType = _propertyType != 'Layouts';
     return WillPopScope(
       onWillPop: () async => !_isSaving,
       child: Scaffold(
@@ -1859,35 +1997,60 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                       value: _listingType,
                       options: _listingTypes,
                       onChanged: (v) =>
-                          setState(() => _listingType = v ?? 'Buy'),
+                          setState(() => _listingType = v ?? 'Sell'),
                     ),
                     const SizedBox(height: 12),
                   ],
-                  if (!guidedIndependentHouse) ...[
-                    _dropdown(
-                      label: 'Property Type',
-                      value: _propertyType,
-                      options: _propertyTypes,
-                      onChanged: (v) =>
-                          setState(() => _propertyType = v ?? 'Plot'),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
+                  _dropdown(
+                    label: 'Property Type',
+                    value: _propertyType,
+                    options: _propertyTypes,
+                    onChanged: (v) =>
+                        setState(() => _propertyType = v ?? 'Plot'),
+                  ),
+                  const SizedBox(height: 10),
                   ..._buildPropertyFields(),
                   const SizedBox(height: 16),
                   _buildPhotosSection(),
                   const SizedBox(height: 20),
-                  FilledButton.icon(
-                    onPressed: _isSaving ? null : _handleSave,
-                    icon: const Icon(Icons.save_outlined),
-                    label: Text(_isSaving ? 'Saving...' : 'Save Property'),
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(44),
-                      backgroundColor: const Color(0xFF0FAD97),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: _isSaving ? null : _handleSave,
+                          icon: const Icon(Icons.save_outlined),
+                          label: Text(_isSaving ? 'Saving...' : 'Save'),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(44),
+                            backgroundColor: const Color(0xFF0FAD97),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _isSaving
+                              ? null
+                              : () => Navigator.of(context).pop(),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(44),
+                            side: const BorderSide(color: Color(0xFFE2E8F0)),
+                            foregroundColor: const Color(0xFF475569),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            backgroundColor: Colors.white,
+                          ),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
