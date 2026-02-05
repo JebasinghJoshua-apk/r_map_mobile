@@ -965,8 +965,8 @@ class _PropertyPolygonEditorScreenState
     };
 
     final edgeMarkers = <Marker>{};
-    final showEdgeMarkers = widget.mode == PropertyPolygonEditorMode.edit;
-    if (showEdgeMarkers && _points.length >= 2) {
+    final showEdgeMarkers = _points.length >= 2;
+    if (showEdgeMarkers) {
       final willClose = _points.length >= 3;
       final lastIndex = _points.length - 1;
       final edgeCount = willClose ? _points.length : lastIndex;
@@ -974,8 +974,12 @@ class _PropertyPolygonEditorScreenState
         final a = _points[i];
         final b = _points[(i + 1) % _points.length];
         final mid = _midpoint(a, b);
-        final icon = _edgeLabelIcons[i] ??
-            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
+        final icon = _edgeLabelIcons[i];
+        if (icon == null) {
+          // Avoid showing default pins (and avoid the old green marker issue).
+          // Labels will appear once the bitmap finishes rendering.
+          continue;
+        }
         edgeMarkers.add(
           Marker(
             markerId: MarkerId('e$i'),

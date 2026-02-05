@@ -813,7 +813,15 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         payload: payload,
         bearerToken: token,
       );
-      final createdId = (created['id'] ?? created['propertyId'])?.toString();
+      // Images upload + property detail endpoints use the generic PropertyId.
+      // Upstream create responses sometimes include both:
+      // - id: feature/entity id (type-specific)
+      // - propertyId: generic property GUID
+      final createdId = (created['propertyId'] ??
+              created['PropertyId'] ??
+              created['id'] ??
+              created['Id'])
+          ?.toString();
       if (createdId == null || createdId.trim().isEmpty) {
         throw const MapApiException(
             'Created property response was missing an id.');
