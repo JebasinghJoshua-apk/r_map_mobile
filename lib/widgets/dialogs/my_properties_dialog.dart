@@ -105,6 +105,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
     LatLng? center,
     List<LatLng>? initialPoints,
     bool showDetailsOnNext = false,
+    String? initialPropertyType,
   }) async {
     final points =
         await Navigator.of(context, rootNavigator: true).push<List<LatLng>>(
@@ -120,6 +121,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                     MaterialPageRoute(
                       builder: (_) => PropertyDetailsFormScreen(
                         boundaryPoints: points,
+                        initialPropertyType: initialPropertyType,
                       ),
                     ),
                   );
@@ -135,6 +137,31 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
         ToastMessage.show(context, 'Polygon updated.');
       }
     }
+  }
+
+  Future<String?> _pickPropertyTypeForAdd() async {
+    const options = <String>[
+      'Independent House',
+      'Plot',
+      'Apartment',
+      'Land',
+      'Commercial Space',
+    ];
+
+    return showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Add Property'),
+        children: options
+            .map(
+              (opt) => SimpleDialogOption(
+                onPressed: () => Navigator.of(context).pop(opt),
+                child: Text(opt),
+              ),
+            )
+            .toList(growable: false),
+      ),
+    );
   }
 
   Future<void> _deleteProperty(MyPropertyListItem item) async {
@@ -330,11 +357,17 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                   const Spacer(),
                   FilledButton(
                     onPressed: () async {
+                      final selectedType = await _pickPropertyTypeForAdd();
+                      if (!mounted) return;
+                      if (selectedType == null || selectedType.trim().isEmpty) {
+                        return;
+                      }
                       final center = widget.getMapCenter?.call();
                       await _openEditor(
                         mode: PropertyPolygonEditorMode.add,
                         center: center,
                         showDetailsOnNext: true,
+                        initialPropertyType: selectedType,
                       );
                     },
                     style: FilledButton.styleFrom(

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:dotted_border/dotted_border.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -26,6 +27,8 @@ class PropertyDetailsFormScreen extends StatefulWidget {
 }
 
 class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
+  static const int _maxPhotos = 12;
+
   static const List<String> _propertyTypes = <String>[
     'Plot',
     'Independent House',
@@ -75,6 +78,9 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   String _houseTitle = '';
   String _houseBedrooms = '';
   String _houseBuiltUpArea = '';
+  String _houseFloors = '';
+  String _houseCarParking = 'None';
+  String _houseBuildingAgeYears = '';
   String _housePrice = '';
   String _houseLocation = '';
   String _houseMoreDetails = '';
@@ -144,13 +150,36 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     ToastMessage.show(context, message);
   }
 
+  int _parseCarParkingCount(String raw) {
+    final v = raw.trim();
+    if (v.isEmpty) return 0;
+    if (v.toLowerCase() == 'none') return 0;
+    if (v.toLowerCase() == 'available') return 1;
+    final cleaned = v.replaceAll('+', '').trim();
+    return int.tryParse(cleaned) ?? 0;
+  }
+
   Future<void> _pickImages() async {
+    if (_photos.length >= _maxPhotos) {
+      _showError('You can add up to $_maxPhotos photos.');
+      return;
+    }
+
     final picks = await _imagePicker.pickMultiImage(imageQuality: 85);
     if (picks.isEmpty) return;
     if (!mounted) return;
     setState(() {
-      _photos.addAll(picks);
+      final remaining = _maxPhotos - _photos.length;
+      if (remaining <= 0) {
+        return;
+      }
+      _photos.addAll(picks.take(remaining));
     });
+
+    if (mounted && (picks.length + _photos.length) > _maxPhotos) {
+      ToastMessage.show(
+          context, 'Only the first $_maxPhotos photos were kept.');
+    }
   }
 
   Future<void> _removeImage(int index) async {
@@ -253,6 +282,24 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         return;
       }
 
+      final floors = _parseInt(_houseFloors);
+      if (floors != null && floors <= 0) {
+        _showError('Floors must be a positive whole number.');
+        return;
+      }
+
+      final buildingAge = _parseInt(_houseBuildingAgeYears);
+      if (buildingAge != null && buildingAge < 0) {
+        _showError('Building age cannot be negative.');
+        return;
+      }
+
+      final carParkingCount = _parseCarParkingCount(_houseCarParking);
+      if (carParkingCount < 0) {
+        _showError('Invalid car parking value.');
+        return;
+      }
+
       final price = _parseDouble(_housePrice);
       if (price == null || price <= 0) {
         _showError('Price must be greater than zero.');
@@ -277,6 +324,9 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         'propertyTitle': title,
         'bedrooms': bedrooms,
         'builtUpAreaInSquareFeet': builtUpArea,
+        'floors': floors,
+        'buildingAge': buildingAge,
+        'carParkingCount': carParkingCount,
         'price': price,
         'location': location,
         'additionalDetails':
@@ -524,6 +574,8 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     required ValueChanged<String> onChanged,
     String? hint,
     TextInputType? keyboard,
+    int maxLines = 1,
+    int? minLines,
   }) {
     final fieldKey = ValueKey('$label-$_propertyType');
     return Column(
@@ -543,6 +595,8 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           initialValue: value,
           onChanged: onChanged,
           keyboardType: keyboard,
+          maxLines: maxLines,
+          minLines: minLines,
           decoration: InputDecoration(
             hintText: hint,
             isDense: true,
@@ -612,52 +666,90 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   }
 
   Widget _buildPhotosSection() {
+    final countLabel = '${_photos.length}/$_maxPhotos';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionTitle('Property Photos'),
-        const SizedBox(height: 4),
         Row(
           children: [
-            OutlinedButton.icon(
-              onPressed: _pickImages,
-              icon: const Icon(Icons.photo_library_outlined, size: 18),
-              label: const Text('Add photos'),
+            const Text(
+              'Property Photos',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
+              ),
             ),
-            const SizedBox(width: 12),
+            const Spacer(),
             Text(
-              _photos.isEmpty
-                  ? 'No photos selected'
-                  : '${_photos.length} selected',
+              countLabel,
               style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
                 color: Color(0xFF64748B),
-                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 10),
+            InkWell(
+              onTap: _pickImages,
+              child: const Text(
+                'Add',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0FAD97),
+                ),
               ),
             ),
           ],
         ),
-        if (_photos.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: List<Widget>.generate(
-              _photos.length,
-              (index) => Chip(
-                label: Text(
-                  _photos[index].name,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                onDeleted: () => _removeImage(index),
-              ),
+        const SizedBox(height: 10),
+        DottedBorder(
+          color: const Color(0xFFCBD5E1),
+          strokeWidth: 1.2,
+          dashPattern: const <double>[6, 4],
+          borderType: BorderType.RRect,
+          radius: const Radius.circular(12),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
             ),
+            child: _photos.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No photos added yet.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                  )
+                : Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: List<Widget>.generate(
+                      _photos.length,
+                      (index) => Chip(
+                        label: Text(
+                          _photos[index].name,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onDeleted: () => _removeImage(index),
+                      ),
+                    ),
+                  ),
           ),
-        ],
+        ),
       ],
     );
   }
 
   List<Widget> _buildPropertyFields() {
+    const carParkingOptions = <String>['None', '1', '2', '3', '4+'];
     switch (_propertyType) {
       case 'Plot':
         return [
@@ -711,25 +803,59 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         ];
       case 'Independent House':
         return [
-          _sectionTitle('House Details'),
-          _textField(
-            label: 'Property Title',
-            value: _houseTitle,
-            onChanged: (v) => setState(() => _houseTitle = v),
-            hint: 'e.g., 3 BHK Independent House',
+          Row(
+            children: [
+              Expanded(
+                child: _textField(
+                  label: 'Bedrooms',
+                  value: _houseBedrooms,
+                  onChanged: (v) => setState(() => _houseBedrooms = v),
+                  hint: 'e.g., 3',
+                  keyboard: TextInputType.number,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _textField(
+                  label: 'Built-up Area (Sq.ft)',
+                  value: _houseBuiltUpArea,
+                  onChanged: (v) => setState(() => _houseBuiltUpArea = v),
+                  hint: 'e.g., 1500',
+                  keyboard: TextInputType.number,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _textField(
+                  label: 'Floors',
+                  value: _houseFloors,
+                  onChanged: (v) => setState(() => _houseFloors = v),
+                  hint: 'e.g., 2',
+                  keyboard: TextInputType.number,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _dropdown(
+                  label: 'Car Parking',
+                  value: _houseCarParking.isEmpty ? 'None' : _houseCarParking,
+                  options: carParkingOptions,
+                  onChanged: (v) =>
+                      setState(() => _houseCarParking = v ?? 'None'),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           _textField(
-            label: 'Bedrooms',
-            value: _houseBedrooms,
-            onChanged: (v) => setState(() => _houseBedrooms = v),
-            keyboard: TextInputType.number,
-          ),
-          const SizedBox(height: 12),
-          _textField(
-            label: 'Built-up Area (sq.ft.)',
-            value: _houseBuiltUpArea,
-            onChanged: (v) => setState(() => _houseBuiltUpArea = v),
+            label: 'Building Age (Years)',
+            value: _houseBuildingAgeYears,
+            onChanged: (v) => setState(() => _houseBuildingAgeYears = v),
+            hint: 'e.g., 10',
             keyboard: TextInputType.number,
           ),
           const SizedBox(height: 12),
@@ -737,33 +863,52 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             label: 'Price',
             value: _housePrice,
             onChanged: (v) => setState(() => _housePrice = v),
+            hint: 'e.g., 75,00,000',
             keyboard: TextInputType.number,
           ),
           const SizedBox(height: 12),
           _textField(
-            label: 'Location',
+            label: 'Locality / Landmark',
             value: _houseLocation,
             onChanged: (v) => setState(() => _houseLocation = v),
+            hint: 'e.g., Anna Nagar, Chennai',
           ),
           const SizedBox(height: 12),
           _textField(
-            label: 'Additional Details',
+            label: 'Property Title',
+            value: _houseTitle,
+            onChanged: (v) => setState(() => _houseTitle = v),
+            hint: 'e.g., 2 BHK Independent House in Anna Nagar',
+          ),
+          const SizedBox(height: 12),
+          _textField(
+            label: 'Description',
             value: _houseMoreDetails,
             onChanged: (v) => setState(() => _houseMoreDetails = v),
-            hint: 'Optional',
+            hint: 'e.g., East Facing, Car Parking Available',
+            maxLines: 3,
+            minLines: 3,
           ),
           const SizedBox(height: 12),
-          _textField(
-            label: 'Contact Name',
-            value: _houseContactName,
-            onChanged: (v) => setState(() => _houseContactName = v),
-          ),
-          const SizedBox(height: 12),
-          _textField(
-            label: 'Contact Number',
-            value: _houseContactNumber,
-            onChanged: (v) => setState(() => _houseContactNumber = v),
-            keyboard: TextInputType.phone,
+          Row(
+            children: [
+              Expanded(
+                child: _textField(
+                  label: 'Contact Name',
+                  value: _houseContactName,
+                  onChanged: (v) => setState(() => _houseContactName = v),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _textField(
+                  label: 'Contact Number',
+                  value: _houseContactNumber,
+                  onChanged: (v) => setState(() => _houseContactNumber = v),
+                  keyboard: TextInputType.phone,
+                ),
+              ),
+            ],
           ),
         ];
       case 'Apartment':
@@ -938,6 +1083,8 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final guidedIndependentHouse =
+        widget.initialPropertyType?.trim() == 'Independent House';
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -972,20 +1119,22 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: [
-            _dropdown(
-              label: 'Listing Type:',
-              value: _listingType,
-              options: _listingTypes,
-              onChanged: (v) => setState(() => _listingType = v ?? 'Sell'),
-            ),
-            const SizedBox(height: 12),
-            _dropdown(
-              label: 'Property Type',
-              value: _propertyType,
-              options: _propertyTypes,
-              onChanged: (v) => setState(() => _propertyType = v ?? 'Plot'),
-            ),
-            const SizedBox(height: 10),
+            if (!guidedIndependentHouse) ...[
+              _dropdown(
+                label: 'Listing Type:',
+                value: _listingType,
+                options: _listingTypes,
+                onChanged: (v) => setState(() => _listingType = v ?? 'Sell'),
+              ),
+              const SizedBox(height: 12),
+              _dropdown(
+                label: 'Property Type',
+                value: _propertyType,
+                options: _propertyTypes,
+                onChanged: (v) => setState(() => _propertyType = v ?? 'Plot'),
+              ),
+              const SizedBox(height: 10),
+            ],
             ..._buildPropertyFields(),
             const SizedBox(height: 16),
             _buildPhotosSection(),
