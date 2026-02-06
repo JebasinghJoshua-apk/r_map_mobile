@@ -221,6 +221,7 @@ class MobileBffMapApi {
     required LatLng anchor,
     int limit = 15,
     double? radiusKm,
+    String? query,
     String? bearerToken,
   }) async {
     final uri = _uri(
@@ -231,6 +232,7 @@ class MobileBffMapApi {
         'propertyType': 'Layout',
         'limit': limit,
         if (radiusKm != null) 'radiusKm': radiusKm,
+        if (query != null && query.trim().isNotEmpty) 'query': query.trim(),
       },
     );
 
