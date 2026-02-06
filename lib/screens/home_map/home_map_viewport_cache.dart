@@ -792,6 +792,7 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
         final polygons = GeoJson.tryParsePolygons(plot.boundaryGeoJson);
         final kind = _plotElementKind(plot);
         final isSold = plot.layoutId != null && _isSoldPlot(plot);
+        final isBooked = !isSold && plot.layoutId != null && _isBookedPlot(plot);
 
         Color stroke;
         Color fill;
@@ -821,6 +822,13 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
           strokeWidth = _bumpPlotStrokeWidthForHighZoom(zoom, _plotStrokeWidth);
           strokeOpacity = _soldPlotStrokeOpacity;
           fillOpacity = _soldPlotFillOpacity;
+          zIndex = 60;
+        } else if (isBooked) {
+          stroke = _bookedPlotStroke;
+          fill = _bookedPlotFill;
+          strokeWidth = _bumpPlotStrokeWidthForHighZoom(zoom, _plotStrokeWidth);
+          strokeOpacity = _bookedPlotStrokeOpacity;
+          fillOpacity = _bookedPlotFillOpacity;
           zIndex = 60;
         } else {
           stroke = _plotStroke;

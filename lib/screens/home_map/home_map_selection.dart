@@ -658,6 +658,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
     final zoom = _effectiveZoom ?? _lastCameraPosition.zoom;
     final kind = _plotElementKind(plot);
     final isSold = plot.layoutId != null && _isSoldPlot(plot);
+    final isBooked = !isSold && plot.layoutId != null && _isBookedPlot(plot);
 
     Color stroke;
     Color fill;
@@ -680,6 +681,11 @@ extension _HomeMapSelection on _HomeMapScreenState {
       fill = _soldPlotFill;
       baseStrokeWidth = _bumpPlotStrokeWidthForHighZoom(zoom, _plotStrokeWidth);
       fillOpacity = _soldPlotFillOpacity;
+    } else if (isBooked) {
+      stroke = _bookedPlotStroke;
+      fill = _bookedPlotFill;
+      baseStrokeWidth = _bumpPlotStrokeWidthForHighZoom(zoom, _plotStrokeWidth);
+      fillOpacity = _bookedPlotFillOpacity;
     } else {
       stroke = _plotStroke;
       fill = _plotFill;

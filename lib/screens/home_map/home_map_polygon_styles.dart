@@ -27,6 +27,12 @@ const Color _soldPlotFill = Color(0xFFDC2626);
 const double _soldPlotStrokeOpacity = 0.70;
 const double _soldPlotFillOpacity = 0.55;
 
+// Booked plots: match web palette (orange fill) and requested opacity.
+const Color _bookedPlotStroke = Color(0xFF4B5563);
+const Color _bookedPlotFill = Color(0xFFFF9800);
+const double _bookedPlotStrokeOpacity = 0.75;
+const double _bookedPlotFillOpacity = 0.42;
+
 // Selected plot highlight overlay (mobile-only UX affordance).
 // Match selected property UX: keep same base colors, but add a white outline
 // so the selection reads clearly over adjacent polygons.
@@ -193,18 +199,40 @@ _PropertyPolygonStyle _propertyStyleForType(String propertyType) {
 }
 
 bool _isSoldPlot(MapPlotFeature plot) {
+  final statusKey = _plotStatusKey(plot);
+  if (statusKey == 'sold') return true;
+
+  // Backward compatibility: older datasets mark sold with a separate flag.
   final meta = plot.metadata;
-  final rawStatus = (meta['plotStatus'] ??
+  final rawSold =
+      (meta['sold'] ?? meta['isSold'] ?? meta['is_sold'])?.trim().toLowerCase();
+  return rawSold == 'true' || rawSold == '1' || rawSold == 'yes';
+}
+
+bool _isBookedPlot(MapPlotFeature plot) {
+  return _plotStatusKey(plot) == 'booked';
+}
+
+String _plotStatusKey(MapPlotFeature plot) {
+  final meta = plot.metadata;
+  final raw = (meta['plotStatus'] ??
           meta['plot_status'] ??
           meta['status'] ??
           meta['availability'])
       ?.trim()
       .toLowerCase();
-  if (rawStatus == '2' || rawStatus == 'sold') return true;
+  if (raw == null || raw.isEmpty) return 'available';
 
-  final rawSold =
-      (meta['sold'] ?? meta['isSold'] ?? meta['is_sold'])?.trim().toLowerCase();
-  return rawSold == 'true' || rawSold == '1' || rawSold == 'yes';
+  // Backend enum values: Available=0, Booked=1, Sold=2, Blocked=3
+  if (raw == '1') return 'booked';
+  if (raw == '2') return 'sold';
+  if (raw == '3') return 'blocked';
+
+  if (raw == 'available' || raw == 'booked' || raw == 'sold' || raw == 'blocked') {
+    return raw;
+  }
+
+  return 'available';
 }
 
 String _plotElementKind(MapPlotFeature plot) {
