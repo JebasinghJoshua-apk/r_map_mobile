@@ -811,9 +811,10 @@ class _PropertyPolygonEditorScreenState
                       controller: _searchController,
                       focusNode: _searchFocusNode,
                       enabled: isEnabled,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         border: InputBorder.none,
                         hintText: 'Search for places...',
+                        hintStyle: TextStyle(color: Colors.grey.shade400),
                       ),
                       textInputAction: TextInputAction.search,
                       onChanged: (v) {

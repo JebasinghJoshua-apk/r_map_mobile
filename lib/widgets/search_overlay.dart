@@ -435,9 +435,10 @@ class _SearchOverlayState extends State<SearchOverlay> {
                   child: TextField(
                     controller: _controller,
                     focusNode: _focusNode,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       border: InputBorder.none,
                       hintText: 'Search for places...',
+                      hintStyle: TextStyle(color: Colors.grey.shade400),
                     ),
                     onChanged: _onQueryChanged,
                     onTap: () {
