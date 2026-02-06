@@ -534,7 +534,7 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
                   ),
                 ),
               );
-              },
+            },
           );
         },
       );
