@@ -228,7 +228,10 @@ String _plotStatusKey(MapPlotFeature plot) {
   if (raw == '2') return 'sold';
   if (raw == '3') return 'blocked';
 
-  if (raw == 'available' || raw == 'booked' || raw == 'sold' || raw == 'blocked') {
+  if (raw == 'available' ||
+      raw == 'booked' ||
+      raw == 'sold' ||
+      raw == 'blocked') {
     return raw;
   }
 

@@ -792,7 +792,8 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
         final polygons = GeoJson.tryParsePolygons(plot.boundaryGeoJson);
         final kind = _plotElementKind(plot);
         final isSold = plot.layoutId != null && _isSoldPlot(plot);
-        final isBooked = !isSold && plot.layoutId != null && _isBookedPlot(plot);
+        final isBooked =
+            !isSold && plot.layoutId != null && _isBookedPlot(plot);
 
         Color stroke;
         Color fill;
