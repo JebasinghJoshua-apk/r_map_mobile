@@ -220,7 +220,7 @@ class MobileBffMapApi {
   Future<List<NearbyPropertyCard>> getNearbyLayouts({
     required LatLng anchor,
     int limit = 15,
-    double radiusKm = 30,
+    double? radiusKm,
     String? bearerToken,
   }) async {
     final uri = _uri(
@@ -230,7 +230,7 @@ class MobileBffMapApi {
         'lng': anchor.longitude,
         'propertyType': 'Layout',
         'limit': limit,
-        'radiusKm': radiusKm,
+        if (radiusKm != null) 'radiusKm': radiusKm,
       },
     );
 

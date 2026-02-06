@@ -5,6 +5,7 @@ enum _NearbyLayoutsDialogCloseReason {
 }
 
 extension _HomeMapNearbyLayouts on _HomeMapScreenState {
+  static const double _nearbyLayoutsAutoRadiusKm = 50.0;
   String _formatNearbyDate(DateTime dt) {
     final d = dt.toLocal();
     return '${d.day}/${d.month}/${d.year}';
@@ -37,7 +38,11 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
         _HomeMapScreenState._nearbyNewThreshold;
   }
 
-  Future<void> _loadNearbyLayouts(LatLng anchor) async {
+  Future<void> _loadNearbyLayouts(
+    LatLng anchor, {
+    required int limit,
+    double? radiusKm,
+  }) async {
     final token = AuthScope.of(context).session?.token;
     _updateState(() {
       _isNearbyLayoutsLoading = true;
@@ -47,8 +52,8 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
     try {
       final results = await _mapApi.getNearbyLayouts(
         anchor: anchor,
-        limit: 15,
-        radiusKm: 30,
+        limit: limit,
+        radiusKm: radiusKm,
         bearerToken: token,
       );
       if (!mounted) return;
@@ -79,11 +84,15 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
   Future<void> _openNearbyLayoutsPopup({
     required LatLng anchor,
     bool showWhenEmpty = false,
+    bool isManualOpen = false,
   }) async {
     if (_isNearbyLayoutsDialogOpen) {
-      final dialogContext = _nearbyLayoutsDialogContext;
-      if (dialogContext != null) {
-        Navigator.of(dialogContext).pop();
+      // Close any existing dialog via the root navigator.
+      // Using a stored dialog BuildContext can crash during teardown
+      // (Flutter framework assertion about dependencies being empty).
+      final nav = Navigator.of(context, rootNavigator: true);
+      if (nav.canPop()) {
+        nav.pop();
         await Future<void>.delayed(Duration.zero);
         if (!mounted) return;
       }
@@ -92,8 +101,22 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
     _dismissKeyboard();
     _closeAnyPanel();
 
+    // Manual open should behave like auto-open by default:
+    // show nearest 15 layouts within 50km.
+    const baseRadiusKm = _nearbyLayoutsAutoRadiusKm;
+    const limit = 15;
+    final effectiveShowWhenEmpty = showWhenEmpty || isManualOpen;
+
+    Future<void> load() async {
+      await _loadNearbyLayouts(
+        anchor,
+        limit: limit,
+        radiusKm: baseRadiusKm,
+      );
+    }
+
     // Fetch first; only show the popup after we have a response.
-    await _loadNearbyLayouts(anchor);
+    await load();
     if (!mounted) return;
     final initialError = _nearbyLayoutsError;
     if (initialError != null && initialError.trim().isNotEmpty) {
@@ -102,7 +125,7 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
     }
 
     final initialItems = _nearbyLayouts ?? const <NearbyPropertyCard>[];
-    if (initialItems.isEmpty && !showWhenEmpty) return;
+    if (initialItems.isEmpty && !effectiveShowWhenEmpty) return;
 
     _NearbyLayoutsDialogCloseReason? closeReason;
     try {
@@ -111,13 +134,11 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
         context: context,
         barrierDismissible: true,
         builder: (dialogContext) {
-          _nearbyLayoutsDialogContext = dialogContext;
-
           return StatefulBuilder(
             builder: (context, setModalState) {
               Future<void> refresh() async {
                 if (_isNearbyLayoutsLoading) return;
-                await _loadNearbyLayouts(anchor);
+                await load();
                 if (!mounted) return;
                 setModalState(() {});
               }
@@ -154,7 +175,8 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
               const cardHeight = 92.0;
               const cardGap = 8.0;
               const listPaddingVertical = 12.0 + 16.0;
-              const headerHeight = 102.0;
+              // Title row + paddings.
+              const headerHeight = 86.0;
               const dividerHeight = 1.0;
 
               final visibleCount = math.min(items.length, maxVisibleItems);
@@ -217,7 +239,9 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
                             ),
                             IconButton(
                               tooltip: 'Close',
-                              onPressed: () => Navigator.of(context).pop(
+                              onPressed: () =>
+                                  Navigator.of(context, rootNavigator: true)
+                                      .pop(
                                 _NearbyLayoutsDialogCloseReason.manual,
                               ),
                               icon: const Icon(Icons.close),
@@ -510,13 +534,12 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
                   ),
                 ),
               );
-            },
+              },
           );
         },
       );
     } finally {
       _isNearbyLayoutsDialogOpen = false;
-      _nearbyLayoutsDialogContext = null;
     }
 
     if (closeReason == _NearbyLayoutsDialogCloseReason.manual) {

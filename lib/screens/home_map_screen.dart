@@ -227,7 +227,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   String? _nearbyLayoutsError;
 
   bool _isNearbyLayoutsDialogOpen = false;
-  BuildContext? _nearbyLayoutsDialogContext;
   bool _isNearbyLayoutsReopenHintOn = false;
   Timer? _nearbyLayoutsReopenHintTimer;
 
@@ -999,6 +998,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                         _openNearbyLayoutsPopup(
                           anchor: anchor,
                           showWhenEmpty: true,
+                          isManualOpen: true,
                         ),
                       );
                     },
