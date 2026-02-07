@@ -34,6 +34,15 @@ class _RMapAppState extends State<RMapApp> {
       authState: _authState,
       child: MaterialApp(
         title: 'R Map',
+        builder: (context, child) {
+          final mediaQuery = MediaQuery.of(context);
+          return MediaQuery(
+            data: mediaQuery.copyWith(
+              textScaler: const TextScaler.linear(1.0),
+            ),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
             seedColor: const Color(0xFF0FAD97),
