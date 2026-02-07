@@ -1233,6 +1233,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         ),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
+          isExpanded: true,
           value: value,
           items: options
               .map((opt) => DropdownMenuItem<String>(
@@ -1240,9 +1241,15 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                     child: Text(opt),
                   ))
               .toList(growable: false),
+          icon: const Padding(
+            padding: EdgeInsets.only(right: 8),
+            child: Icon(Icons.keyboard_arrow_down),
+          ),
           onChanged: onChanged,
           decoration: InputDecoration(
             isDense: true,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             filled: true,
             fillColor: Colors.white,
             border: OutlineInputBorder(
