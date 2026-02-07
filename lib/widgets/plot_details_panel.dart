@@ -199,7 +199,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Expanded(
-                                        flex: 3,
+                                        flex: 11,
                                         child: _PlotSketchCard(
                                           borderColor: const Color(0xFF15803D),
                                           dimensions: dimensions,
@@ -208,7 +208,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                       ),
                                       const SizedBox(width: gap),
                                       Expanded(
-                                        flex: 2,
+                                        flex: 9,
                                         child: Padding(
                                           // Leave a touch of breathing room from the top.
                                           padding:
@@ -224,7 +224,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                                 'Plot #$plotNumber',
                                                 textAlign: TextAlign.center,
                                                 style: const TextStyle(
-                                                  fontSize: 16,
+                                                  fontSize: 14,
                                                   fontWeight: FontWeight.w800,
                                                   color: Color(0xFF111827),
                                                 ),
@@ -235,7 +235,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                                 textAlign: TextAlign.center,
                                                 style: const TextStyle(
                                                   color: Color(0xFF4B5563),
-                                                  fontSize: 13,
+                                                  fontSize: 12,
                                                   fontWeight: FontWeight.w700,
                                                 ),
                                               ),
@@ -260,7 +260,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                                   style: TextStyle(
                                                     color: statusTheme.color,
                                                     fontWeight: FontWeight.w800,
-                                                    fontSize: 11,
+                                                    fontSize: 10,
                                                     letterSpacing: 0.8,
                                                   ),
                                                 ),
@@ -303,7 +303,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                                   'Share',
                                                   style: TextStyle(
                                                     color: Color(0xFF1D4ED8),
-                                                    fontSize: 11,
+                                                    fontSize: 10,
                                                     fontWeight: FontWeight.w500,
                                                     height: 1,
                                                   ),
@@ -333,7 +333,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                                       style: TextStyle(
                                                         color:
                                                             Color(0xFF1D4ED8),
-                                                        fontSize: 14,
+                                                        fontSize: 12,
                                                         fontWeight:
                                                             FontWeight.w600,
                                                         height: 1,
@@ -373,7 +373,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                               tagsLine,
                               style: const TextStyle(
                                 color: Color(0xFF111827),
-                                fontSize: 14,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w800,
                                 height: 1.15,
                               ),
@@ -400,7 +400,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       color: Color(0xFF111827),
-                                      fontSize: 14,
+                                      fontSize: 12,
                                       fontWeight: FontWeight.w800,
                                       letterSpacing: 0.6,
                                     ),
@@ -413,6 +413,11 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                     height: 40,
                                     child: DropdownButtonFormField<String>(
                                       value: _statusValue,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF111827),
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                       items: const [
                                         DropdownMenuItem(
                                           value: 'Available',
