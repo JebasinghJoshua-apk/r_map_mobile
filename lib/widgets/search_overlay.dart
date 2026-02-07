@@ -781,17 +781,6 @@ class _SearchOverlayState extends State<SearchOverlay> {
               ],
             ),
           ),
-          const SizedBox(height: 10),
-          const Text(
-            'Draw · Publish · Sell',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Color(0xFF64748B),
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.2,
-            ),
-          ),
           const SizedBox(height: 14),
           searchCard,
         ],

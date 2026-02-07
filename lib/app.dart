@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'screens/home_map_screen.dart';
+import 'screens/splash_screen.dart';
 import 'state/auth_scope.dart';
 import 'state/auth_state.dart';
 import 'utils/route_observer.dart';
@@ -62,7 +62,7 @@ class _RMapAppState extends State<RMapApp> {
           ),
         ),
         navigatorObservers: [routeObserver],
-        home: const HomeMapScreen(),
+        home: const SplashScreen(),
       ),
     );
   }

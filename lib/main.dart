@@ -3,12 +3,29 @@ import 'package:flutter/services.dart';
 
 import 'app.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+
+  // Avoid drawing content behind Android system navigation buttons.
+  // Some OEMs (notably Samsung) can render a transparent nav bar in edge-to-edge,
+  // making the back/home buttons hard to see over maps.
+  await SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.manual,
+    overlays: SystemUiOverlay.values,
+  );
+
+  final platformBrightness =
+      WidgetsBinding.instance.platformDispatcher.platformBrightness;
+  final isDarkMode = platformBrightness == Brightness.dark;
+
+  SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.dark,
-    statusBarBrightness: Brightness.light,
+    statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+    statusBarBrightness: isDarkMode ? Brightness.dark : Brightness.light,
+    systemNavigationBarColor: isDarkMode ? Colors.black : Colors.white,
+    systemNavigationBarDividerColor: isDarkMode ? Colors.black : Colors.white,
+    systemNavigationBarIconBrightness:
+        isDarkMode ? Brightness.light : Brightness.dark,
   ));
   runApp(const RMapApp());
 }
