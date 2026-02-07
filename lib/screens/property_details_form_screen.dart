@@ -142,6 +142,15 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   String _commercialContactName = '';
   String _commercialContactNumber = '';
 
+  String? _errCommercialSpaceType;
+  String? _errCommercialBuiltUpArea;
+  String? _errCommercialPrice;
+  String? _errCommercialLocation;
+  String? _errCommercialTitle;
+  String? _errCommercialContactName;
+  String? _errCommercialContactNumber;
+  String? _errListingType;
+
   final List<_SelectedPhoto> _photos = <_SelectedPhoto>[];
 
   _SelectedPhoto _wrapPhoto(XFile file) {
@@ -595,6 +604,19 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   Future<void> _handleSave() async {
     if (_isSaving) return;
 
+    if (_propertyType == 'Commercial Space') {
+      setState(() {
+        _errCommercialSpaceType = null;
+        _errCommercialBuiltUpArea = null;
+        _errCommercialPrice = null;
+        _errCommercialLocation = null;
+        _errCommercialTitle = null;
+        _errCommercialContactName = null;
+        _errCommercialContactNumber = null;
+        _errListingType = null;
+      });
+    }
+
     final session = AuthScope.of(context).session;
     final token = session?.token;
     if (token == null || token.trim().isEmpty) {
@@ -916,47 +938,72 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       }
 
       final title = _commercialTitle.trim();
-      if (title.isEmpty) {
-        _showError('Enter a property title.');
-        return;
-      }
-
       final location = _commercialLocation.trim();
-      if (location.isEmpty) {
-        _showError('Provide a location or neighborhood description.');
-        return;
-      }
-
       final builtUpArea = _parseDouble(_commercialBuiltUpArea);
-      if (builtUpArea == null || builtUpArea <= 0) {
-        _showError('Built-up area must be greater than zero.');
-        return;
-      }
-
       final price = _parseDouble(_commercialPrice);
-      if (price == null || price <= 0) {
-        _showError('Price must be greater than zero.');
-        return;
-      }
-
       final contactName = _commercialContactName.trim();
+      final normalizedContact = _normalizeContact(_commercialContactNumber);
+      final spaceTypeValue = _commercialSpaceType.trim();
+
+      final listingLower = _listingType.trim().toLowerCase();
+      final priceLabel = listingLower == 'rent'
+          ? 'Monthly rent'
+          : listingLower == 'lease'
+              ? 'Lease amount'
+              : 'Price';
+
+      var hasError = false;
+      if (_listingType.trim().isEmpty) {
+        hasError = true;
+        _errListingType = 'Select a transaction type.';
+      }
+      if (spaceTypeValue.isEmpty) {
+        hasError = true;
+        _errCommercialSpaceType = 'Select a commercial type.';
+      }
+      if (title.isEmpty) {
+        hasError = true;
+        _errCommercialTitle = 'Property title is required.';
+      }
+      if (location.isEmpty) {
+        hasError = true;
+        _errCommercialLocation = 'Locality is required.';
+      }
+      if (_commercialBuiltUpArea.trim().isEmpty) {
+        hasError = true;
+        _errCommercialBuiltUpArea = 'Built-up area is required.';
+      } else if (builtUpArea == null || builtUpArea <= 0) {
+        hasError = true;
+        _errCommercialBuiltUpArea = 'Built-up area must be greater than zero.';
+      }
+      if (_commercialPrice.trim().isEmpty) {
+        hasError = true;
+        _errCommercialPrice = '$priceLabel is required.';
+      } else if (price == null || price <= 0) {
+        hasError = true;
+        _errCommercialPrice = '$priceLabel must be greater than zero.';
+      }
       if (contactName.isEmpty) {
-        _showError('Contact name is required.');
-        return;
+        hasError = true;
+        _errCommercialContactName = 'Contact name is required.';
+      }
+      if (_commercialContactNumber.trim().isEmpty) {
+        hasError = true;
+        _errCommercialContactNumber = 'Contact number is required.';
+      } else if (normalizedContact.isEmpty || normalizedContact.length < 6) {
+        hasError = true;
+        _errCommercialContactNumber = 'Enter a valid contact number.';
       }
 
-      final normalizedContact = _normalizeContact(_commercialContactNumber);
-      if (normalizedContact.isEmpty || normalizedContact.length < 6) {
-        _showError('Enter a valid contact number.');
+      if (hasError) {
+        setState(() {});
         return;
       }
 
       payload = <String, dynamic>{
         'listingType': _listingTypeForPayload(),
         'propertyTitle': title,
-        'spaceType': _commercialSpaceType.trim().isEmpty
-            ? null
-            : _commercialSpaceType.trim(),
+        'spaceType': spaceTypeValue.isEmpty ? null : spaceTypeValue,
         'builtUpAreaInSquareFeet': builtUpArea,
         'price': price,
         'location': location,
@@ -1173,6 +1220,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     TextInputType? keyboard,
     int maxLines = 1,
     int? minLines,
+    String? errorText,
   }) {
     final fieldKey = ValueKey('$label-$_propertyType');
     return Column(
@@ -1210,6 +1258,17 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             ),
           ),
         ),
+        if (errorText != null && errorText.trim().isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            errorText,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFFDC2626),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1219,6 +1278,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     required String value,
     required List<String> options,
     required ValueChanged<String?> onChanged,
+    String? errorText,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1257,6 +1317,17 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             ),
           ),
         ),
+        if (errorText != null && errorText.trim().isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            errorText,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFFDC2626),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1918,16 +1989,22 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             onChanged: (v) => setState(() {
               final next = (v ?? '').trim();
               _commercialSpaceType = next == 'Select' ? '' : next;
+              _errCommercialSpaceType = null;
               _applyCommercialAutoTitleIfAllowed();
             }),
+            errorText: _errCommercialSpaceType,
           ),
           const SizedBox(height: 12),
           _textField(
             label: 'Built-up Area (Sq.ft)',
             value: _commercialBuiltUpArea,
-            onChanged: (v) => setState(() => _commercialBuiltUpArea = v),
+            onChanged: (v) => setState(() {
+              _commercialBuiltUpArea = v;
+              _errCommercialBuiltUpArea = null;
+            }),
             hint: 'e.g., 1200',
             keyboard: TextInputType.number,
+            errorText: _errCommercialBuiltUpArea,
           ),
           const SizedBox(height: 12),
           _textField(
@@ -1935,19 +2012,25 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             value: _commercialPrice,
             controller: _commercialPriceController,
             inputFormatters: indianPriceFormatters,
-            onChanged: (v) => setState(() => _commercialPrice = v),
+            onChanged: (v) => setState(() {
+              _commercialPrice = v;
+              _errCommercialPrice = null;
+            }),
             hint: commercialPriceHint,
             keyboard: TextInputType.number,
+            errorText: _errCommercialPrice,
           ),
           const SizedBox(height: 12),
           _textField(
-            label: 'Locality / Landmark',
+            label: 'Locality',
             value: _commercialLocation,
             onChanged: (v) => setState(() {
               _commercialLocation = v;
+              _errCommercialLocation = null;
               _applyCommercialAutoTitleIfAllowed();
             }),
             hint: 'e.g., Anna Nagar, Chennai',
+            errorText: _errCommercialLocation,
           ),
           const SizedBox(height: 12),
           _textField(
@@ -1957,8 +2040,10 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             onChanged: (v) => setState(() {
               _commercialTitle = v;
               _commercialTitleManuallyEdited = v.trim().isNotEmpty;
+              _errCommercialTitle = null;
             }),
             hint: 'e.g., Office Space for Rent in T. Nagar',
+            errorText: _errCommercialTitle,
           ),
           const SizedBox(height: 12),
           _textField(
@@ -1977,7 +2062,11 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                   label: 'Contact Name',
                   value: _commercialContactName,
                   controller: _commercialContactNameController,
-                  onChanged: (v) => setState(() => _commercialContactName = v),
+                  onChanged: (v) => setState(() {
+                    _commercialContactName = v;
+                    _errCommercialContactName = null;
+                  }),
+                  errorText: _errCommercialContactName,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1986,9 +2075,12 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                   label: 'Contact Number',
                   value: _commercialContactNumber,
                   controller: _commercialContactNumberController,
-                  onChanged: (v) =>
-                      setState(() => _commercialContactNumber = v),
+                  onChanged: (v) => setState(() {
+                    _commercialContactNumber = v;
+                    _errCommercialContactNumber = null;
+                  }),
                   keyboard: TextInputType.phone,
+                  errorText: _errCommercialContactNumber,
                 ),
               ),
             ],
@@ -2043,8 +2135,13 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                       label: 'Listing Type',
                       value: _listingType,
                       options: _listingTypes,
-                      onChanged: (v) =>
-                          setState(() => _listingType = v ?? 'Sell'),
+                      onChanged: (v) => setState(() {
+                        _listingType = v ?? 'Sell';
+                        _errListingType = null;
+                      }),
+                      errorText: _propertyType == 'Commercial Space'
+                          ? _errListingType
+                          : null,
                     ),
                     const SizedBox(height: 12),
                   ],
