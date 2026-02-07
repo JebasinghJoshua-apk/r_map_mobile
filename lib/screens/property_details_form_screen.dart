@@ -142,6 +142,16 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   String _commercialContactName = '';
   String _commercialContactNumber = '';
 
+  String? _errHouseBedrooms;
+  String? _errHouseBuiltUpArea;
+  String? _errHouseFloors;
+  String? _errHouseCarParking;
+  String? _errHousePrice;
+  String? _errHouseLocation;
+  String? _errHouseTitle;
+  String? _errHouseContactName;
+  String? _errHouseContactNumber;
+
   String? _errCommercialSpaceType;
   String? _errCommercialBuiltUpArea;
   String? _errCommercialPrice;
@@ -617,6 +627,20 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       });
     }
 
+    if (_propertyType == 'Independent House') {
+      setState(() {
+        _errHouseBedrooms = null;
+        _errHouseBuiltUpArea = null;
+        _errHouseFloors = null;
+        _errHouseCarParking = null;
+        _errHousePrice = null;
+        _errHouseLocation = null;
+        _errHouseTitle = null;
+        _errHouseContactName = null;
+        _errHouseContactNumber = null;
+      });
+    }
+
     final session = AuthScope.of(context).session;
     final token = session?.token;
     if (token == null || token.trim().isEmpty) {
@@ -690,60 +714,6 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       };
       createType = 'individual-plots';
     } else if (_propertyType == 'Independent House') {
-      final location = _houseLocation.trim();
-      if (location.isEmpty) {
-        _showError('Provide a location or neighborhood description.');
-        return;
-      }
-
-      final bedrooms = _parseInt(_houseBedrooms);
-      if (bedrooms == null || bedrooms <= 0) {
-        _showError('Bedrooms must be a positive whole number.');
-        return;
-      }
-
-      final builtUpArea = _parseDouble(_houseBuiltUpArea);
-      if (builtUpArea == null || builtUpArea <= 0) {
-        _showError('Built-up area must be greater than zero.');
-        return;
-      }
-
-      final floors = _parseInt(_houseFloors);
-      if (floors != null && floors <= 0) {
-        _showError('Floors must be a positive whole number.');
-        return;
-      }
-
-      final buildingAge = _parseInt(_houseBuildingAgeYears);
-      if (buildingAge != null && buildingAge < 0) {
-        _showError('Building age cannot be negative.');
-        return;
-      }
-
-      final carParkingCount = _parseCarParkingCount(_houseCarParking);
-      if (carParkingCount < 0) {
-        _showError('Invalid car parking value.');
-        return;
-      }
-
-      final price = _parseDouble(_housePrice);
-      if (price == null || price <= 0) {
-        _showError('Price must be greater than zero.');
-        return;
-      }
-
-      final contactName = _houseContactName.trim();
-      if (contactName.isEmpty) {
-        _showError('Contact name is required.');
-        return;
-      }
-
-      final normalizedContact = _normalizeContact(_houseContactNumber);
-      if (normalizedContact.isEmpty || normalizedContact.length < 6) {
-        _showError('Enter a valid contact number.');
-        return;
-      }
-
       if (_houseTitle.trim().isEmpty) {
         setState(() {
           _applyHouseAutoTitleIfAllowed();
@@ -751,8 +721,81 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       }
 
       final title = _houseTitle.trim();
+      final location = _houseLocation.trim();
+      final bedrooms = _parseInt(_houseBedrooms);
+      final builtUpArea = _parseDouble(_houseBuiltUpArea);
+      final floors = _parseInt(_houseFloors);
+      final buildingAge = _parseInt(_houseBuildingAgeYears);
+      final carParkingRaw = _houseCarParking.trim();
+      final carParkingCount =
+          _parseCarParkingCount(carParkingRaw.isEmpty ? 'None' : carParkingRaw);
+      final price = _parseDouble(_housePrice);
+      final contactName = _houseContactName.trim();
+      final normalizedContact = _normalizeContact(_houseContactNumber);
+
+      var hasError = false;
+      if (location.isEmpty) {
+        hasError = true;
+        _errHouseLocation = 'Locality / landmark is required.';
+      }
+      if (_houseBedrooms.trim().isEmpty) {
+        hasError = true;
+        _errHouseBedrooms = 'Bedrooms is required.';
+      } else if (bedrooms == null || bedrooms <= 0) {
+        hasError = true;
+        _errHouseBedrooms = 'Bedrooms must be a positive whole number.';
+      }
+      if (_houseBuiltUpArea.trim().isEmpty) {
+        hasError = true;
+        _errHouseBuiltUpArea = 'Built-up area is required.';
+      } else if (builtUpArea == null || builtUpArea <= 0) {
+        hasError = true;
+        _errHouseBuiltUpArea = 'Built-up area must be greater than zero.';
+      }
+      if (_houseFloors.trim().isEmpty) {
+        hasError = true;
+        _errHouseFloors = 'Floors is required.';
+      } else if (floors == null || floors <= 0) {
+        hasError = true;
+        _errHouseFloors = 'Floors must be a positive whole number.';
+      }
+      if (carParkingRaw.isEmpty) {
+        hasError = true;
+        _errHouseCarParking = 'Car parking is required.';
+      } else if (carParkingCount < 0) {
+        hasError = true;
+        _errHouseCarParking = 'Invalid car parking value.';
+      }
+      if (_housePrice.trim().isEmpty) {
+        hasError = true;
+        _errHousePrice = 'Price is required.';
+      } else if (price == null || price <= 0) {
+        hasError = true;
+        _errHousePrice = 'Price must be greater than zero.';
+      }
       if (title.isEmpty) {
-        _showError('Enter a property title.');
+        hasError = true;
+        _errHouseTitle = 'Property title is required.';
+      }
+      if (contactName.isEmpty) {
+        hasError = true;
+        _errHouseContactName = 'Contact name is required.';
+      }
+      if (_houseContactNumber.trim().isEmpty) {
+        hasError = true;
+        _errHouseContactNumber = 'Contact number is required.';
+      } else if (normalizedContact.isEmpty || normalizedContact.length < 6) {
+        hasError = true;
+        _errHouseContactNumber = 'Enter a valid contact number.';
+      }
+
+      if (hasError) {
+        setState(() {});
+        return;
+      }
+
+      if (buildingAge != null && buildingAge < 0) {
+        _showError('Building age cannot be negative.');
         return;
       }
 
@@ -1625,10 +1668,12 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                   value: _houseBedrooms,
                   onChanged: (v) => setState(() {
                     _houseBedrooms = v;
+                    _errHouseBedrooms = null;
                     _applyHouseAutoTitleIfAllowed();
                   }),
                   hint: 'e.g., 3',
                   keyboard: TextInputType.number,
+                  errorText: _errHouseBedrooms,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1636,9 +1681,13 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                 child: _textField(
                   label: 'Built-up Area (Sq.ft)',
                   value: _houseBuiltUpArea,
-                  onChanged: (v) => setState(() => _houseBuiltUpArea = v),
+                  onChanged: (v) => setState(() {
+                    _houseBuiltUpArea = v;
+                    _errHouseBuiltUpArea = null;
+                  }),
                   hint: 'e.g., 1500',
                   keyboard: TextInputType.number,
+                  errorText: _errHouseBuiltUpArea,
                 ),
               ),
             ],
@@ -1650,9 +1699,13 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                 child: _textField(
                   label: 'Floors',
                   value: _houseFloors,
-                  onChanged: (v) => setState(() => _houseFloors = v),
+                  onChanged: (v) => setState(() {
+                    _houseFloors = v;
+                    _errHouseFloors = null;
+                  }),
                   hint: 'e.g., 2',
                   keyboard: TextInputType.number,
+                  errorText: _errHouseFloors,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1661,8 +1714,11 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                   label: 'Car Parking',
                   value: _houseCarParking.isEmpty ? 'None' : _houseCarParking,
                   options: carParkingOptions,
-                  onChanged: (v) =>
-                      setState(() => _houseCarParking = v ?? 'None'),
+                  onChanged: (v) => setState(() {
+                    _houseCarParking = v ?? 'None';
+                    _errHouseCarParking = null;
+                  }),
+                  errorText: _errHouseCarParking,
                 ),
               ),
             ],
@@ -1681,9 +1737,13 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             value: _housePrice,
             controller: _housePriceController,
             inputFormatters: indianPriceFormatters,
-            onChanged: (v) => setState(() => _housePrice = v),
+            onChanged: (v) => setState(() {
+              _housePrice = v;
+              _errHousePrice = null;
+            }),
             hint: 'e.g., 75,00,000',
             keyboard: TextInputType.number,
+            errorText: _errHousePrice,
           ),
           const SizedBox(height: 12),
           _textField(
@@ -1691,9 +1751,11 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             value: _houseLocation,
             onChanged: (v) => setState(() {
               _houseLocation = v;
+              _errHouseLocation = null;
               _applyHouseAutoTitleIfAllowed();
             }),
             hint: 'e.g., Anna Nagar, Chennai',
+            errorText: _errHouseLocation,
           ),
           const SizedBox(height: 12),
           _textField(
@@ -1703,8 +1765,10 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             onChanged: (v) => setState(() {
               _houseTitle = v;
               _houseTitleManuallyEdited = v.trim().isNotEmpty;
+              _errHouseTitle = null;
             }),
             hint: 'e.g., 2 BHK Independent House in Anna Nagar',
+            errorText: _errHouseTitle,
           ),
           const SizedBox(height: 12),
           _textField(
@@ -1723,7 +1787,11 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                   label: 'Contact Name',
                   value: _houseContactName,
                   controller: _houseContactNameController,
-                  onChanged: (v) => setState(() => _houseContactName = v),
+                  onChanged: (v) => setState(() {
+                    _houseContactName = v;
+                    _errHouseContactName = null;
+                  }),
+                  errorText: _errHouseContactName,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1732,8 +1800,12 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                   label: 'Contact Number',
                   value: _houseContactNumber,
                   controller: _houseContactNumberController,
-                  onChanged: (v) => setState(() => _houseContactNumber = v),
+                  onChanged: (v) => setState(() {
+                    _houseContactNumber = v;
+                    _errHouseContactNumber = null;
+                  }),
                   keyboard: TextInputType.phone,
+                  errorText: _errHouseContactNumber,
                 ),
               ),
             ],
