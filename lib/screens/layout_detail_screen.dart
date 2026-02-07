@@ -196,6 +196,16 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
       _meta(fallback, const ['area', 'totalArea', 'areaLabel']),
     ]);
 
+    final surveyNumber = _firstNonEmpty([
+      _detail?.surveyNumber,
+      _meta(fallback, const ['surveyNumber', 'surveyNo', 'survey']),
+    ]);
+
+    final approvalNumber = _firstNonEmpty([
+      _detail?.approvalNumber,
+      _meta(fallback, const ['approvalNumber', 'approvalNo', 'approval']),
+    ]);
+
     final additionalInfo = _firstNonEmpty([
       _detail?.additionalDetails,
       _meta(fallback, const ['additionalDetails', 'otherInformation']),
@@ -314,6 +324,28 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
                           value: (areaLabel ?? '').trim().isEmpty
                               ? '—'
                               : areaLabel!,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _StatCard(
+                          label: 'SURVEY NO',
+                          value: (surveyNumber ?? '').trim().isEmpty
+                              ? '—'
+                              : surveyNumber!,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _StatCard(
+                          label: 'APPROVAL NO',
+                          value: (approvalNumber ?? '').trim().isEmpty
+                              ? '—'
+                              : approvalNumber!,
                         ),
                       ),
                     ],

@@ -118,6 +118,8 @@ class LayoutDetailDto {
     required this.id,
     required this.name,
     this.description,
+    this.surveyNumber,
+    this.approvalNumber,
     this.locationDetails,
     this.additionalDetails,
     this.contactNumbers,
@@ -131,6 +133,8 @@ class LayoutDetailDto {
   final String id;
   final String name;
   final String? description;
+  final String? surveyNumber;
+  final String? approvalNumber;
   final String? locationDetails;
   final String? additionalDetails;
   final String? contactNumbers;
@@ -145,6 +149,8 @@ class LayoutDetailDto {
       id: (json['id'] as String?) ?? '',
       name: (json['name'] as String?) ?? '',
       description: json['description'] as String?,
+      surveyNumber: json['surveyNumber'] as String?,
+      approvalNumber: json['approvalNumber'] as String?,
       locationDetails: json['locationDetails'] as String?,
       additionalDetails: json['additionalDetails'] as String?,
       contactNumbers: json['contactNumbers'] as String?,
