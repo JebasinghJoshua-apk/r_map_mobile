@@ -1890,6 +1890,18 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           ),
         ];
       default:
+        final listing = _listingType.trim().toLowerCase();
+        final commercialPriceLabel = listing == 'rent'
+            ? 'Monthly Rent'
+            : listing == 'lease'
+                ? 'Lease Amount'
+                : 'Price';
+        final commercialPriceHint = listing == 'rent'
+            ? 'e.g., ₹25,000'
+            : listing == 'lease'
+                ? 'e.g., ₹10,00,000'
+                : 'e.g., ₹45,00,000';
+
         return [
           _dropdown(
             label: 'Commercial Type',
@@ -1912,12 +1924,12 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           ),
           const SizedBox(height: 12),
           _textField(
-            label: 'Price / Rent',
+            label: commercialPriceLabel,
             value: _commercialPrice,
             controller: _commercialPriceController,
             inputFormatters: indianPriceFormatters,
             onChanged: (v) => setState(() => _commercialPrice = v),
-            hint: 'e.g., ₹1,20,000 per month',
+            hint: commercialPriceHint,
             keyboard: TextInputType.number,
           ),
           const SizedBox(height: 12),
