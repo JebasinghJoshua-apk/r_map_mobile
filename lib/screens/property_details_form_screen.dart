@@ -169,6 +169,14 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   String? _errApartmentPrice;
   String? _errApartmentLocation;
 
+  String? _errLandType;
+  String? _errLandArea;
+  String? _errLandPrice;
+  String? _errLandLocation;
+  String? _errLandTitle;
+  String? _errLandContactName;
+  String? _errLandContactNumber;
+
   String? _errCommercialSpaceType;
   String? _errCommercialBuiltUpArea;
   String? _errCommercialPrice;
@@ -413,6 +421,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     if (_plotTitleManuallyEdited && _plotTitle.trim().isNotEmpty) return;
     _plotTitle = generated;
     _setControllerText(_plotTitleController, generated);
+    _errPlotTitle = null;
   }
 
   void _applyHouseAutoTitleIfAllowed() {
@@ -421,6 +430,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     if (_houseTitleManuallyEdited && _houseTitle.trim().isNotEmpty) return;
     _houseTitle = generated;
     _setControllerText(_houseTitleController, generated);
+    _errHouseTitle = null;
   }
 
   void _applyApartmentAutoTitleIfAllowed() {
@@ -439,6 +449,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     if (_landTitleManuallyEdited && _landTitle.trim().isNotEmpty) return;
     _landTitle = generated;
     _setControllerText(_landTitleController, generated);
+    _errLandTitle = null;
   }
 
   void _applyCommercialAutoTitleIfAllowed() {
@@ -449,6 +460,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     }
     _commercialTitle = generated;
     _setControllerText(_commercialTitleController, generated);
+    _errCommercialTitle = null;
   }
 
   double? _parseDouble(String raw) {
@@ -683,6 +695,18 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       });
     }
 
+    if (_propertyType == 'Land') {
+      setState(() {
+        _errLandType = null;
+        _errLandArea = null;
+        _errLandPrice = null;
+        _errLandLocation = null;
+        _errLandTitle = null;
+        _errLandContactName = null;
+        _errLandContactNumber = null;
+      });
+    }
+
     final session = AuthScope.of(context).session;
     final token = session?.token;
     if (token == null || token.trim().isEmpty) {
@@ -801,7 +825,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       var hasError = false;
       if (location.isEmpty) {
         hasError = true;
-        _errHouseLocation = 'Locality / landmark is required.';
+        _errHouseLocation = 'Locality is required.';
       }
       if (_houseBedrooms.trim().isEmpty) {
         hasError = true;
@@ -909,7 +933,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       var hasError = false;
       if (location.isEmpty) {
         hasError = true;
-        _errApartmentLocation = 'Locality / landmark is required.';
+        _errApartmentLocation = 'Locality is required.';
       }
       if (_apartmentBedrooms.trim().isEmpty) {
         hasError = true;
@@ -1010,39 +1034,57 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       }
 
       final title = _landTitle.trim();
-      if (title.isEmpty) {
-        _showError('Enter a property title.');
-        return;
-      }
-
       final landType = _landType.trim();
       final landTypeValue = _landTypeValueMap[landType];
-      if (landTypeValue == null) {
-        _showError('Select a land type.');
-        return;
-      }
-
-      final price = _parseDouble(_landPrice);
-      if (price == null || price <= 0) {
-        _showError('Price must be greater than zero.');
-        return;
-      }
-
+      final areaRaw = _landArea.trim();
+      final area = _parseDouble(areaRaw);
+      final priceRaw = _landPrice.trim();
+      final price = _parseDouble(priceRaw);
       final location = _landLocation.trim();
-      if (location.isEmpty) {
-        _showError('Enter the land location.');
-        return;
-      }
-
       final contactName = _landContactName.trim();
+      final normalizedContact = _normalizeContact(_landContactNumber);
+
+      var hasError = false;
+      if (title.isEmpty) {
+        hasError = true;
+        _errLandTitle = 'Property title is required.';
+      }
+      if (landTypeValue == null) {
+        hasError = true;
+        _errLandType = 'Land type is required.';
+      }
+      if (areaRaw.isEmpty) {
+        hasError = true;
+        _errLandArea = 'Area is required.';
+      } else if (area == null || area <= 0) {
+        hasError = true;
+        _errLandArea = 'Area must be greater than zero.';
+      }
+      if (priceRaw.isEmpty) {
+        hasError = true;
+        _errLandPrice = 'Price is required.';
+      } else if (price == null || price <= 0) {
+        hasError = true;
+        _errLandPrice = 'Price must be greater than zero.';
+      }
+      if (location.isEmpty) {
+        hasError = true;
+        _errLandLocation = 'Locality is required.';
+      }
       if (contactName.isEmpty) {
-        _showError('Contact name is required.');
-        return;
+        hasError = true;
+        _errLandContactName = 'Contact name is required.';
+      }
+      if (_landContactNumber.trim().isEmpty) {
+        hasError = true;
+        _errLandContactNumber = 'Contact number is required.';
+      } else if (normalizedContact.isEmpty || normalizedContact.length < 6) {
+        hasError = true;
+        _errLandContactNumber = 'Enter a valid contact number.';
       }
 
-      final normalizedContact = _normalizeContact(_landContactNumber);
-      if (normalizedContact.isEmpty || normalizedContact.length < 6) {
-        _showError('Enter a valid contact number.');
+      if (hasError) {
+        setState(() {});
         return;
       }
 
@@ -1050,7 +1092,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         'listingType': _listingTypeForPayload(),
         'propertyTitle': title,
         'landType': landTypeValue,
-        'areaLabel': _landArea.trim().isEmpty ? null : _landArea.trim(),
+        'areaLabel': areaRaw,
         'price': price,
         'location': location,
         'additionalInformation':
@@ -2103,16 +2145,22 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             onChanged: (v) => setState(() {
               final next = (v ?? '').trim();
               _landType = next == 'Select' ? '' : next;
+              _errLandType = null;
               _applyLandAutoTitleIfAllowed();
             }),
+            errorText: _errLandType,
           ),
           const SizedBox(height: 12),
           _textField(
             label: 'Area (sq.ft)',
             value: _landArea,
-            onChanged: (v) => setState(() => _landArea = v),
+            onChanged: (v) => setState(() {
+              _landArea = v;
+              _errLandArea = null;
+            }),
             hint: 'e.g., 2400 sq.ft',
             keyboard: TextInputType.number,
+            errorText: _errLandArea,
           ),
           const SizedBox(height: 12),
           _textField(
@@ -2120,9 +2168,13 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             value: _landPrice,
             controller: _landPriceController,
             inputFormatters: indianPriceFormatters,
-            onChanged: (v) => setState(() => _landPrice = v),
+            onChanged: (v) => setState(() {
+              _landPrice = v;
+              _errLandPrice = null;
+            }),
             hint: 'e.g., ₹50,00,000',
             keyboard: TextInputType.number,
+            errorText: _errLandPrice,
           ),
           const SizedBox(height: 12),
           _textField(
@@ -2130,9 +2182,11 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             value: _landLocation,
             onChanged: (v) => setState(() {
               _landLocation = v;
+              _errLandLocation = null;
               _applyLandAutoTitleIfAllowed();
             }),
             hint: 'e.g., Anna Nagar, Chennai',
+            errorText: _errLandLocation,
           ),
           const SizedBox(height: 12),
           _textField(
@@ -2142,8 +2196,10 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             onChanged: (v) => setState(() {
               _landTitle = v;
               _landTitleManuallyEdited = v.trim().isNotEmpty;
+              _errLandTitle = null;
             }),
             hint: 'e.g., Residential Plot in Anna Nagar',
+            errorText: _errLandTitle,
           ),
           const SizedBox(height: 12),
           _textField(
@@ -2162,7 +2218,11 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                   label: 'Contact Name',
                   value: _landContactName,
                   controller: _landContactNameController,
-                  onChanged: (v) => setState(() => _landContactName = v),
+                  onChanged: (v) => setState(() {
+                    _landContactName = v;
+                    _errLandContactName = null;
+                  }),
+                  errorText: _errLandContactName,
                 ),
               ),
               const SizedBox(width: 12),
@@ -2171,8 +2231,12 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                   label: 'Contact Number',
                   value: _landContactNumber,
                   controller: _landContactNumberController,
-                  onChanged: (v) => setState(() => _landContactNumber = v),
+                  onChanged: (v) => setState(() {
+                    _landContactNumber = v;
+                    _errLandContactNumber = null;
+                  }),
                   keyboard: TextInputType.phone,
+                  errorText: _errLandContactNumber,
                 ),
               ),
             ],
