@@ -1651,7 +1651,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           ),
           const SizedBox(height: 12),
           _textField(
-            label: 'Locality / Landmark',
+            label: 'Locality',
             value: _plotLocation,
             onChanged: (v) => setState(() {
               _plotLocation = v;
@@ -1792,7 +1792,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           ),
           const SizedBox(height: 12),
           _textField(
-            label: 'Locality / Landmark',
+            label: 'Locality',
             value: _houseLocation,
             onChanged: (v) => setState(() {
               _houseLocation = v;
@@ -1972,7 +1972,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           ),
           const SizedBox(height: 12),
           _textField(
-            label: 'Locality / Landmark',
+            label: 'Locality',
             value: _apartmentLocation,
             onChanged: (v) => setState(() {
               _apartmentLocation = v;
@@ -2059,7 +2059,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           ),
           const SizedBox(height: 12),
           _textField(
-            label: 'Locality / Landmark',
+            label: 'Locality',
             value: _landLocation,
             onChanged: (v) => setState(() {
               _landLocation = v;
