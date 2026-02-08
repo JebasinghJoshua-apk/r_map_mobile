@@ -152,6 +152,15 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   String? _errHouseContactName;
   String? _errHouseContactNumber;
 
+  String? _errApartmentBedrooms;
+  String? _errApartmentArea;
+  String? _errApartmentFloor;
+  String? _errApartmentTotalFloors;
+  String? _errApartmentCarParking;
+  String? _errApartmentBuildingAgeYears;
+  String? _errApartmentPrice;
+  String? _errApartmentLocation;
+
   String? _errCommercialSpaceType;
   String? _errCommercialBuiltUpArea;
   String? _errCommercialPrice;
@@ -641,6 +650,19 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       });
     }
 
+    if (_propertyType == 'Apartment') {
+      setState(() {
+        _errApartmentBedrooms = null;
+        _errApartmentArea = null;
+        _errApartmentFloor = null;
+        _errApartmentTotalFloors = null;
+        _errApartmentCarParking = null;
+        _errApartmentBuildingAgeYears = null;
+        _errApartmentPrice = null;
+        _errApartmentLocation = null;
+      });
+    }
+
     final session = AuthScope.of(context).session;
     final token = session?.token;
     if (token == null || token.trim().isEmpty) {
@@ -831,55 +853,78 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       }
 
       final location = _apartmentLocation.trim();
-      if (location.isEmpty) {
-        _showError('Provide a location or neighborhood description.');
-        return;
-      }
-
       final bedrooms = _parseInt(_apartmentBedrooms);
-      if (bedrooms == null || bedrooms <= 0) {
-        _showError('Bedrooms must be a positive whole number.');
-        return;
-      }
-
       final area = _parseDouble(_apartmentArea);
-      if (area == null || area <= 0) {
-        _showError('Floor area must be greater than zero.');
-        return;
-      }
-
-      final carParkingCount = _parseCarParkingCount(_apartmentCarParking);
-      if (carParkingCount < 0) {
-        _showError('Invalid car parking value.');
-        return;
-      }
-
-      final buildingAge = _parseInt(_apartmentBuildingAgeYears);
-      if (buildingAge != null && buildingAge < 0) {
-        _showError('Building age cannot be negative.');
-        return;
-      }
-
       final floor = _parseInt(_apartmentFloor);
-      if (floor == null || floor < 0) {
-        _showError('Floor must be zero or greater.');
-        return;
-      }
-
       final totalFloors = _parseInt(_apartmentTotalFloors);
-      if (totalFloors == null || totalFloors <= 0) {
-        _showError('Total floors must be a positive whole number.');
-        return;
-      }
-
-      if (floor > totalFloors) {
-        _showError('Floor cannot exceed total floors.');
-        return;
-      }
-
+      final buildingAge = _parseInt(_apartmentBuildingAgeYears);
+      final carParkingRaw = _apartmentCarParking.trim();
+      final carParkingCount =
+          _parseCarParkingCount(carParkingRaw.isEmpty ? 'None' : carParkingRaw);
       final price = _parseDouble(_apartmentPrice);
-      if (price == null || price <= 0) {
-        _showError('Price must be greater than zero.');
+
+      var hasError = false;
+      if (location.isEmpty) {
+        hasError = true;
+        _errApartmentLocation = 'Locality / landmark is required.';
+      }
+      if (_apartmentBedrooms.trim().isEmpty) {
+        hasError = true;
+        _errApartmentBedrooms = 'BHK is required.';
+      } else if (bedrooms == null || bedrooms <= 0) {
+        hasError = true;
+        _errApartmentBedrooms = 'BHK must be a positive whole number.';
+      }
+      if (_apartmentArea.trim().isEmpty) {
+        hasError = true;
+        _errApartmentArea = 'Area is required.';
+      } else if (area == null || area <= 0) {
+        hasError = true;
+        _errApartmentArea = 'Area must be greater than zero.';
+      }
+      if (_apartmentFloor.trim().isEmpty) {
+        hasError = true;
+        _errApartmentFloor = 'Property floor is required.';
+      } else if (floor == null || floor < 0) {
+        hasError = true;
+        _errApartmentFloor = 'Floor must be zero or greater.';
+      }
+      if (_apartmentTotalFloors.trim().isEmpty) {
+        hasError = true;
+        _errApartmentTotalFloors = 'Total floors is required.';
+      } else if (totalFloors == null || totalFloors <= 0) {
+        hasError = true;
+        _errApartmentTotalFloors =
+            'Total floors must be a positive whole number.';
+      }
+      if (carParkingRaw.isEmpty) {
+        hasError = true;
+        _errApartmentCarParking = 'Car parking is required.';
+      } else if (carParkingCount < 0) {
+        hasError = true;
+        _errApartmentCarParking = 'Invalid car parking value.';
+      }
+      if (_apartmentBuildingAgeYears.trim().isEmpty) {
+        hasError = true;
+        _errApartmentBuildingAgeYears = 'Building age is required.';
+      } else if (buildingAge == null || buildingAge < 0) {
+        hasError = true;
+        _errApartmentBuildingAgeYears = 'Building age must be zero or greater.';
+      }
+      if (_apartmentPrice.trim().isEmpty) {
+        hasError = true;
+        _errApartmentPrice = 'Price is required.';
+      } else if (price == null || price <= 0) {
+        hasError = true;
+        _errApartmentPrice = 'Price must be greater than zero.';
+      }
+      if (floor != null && totalFloors != null && floor > totalFloors) {
+        hasError = true;
+        _errApartmentFloor = 'Floor cannot exceed total floors.';
+      }
+
+      if (hasError) {
+        setState(() {});
         return;
       }
 
@@ -1821,10 +1866,12 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                   value: _apartmentBedrooms,
                   onChanged: (v) => setState(() {
                     _apartmentBedrooms = v;
+                    _errApartmentBedrooms = null;
                     _applyApartmentAutoTitleIfAllowed();
                   }),
                   hint: 'e.g., 2',
                   keyboard: TextInputType.number,
+                  errorText: _errApartmentBedrooms,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1832,9 +1879,13 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                 child: _textField(
                   label: 'Area (sq.ft.)',
                   value: _apartmentArea,
-                  onChanged: (v) => setState(() => _apartmentArea = v),
+                  onChanged: (v) => setState(() {
+                    _apartmentArea = v;
+                    _errApartmentArea = null;
+                  }),
                   hint: 'e.g., 950',
                   keyboard: TextInputType.number,
+                  errorText: _errApartmentArea,
                 ),
               ),
             ],
@@ -1846,9 +1897,13 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                 child: _textField(
                   label: 'Property Floor',
                   value: _apartmentFloor,
-                  onChanged: (v) => setState(() => _apartmentFloor = v),
+                  onChanged: (v) => setState(() {
+                    _apartmentFloor = v;
+                    _errApartmentFloor = null;
+                  }),
                   hint: 'e.g., 3',
                   keyboard: TextInputType.number,
+                  errorText: _errApartmentFloor,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1856,9 +1911,13 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                 child: _textField(
                   label: 'Total Floors',
                   value: _apartmentTotalFloors,
-                  onChanged: (v) => setState(() => _apartmentTotalFloors = v),
+                  onChanged: (v) => setState(() {
+                    _apartmentTotalFloors = v;
+                    _errApartmentTotalFloors = null;
+                  }),
                   hint: 'e.g., 10',
                   keyboard: TextInputType.number,
+                  errorText: _errApartmentTotalFloors,
                 ),
               ),
             ],
@@ -1869,12 +1928,16 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
               Expanded(
                 child: _dropdown(
                   label: 'Car Parking',
-                  value: _apartmentCarParking,
+                  value: _apartmentCarParking.isEmpty
+                      ? 'None'
+                      : _apartmentCarParking,
                   options: carParkingOptions,
                   onChanged: (v) => setState(() {
                     _apartmentCarParking =
                         (v == null || v.trim().isEmpty) ? 'None' : v;
+                    _errApartmentCarParking = null;
                   }),
+                  errorText: _errApartmentCarParking,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1882,10 +1945,13 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                 child: _textField(
                   label: 'Building Age (Years)',
                   value: _apartmentBuildingAgeYears,
-                  onChanged: (v) =>
-                      setState(() => _apartmentBuildingAgeYears = v),
+                  onChanged: (v) => setState(() {
+                    _apartmentBuildingAgeYears = v;
+                    _errApartmentBuildingAgeYears = null;
+                  }),
                   hint: 'e.g., 10',
                   keyboard: TextInputType.number,
+                  errorText: _errApartmentBuildingAgeYears,
                 ),
               ),
             ],
@@ -1896,9 +1962,13 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             value: _apartmentPrice,
             controller: _apartmentPriceController,
             inputFormatters: indianPriceFormatters,
-            onChanged: (v) => setState(() => _apartmentPrice = v),
+            onChanged: (v) => setState(() {
+              _apartmentPrice = v;
+              _errApartmentPrice = null;
+            }),
             hint: 'e.g., ₹65,00,000',
             keyboard: TextInputType.number,
+            errorText: _errApartmentPrice,
           ),
           const SizedBox(height: 12),
           _textField(
@@ -1906,9 +1976,11 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             value: _apartmentLocation,
             onChanged: (v) => setState(() {
               _apartmentLocation = v;
+              _errApartmentLocation = null;
               _applyApartmentAutoTitleIfAllowed();
             }),
             hint: 'e.g., Anna Nagar, Chennai',
+            errorText: _errApartmentLocation,
           ),
           const SizedBox(height: 12),
           _textField(
