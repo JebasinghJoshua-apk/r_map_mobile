@@ -106,6 +106,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
     List<LatLng>? initialPoints,
     bool showDetailsOnNext = false,
     String? initialPropertyType,
+    String? excludePropertyId,
   }) async {
     final points =
         await Navigator.of(context, rootNavigator: true).push<List<LatLng>>(
@@ -114,6 +115,8 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
           mode: mode,
           initialCenter: center,
           initialPoints: initialPoints,
+          bearerToken: widget.bearerToken,
+          excludePropertyId: excludePropertyId,
           popOnNext: !showDetailsOnNext,
           onNext: showDetailsOnNext
               ? (points) async {
@@ -642,6 +645,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                               mode: PropertyPolygonEditorMode.edit,
                               center: center,
                               initialPoints: initialPoints,
+                              excludePropertyId: item.id,
                             );
                           }
 

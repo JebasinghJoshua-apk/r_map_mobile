@@ -8,6 +8,9 @@ import 'package:google_place/google_place.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../constants/search_constants.dart';
+import '../models/map_viewport_models.dart';
+import '../services/mobile_bff_map_api.dart';
+import '../utils/geojson.dart';
 import '../widgets/api_key_missing_banner.dart';
 
 class PropertyPolygonEditorScreen extends StatefulWidget {
@@ -16,6 +19,8 @@ class PropertyPolygonEditorScreen extends StatefulWidget {
     required this.mode,
     this.initialCenter,
     this.initialPoints,
+    this.bearerToken,
+    this.excludePropertyId,
     this.onNext,
     this.popOnNext = true,
   });
@@ -23,6 +28,8 @@ class PropertyPolygonEditorScreen extends StatefulWidget {
   final PropertyPolygonEditorMode mode;
   final LatLng? initialCenter;
   final List<LatLng>? initialPoints;
+  final String? bearerToken;
+  final String? excludePropertyId;
   final Future<void> Function(List<LatLng> points)? onNext;
   final bool popOnNext;
 
@@ -39,10 +46,17 @@ enum PropertyPolygonEditorMode {
 class _PropertyPolygonEditorScreenState
     extends State<PropertyPolygonEditorScreen> {
   static const LatLng _fallbackCenter = LatLng(20.5937, 78.9629); // India
+  static const Color _viewportGrayStroke = Color(0xFF4B5563);
+  static const Color _viewportGrayFill = Color(0x654B5563);
 
   late final LatLng _center;
   List<LatLng> _points = <LatLng>[];
   int _geometryRevision = 0;
+
+  final MobileBffMapApi _mapApi = MobileBffMapApi();
+  Timer? _viewportDebounce;
+  int _viewportSeq = 0;
+  Set<Polygon> _viewportPropertyPolygons = const <Polygon>{};
 
   final Map<String, BitmapDescriptor> _labelIconCache =
       <String, BitmapDescriptor>{};
@@ -96,6 +110,87 @@ class _PropertyPolygonEditorScreenState
           _isAutocompleteLoading = false;
         });
       }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    _viewportDebounce?.cancel();
+    _searchDebounce?.cancel();
+    _dragUpdateThrottle?.cancel();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _scheduleViewportFetch() {
+    _viewportDebounce?.cancel();
+    _viewportDebounce = Timer(const Duration(milliseconds: 250), () {
+      unawaited(_fetchViewportPolygons());
+    });
+  }
+
+  Future<void> _fetchViewportPolygons() async {
+    final controller = _controller;
+    if (controller == null) return;
+
+    final requestId = ++_viewportSeq;
+    LatLngBounds bounds;
+    double zoom;
+    try {
+      bounds = await controller.getVisibleRegion();
+      zoom = await controller.getZoomLevel();
+    } catch (_) {
+      return;
+    }
+
+    MapViewportResponse response;
+    try {
+      response = await _mapApi.getViewport(
+        bounds: bounds,
+        zoom: zoom,
+        bearerToken: widget.bearerToken,
+      );
+    } catch (_) {
+      return;
+    }
+
+    if (!mounted || requestId != _viewportSeq) return;
+
+    final excludeId = widget.excludePropertyId?.trim();
+    final polygons = <Polygon>{};
+    for (final feature in response.properties) {
+      if (excludeId != null && excludeId.isNotEmpty) {
+        if (feature.propertyId.trim() == excludeId) {
+          continue;
+        }
+      }
+
+      final rings = GeoJson.tryParsePolygons(feature.boundaryGeoJson);
+      if (rings.isEmpty) continue;
+
+      for (var i = 0; i < rings.length; i++) {
+        final ring = rings[i];
+        if (ring.length < 3) continue;
+        polygons.add(
+          Polygon(
+            polygonId:
+                PolygonId('vp:${feature.propertyId}:${feature.featureId}:$i'),
+            points: ring,
+            strokeColor: _viewportGrayStroke,
+            fillColor: _viewportGrayFill,
+            strokeWidth: 4,
+            zIndex: 1,
+            consumeTapEvents: false,
+          ),
+        );
+      }
+    }
+
+    if (!mounted || requestId != _viewportSeq) return;
+    setState(() {
+      _viewportPropertyPolygons = Set<Polygon>.unmodifiable(polygons);
     });
   }
 
@@ -766,16 +861,6 @@ class _PropertyPolygonEditorScreenState
     });
   }
 
-  @override
-  void dispose() {
-    _controller?.dispose();
-    _searchDebounce?.cancel();
-    _dragUpdateThrottle?.cancel();
-    _searchController.dispose();
-    _searchFocusNode.dispose();
-    super.dispose();
-  }
-
   Widget _buildSearchBox(BuildContext context) {
     final bool isEnabled = _googlePlace != null;
     final bool showSuggestions = _predictions.isNotEmpty;
@@ -934,6 +1019,8 @@ class _PropertyPolygonEditorScreenState
             strokeWidth: 3,
             strokeColor: const Color(0xFF0FAD97),
             fillColor: const Color(0x330FAD97),
+            zIndex: 3,
+            consumeTapEvents: false,
           )
         : null;
 
@@ -1067,6 +1154,7 @@ class _PropertyPolygonEditorScreenState
               if (draftPolyline != null) draftPolyline,
             },
             polygons: {
+              ..._viewportPropertyPolygons,
               if (polygon != null) polygon,
             },
             onTap: _addPoint,
@@ -1077,8 +1165,10 @@ class _PropertyPolygonEditorScreenState
               // Keep map type stable in the polygon editor; labels are driven
               // by the "Labels" checkbox and map/satellite by the map button.
             },
+            onCameraIdle: _scheduleViewportFetch,
             onMapCreated: (c) {
               _controller = c;
+              _scheduleViewportFetch();
               if (_points.isNotEmpty) {
                 unawaited(_fitCameraToPoints(_points));
               }
