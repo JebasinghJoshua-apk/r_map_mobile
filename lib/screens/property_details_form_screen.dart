@@ -142,6 +142,14 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   String _commercialContactName = '';
   String _commercialContactNumber = '';
 
+  String? _errPlotArea;
+  String? _errPlotPrice;
+  String? _errPlotLocation;
+  String? _errPlotTitle;
+  String? _errPlotMoreDetails;
+  String? _errPlotContactName;
+  String? _errPlotContactNumber;
+
   String? _errHouseBedrooms;
   String? _errHouseBuiltUpArea;
   String? _errHouseFloors;
@@ -650,6 +658,18 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       });
     }
 
+    if (_propertyType == 'Plot') {
+      setState(() {
+        _errPlotArea = null;
+        _errPlotPrice = null;
+        _errPlotLocation = null;
+        _errPlotTitle = null;
+        _errPlotMoreDetails = null;
+        _errPlotContactName = null;
+        _errPlotContactNumber = null;
+      });
+    }
+
     if (_propertyType == 'Apartment') {
       setState(() {
         _errApartmentBedrooms = null;
@@ -687,43 +707,66 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       }
 
       final title = _plotTitle.trim();
-      if (title.isEmpty) {
-        _showError('Enter a property title.');
-        return;
-      }
-
+      final areaRaw = _plotArea.trim();
+      final area = _parseDouble(areaRaw);
       final location = _plotLocation.trim();
-      if (location.isEmpty) {
-        _showError('Provide a location or neighborhood description.');
-        return;
-      }
-
-      final price = _parseDouble(_plotPrice);
-      if (price == null || price <= 0) {
-        _showError('Price must be greater than zero.');
-        return;
-      }
-
+      final description = _plotMoreDetails.trim();
+      final priceRaw = _plotPrice.trim();
+      final price = _parseDouble(priceRaw);
       final contactName = _plotContactName.trim();
+      final normalizedContact = _normalizeContact(_plotContactNumber);
+
+      var hasError = false;
+      if (areaRaw.isEmpty) {
+        hasError = true;
+        _errPlotArea = 'Plot area is required.';
+      } else if (area == null || area <= 0) {
+        hasError = true;
+        _errPlotArea = 'Plot area must be greater than zero.';
+      }
+      if (priceRaw.isEmpty) {
+        hasError = true;
+        _errPlotPrice = 'Price is required.';
+      } else if (price == null || price <= 0) {
+        hasError = true;
+        _errPlotPrice = 'Price must be greater than zero.';
+      }
+      if (location.isEmpty) {
+        hasError = true;
+        _errPlotLocation = 'Locality is required.';
+      }
+      if (title.isEmpty) {
+        hasError = true;
+        _errPlotTitle = 'Property title is required.';
+      }
+      if (description.isEmpty) {
+        hasError = true;
+        _errPlotMoreDetails = 'Description is required.';
+      }
       if (contactName.isEmpty) {
-        _showError('Contact name is required.');
-        return;
+        hasError = true;
+        _errPlotContactName = 'Contact name is required.';
+      }
+      if (_plotContactNumber.trim().isEmpty) {
+        hasError = true;
+        _errPlotContactNumber = 'Contact number is required.';
+      } else if (normalizedContact.isEmpty || normalizedContact.length < 6) {
+        hasError = true;
+        _errPlotContactNumber = 'Enter a valid contact number.';
       }
 
-      final normalizedContact = _normalizeContact(_plotContactNumber);
-      if (normalizedContact.isEmpty || normalizedContact.length < 6) {
-        _showError('Enter a valid contact number.');
+      if (hasError) {
+        setState(() {});
         return;
       }
 
       payload = <String, dynamic>{
         'listingType': _listingTypeForPayload(),
         'propertyTitle': title,
-        'areaLabel': _plotArea.trim().isEmpty ? null : _plotArea.trim(),
+        'areaLabel': areaRaw,
         'price': price,
         'location': location,
-        'additionalInformation':
-            _plotMoreDetails.trim().isEmpty ? null : _plotMoreDetails.trim(),
+        'additionalInformation': description.isEmpty ? null : description,
         'contactName': contactName,
         'contactNumber': normalizedContact,
         'plots': <Map<String, dynamic>>[
@@ -1635,9 +1678,13 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _textField(
             label: 'Plot Area (Sq.ft)',
             value: _plotArea,
-            onChanged: (v) => setState(() => _plotArea = v),
+            onChanged: (v) => setState(() {
+              _plotArea = v;
+              _errPlotArea = null;
+            }),
             hint: 'e.g., 2400',
             keyboard: TextInputType.number,
+            errorText: _errPlotArea,
           ),
           const SizedBox(height: 12),
           _textField(
@@ -1645,9 +1692,13 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             value: _plotPrice,
             controller: _plotPriceController,
             inputFormatters: indianPriceFormatters,
-            onChanged: (v) => setState(() => _plotPrice = v),
+            onChanged: (v) => setState(() {
+              _plotPrice = v;
+              _errPlotPrice = null;
+            }),
             hint: 'e.g., ₹50,00,000',
             keyboard: TextInputType.number,
+            errorText: _errPlotPrice,
           ),
           const SizedBox(height: 12),
           _textField(
@@ -1655,9 +1706,11 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             value: _plotLocation,
             onChanged: (v) => setState(() {
               _plotLocation = v;
+              _errPlotLocation = null;
               _applyPlotAutoTitleIfAllowed();
             }),
             hint: 'e.g., Anna Nagar, Chennai',
+            errorText: _errPlotLocation,
           ),
           const SizedBox(height: 12),
           _textField(
@@ -1667,17 +1720,23 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             onChanged: (v) => setState(() {
               _plotTitle = v;
               _plotTitleManuallyEdited = v.trim().isNotEmpty;
+              _errPlotTitle = null;
             }),
             hint: 'e.g., Residential Plot in Anna Nagar',
+            errorText: _errPlotTitle,
           ),
           const SizedBox(height: 12),
           _textField(
             label: 'Description',
             value: _plotMoreDetails,
-            onChanged: (v) => setState(() => _plotMoreDetails = v),
+            onChanged: (v) => setState(() {
+              _plotMoreDetails = v;
+              _errPlotMoreDetails = null;
+            }),
             hint: 'e.g., East Facing, DTCP Approved',
             maxLines: 3,
             minLines: 3,
+            errorText: _errPlotMoreDetails,
           ),
           const SizedBox(height: 12),
           Row(
@@ -1687,7 +1746,11 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                   label: 'Contact Name',
                   value: _plotContactName,
                   controller: _plotContactNameController,
-                  onChanged: (v) => setState(() => _plotContactName = v),
+                  onChanged: (v) => setState(() {
+                    _plotContactName = v;
+                    _errPlotContactName = null;
+                  }),
+                  errorText: _errPlotContactName,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1696,8 +1759,12 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                   label: 'Contact Number',
                   value: _plotContactNumber,
                   controller: _plotContactNumberController,
-                  onChanged: (v) => setState(() => _plotContactNumber = v),
+                  onChanged: (v) => setState(() {
+                    _plotContactNumber = v;
+                    _errPlotContactNumber = null;
+                  }),
                   keyboard: TextInputType.phone,
+                  errorText: _errPlotContactNumber,
                 ),
               ),
             ],
