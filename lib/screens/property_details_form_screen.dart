@@ -764,10 +764,6 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         hasError = true;
         _errPlotTitle = 'Property title is required.';
       }
-      if (description.isEmpty) {
-        hasError = true;
-        _errPlotMoreDetails = 'Description is required.';
-      }
       if (contactName.isEmpty) {
         hasError = true;
         _errPlotContactName = 'Contact name is required.';

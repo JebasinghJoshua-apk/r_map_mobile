@@ -1,6 +1,48 @@
 part of '../home_map_screen.dart';
 
 extension _HomeMapViewport on _HomeMapScreenState {
+  static const Duration _viewportFetchingMinVisible =
+      Duration(milliseconds: 200);
+
+  void _setViewportFetching(bool value) {
+    if (!mounted) return;
+
+    if (value) {
+      _viewportFetchingHideTimer?.cancel();
+      _viewportFetchingHideTimer = null;
+      _viewportFetchingStartedAt = DateTime.now();
+      if (_isViewportFetching) return;
+      _updateState(() => _isViewportFetching = true);
+      return;
+    }
+
+    final startedAt = _viewportFetchingStartedAt;
+    final elapsed = startedAt == null
+        ? _viewportFetchingMinVisible
+        : DateTime.now().difference(startedAt);
+
+    if (elapsed >= _viewportFetchingMinVisible) {
+      _viewportFetchingHideTimer?.cancel();
+      _viewportFetchingHideTimer = null;
+      _viewportFetchingStartedAt = null;
+      if (_isViewportFetching) {
+        _updateState(() => _isViewportFetching = false);
+      }
+      return;
+    }
+
+    _viewportFetchingHideTimer?.cancel();
+    _viewportFetchingHideTimer =
+        Timer(_viewportFetchingMinVisible - elapsed, () {
+      if (!mounted) return;
+      _viewportFetchingHideTimer = null;
+      _viewportFetchingStartedAt = null;
+      if (_isViewportFetching) {
+        _updateState(() => _isViewportFetching = false);
+      }
+    });
+  }
+
   void _setViewportLoading(bool value) {
     if (!mounted) return;
 
@@ -101,12 +143,14 @@ extension _HomeMapViewport on _HomeMapScreenState {
         _ownedLayoutIds = cached.ownedLayoutIds;
         _propertyByFeatureId = cached.propertyByFeatureId;
         _selectedPropertyHighlightPolygons = nextSelectedHighlight;
+        _hasViewportResult = true;
       });
       return;
     }
 
     final requestId = ++_viewportRequestSeq;
 
+    _setViewportFetching(true);
     _setViewportLoading(true);
 
     try {
@@ -118,7 +162,6 @@ extension _HomeMapViewport on _HomeMapScreenState {
       );
 
       if (!mounted || requestId != _viewportRequestSeq) {
-        _setViewportLoading(false);
         return;
       }
 
@@ -142,7 +185,6 @@ extension _HomeMapViewport on _HomeMapScreenState {
       );
 
       if (!mounted || requestId != _viewportRequestSeq) {
-        _setViewportLoading(false);
         return;
       }
 
@@ -176,18 +218,20 @@ extension _HomeMapViewport on _HomeMapScreenState {
         _ownedLayoutIds = merged.ownedLayoutIds;
         _propertyByFeatureId = merged.propertyByFeatureId;
         _selectedPropertyHighlightPolygons = nextSelectedHighlight;
+        _hasViewportResult = true;
       });
 
       if (_selectedProperty?.propertyType.trim() == 'IndependentHouse') {
         _scheduleIndependentHouseCarouselRefresh();
       }
+      _setViewportFetching(false);
       _setViewportLoading(false);
     } catch (e) {
       if (!mounted || requestId != _viewportRequestSeq) {
-        _setViewportLoading(false);
         return;
       }
 
+      _setViewportFetching(false);
       _setViewportLoading(false);
       final now = DateTime.now();
       final lastError = _lastViewportErrorAt;
