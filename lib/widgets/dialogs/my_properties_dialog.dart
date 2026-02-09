@@ -107,6 +107,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
     bool showDetailsOnNext = false,
     String? initialPropertyType,
     String? excludePropertyId,
+    String? propertyId,
   }) async {
     final points =
         await Navigator.of(context, rootNavigator: true).push<List<LatLng>>(
@@ -125,6 +126,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                       builder: (_) => PropertyDetailsFormScreen(
                         boundaryPoints: points,
                         initialPropertyType: initialPropertyType,
+                        propertyId: propertyId,
                       ),
                     ),
                   );
@@ -615,9 +617,12 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                             List<LatLng>? initialPoints;
 
                             try {
+                              final detailPropertyId = item.propertyId.trim();
                               final detail =
                                   await widget.mapApi.getPropertyDetail(
-                                propertyId: item.id,
+                                propertyId: detailPropertyId.isEmpty
+                                    ? item.id
+                                    : detailPropertyId,
                                 bearerToken: widget.bearerToken,
                               );
                               final polygons = GeoJson.tryParsePolygons(
@@ -645,7 +650,10 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                               mode: PropertyPolygonEditorMode.edit,
                               center: center,
                               initialPoints: initialPoints,
-                              excludePropertyId: item.id,
+                              excludePropertyId: item.propertyId,
+                              showDetailsOnNext: true,
+                              initialPropertyType: item.propertyType,
+                              propertyId: item.propertyId,
                             );
                           }
 

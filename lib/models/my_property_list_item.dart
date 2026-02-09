@@ -5,6 +5,7 @@ import '../utils/geojson.dart';
 class MyPropertyListItem {
   const MyPropertyListItem({
     required this.id,
+    required this.propertyId,
     required this.name,
     required this.propertyType,
     required this.address,
@@ -20,6 +21,7 @@ class MyPropertyListItem {
   });
 
   final String id;
+  final String propertyId;
   final String name;
   final String propertyType;
 
@@ -58,8 +60,15 @@ class MyPropertyListItem {
       return DateTime.fromMillisecondsSinceEpoch(0);
     }
 
+    final id = (json['id'] as String?) ?? '';
+    final propertyId =
+        (json['propertyId'] as String?) ?? (json['PropertyId'] as String?);
+
     return MyPropertyListItem(
-      id: (json['id'] as String?) ?? '',
+      id: id,
+      propertyId: (propertyId == null || propertyId.trim().isEmpty)
+          ? id
+          : propertyId,
       name: (json['name'] as String?) ?? '',
       propertyType: (json['propertyType'] as String?) ?? '',
       address: (json['address'] as String?) ?? '',

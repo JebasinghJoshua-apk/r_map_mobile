@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -19,10 +20,12 @@ class PropertyDetailsFormScreen extends StatefulWidget {
     super.key,
     required this.boundaryPoints,
     this.initialPropertyType,
+    this.propertyId,
   });
 
   final List<LatLng> boundaryPoints;
   final String? initialPropertyType;
+  final String? propertyId;
 
   @override
   State<PropertyDetailsFormScreen> createState() =>
@@ -83,6 +86,14 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   final _imagePicker = ImagePicker();
 
   bool _isSaving = false;
+  bool _isPrefilling = false;
+  bool _didPrefillFromEditPayload = false;
+  int _prefillRevision = 0;
+
+  bool get _isEdit {
+    final id = widget.propertyId;
+    return id != null && id.trim().isNotEmpty;
+  }
 
   late String _propertyType;
   String _listingType = 'Sell';
@@ -263,6 +274,312 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         TextEditingController(text: _commercialContactName);
     _commercialContactNumberController =
         TextEditingController(text: _commercialContactNumber);
+
+    unawaited(_prefillFromEditPayloadIfNeeded());
+  }
+
+  String _resolveListingType(Object? raw) {
+    final v = raw?.toString().trim() ?? '';
+    if (v.isEmpty) return _listingType;
+    final lower = v.toLowerCase();
+    if (lower == 'buy' || lower == 'sell') return 'Sell';
+    if (lower == 'rent') return 'Rent';
+    if (lower == 'lease') return 'Lease';
+    final titled = v.length <= 1
+        ? v.toUpperCase()
+        : '${v.substring(0, 1).toUpperCase()}${v.substring(1)}';
+    return _listingTypes.contains(titled) ? titled : v;
+  }
+
+  String _resolvePropertyTypeLabel(String rawType, Map<String, dynamic> entity) {
+    final trimmed = rawType.trim();
+    if (trimmed.isNotEmpty && _propertyTypes.contains(trimmed)) {
+      return trimmed;
+    }
+
+    final lower = trimmed.toLowerCase();
+    if (lower.contains('independent') || lower.contains('house')) {
+      return 'Independent House';
+    }
+    if (lower.contains('apartment') || lower.contains('flat')) {
+      return 'Apartment';
+    }
+    if (lower.contains('plot')) {
+      return 'Plot';
+    }
+    if (lower.contains('land')) {
+      return 'Land';
+    }
+    if (lower.contains('commercial')) {
+      return 'Commercial Space';
+    }
+
+    if (entity.containsKey('plots') || entity.containsKey('Plots')) {
+      return 'Plot';
+    }
+    if (entity.containsKey('landType') || entity.containsKey('LandType')) {
+      return 'Land';
+    }
+    if (entity.containsKey('spaceType') || entity.containsKey('SpaceType')) {
+      return 'Commercial Space';
+    }
+    if (entity.containsKey('floor') || entity.containsKey('Floor')) {
+      return 'Apartment';
+    }
+    if (entity.containsKey('houseBoundaryGeoJson') ||
+        entity.containsKey('HouseBoundaryGeoJson')) {
+      return 'Independent House';
+    }
+
+    return _propertyType;
+  }
+
+  Object? _pickValueCaseInsensitive(Map<String, dynamic> entity, String key) {
+    if (entity.containsKey(key)) return entity[key];
+    final target = key.toLowerCase();
+    for (final entry in entity.entries) {
+      if (entry.key.toLowerCase() == target) {
+        return entry.value;
+      }
+    }
+    return null;
+  }
+
+  String _pickString(Map<String, dynamic> entity, List<String> keys) {
+    for (final k in keys) {
+      final v = _pickValueCaseInsensitive(entity, k);
+      if (v == null) continue;
+      final s = v.toString().trim();
+      if (s.isNotEmpty) return s;
+    }
+    return '';
+  }
+
+  int? _pickInt(Map<String, dynamic> entity, List<String> keys) {
+    for (final k in keys) {
+      final v = _pickValueCaseInsensitive(entity, k);
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      if (v is String) {
+        final parsed = int.tryParse(v.trim());
+        if (parsed != null) return parsed;
+      }
+    }
+    return null;
+  }
+
+  double? _pickDouble(Map<String, dynamic> entity, List<String> keys) {
+    for (final k in keys) {
+      final v = _pickValueCaseInsensitive(entity, k);
+      if (v is double) return v;
+      if (v is int) return v.toDouble();
+      if (v is num) return v.toDouble();
+      if (v is String) {
+        final parsed = double.tryParse(v.trim().replaceAll(',', ''));
+        if (parsed != null) return parsed;
+      }
+    }
+    return null;
+  }
+
+  String _stringFromNum(Object? v) {
+    if (v == null) return '';
+    if (v is String) return v;
+    if (v is int) return v.toString();
+    if (v is double) {
+      if (v == v.roundToDouble()) return v.toInt().toString();
+      return v.toString();
+    }
+    if (v is num) return v.toString();
+    return v.toString();
+  }
+
+  String _carParkingLabelFromCount(int? count) {
+    final v = count ?? 0;
+    if (v <= 0) return 'None';
+    if (v >= 4) return '4+';
+    return v.toString();
+  }
+
+  String _landTypeLabelFromValue(int? value) {
+    if (value == null) return '';
+    for (final entry in _landTypeValueMap.entries) {
+      if (entry.value == value) return entry.key;
+    }
+    return '';
+  }
+
+  Future<void> _prefillFromEditPayloadIfNeeded() async {
+    if (!_isEdit) return;
+    if (_didPrefillFromEditPayload) return;
+
+    final session = AuthScope.of(context).session;
+    final token = session?.token;
+    if (token == null || token.trim().isEmpty) {
+      return;
+    }
+
+    final propertyId = widget.propertyId!.trim();
+    if (propertyId.isEmpty) return;
+
+    if (mounted) {
+      setState(() {
+        _isPrefilling = true;
+      });
+    }
+
+    try {
+      final payload = await _api.getPropertyEditPayload(
+        propertyId: propertyId,
+        bearerToken: token,
+      );
+      if (!mounted) return;
+
+      final rawType = (payload['type'] ?? payload['propertyType'] ?? '')
+          .toString()
+          .trim();
+
+      final entityRaw = payload['entity'];
+      final entity = entityRaw is Map
+          ? entityRaw.cast<String, dynamic>()
+          : payload;
+
+      final resolvedType = _resolvePropertyTypeLabel(rawType, entity);
+      final listing = _resolveListingType(
+        _pickValueCaseInsensitive(entity, 'listingType'),
+      );
+
+      setState(() {
+        _propertyType = resolvedType;
+        _listingType = listing;
+
+        if (_propertyType == 'Plot') {
+          _plotTitle = _pickString(entity, ['propertyTitle']);
+          _plotArea = _pickString(entity, ['areaLabel']);
+          _plotPrice = _stringFromNum(_pickDouble(entity, ['price']));
+          _plotLocation = _pickString(entity, ['location']);
+          _plotMoreDetails = _pickString(
+            entity,
+            ['additionalInformation', 'additionalDetails'],
+          );
+          _plotContactName = _pickString(entity, ['contactName']);
+          _plotContactNumber = _pickString(entity, ['contactNumber']);
+
+          _setControllerText(_plotTitleController, _plotTitle);
+          _setControllerText(_plotPriceController, _plotPrice);
+          _setControllerText(_plotContactNameController, _plotContactName);
+          _setControllerText(_plotContactNumberController, _plotContactNumber);
+        } else if (_propertyType == 'Independent House') {
+          _houseTitle = _pickString(entity, ['propertyTitle']);
+          _houseBedrooms =
+              _stringFromNum(_pickInt(entity, ['bedrooms']) ?? '');
+          _houseBuiltUpArea = _stringFromNum(
+            _pickDouble(entity, ['builtUpAreaInSquareFeet']) ?? '',
+          );
+          _houseFloors = _stringFromNum(_pickInt(entity, ['floors']) ?? '');
+          _houseBuildingAgeYears =
+              _stringFromNum(_pickInt(entity, ['buildingAge']) ?? '');
+          _houseCarParking = _carParkingLabelFromCount(
+            _pickInt(entity, ['carParkingCount']),
+          );
+          _housePrice = _stringFromNum(_pickDouble(entity, ['price']) ?? '');
+          _houseLocation = _pickString(entity, ['location']);
+          _houseMoreDetails = _pickString(entity, ['additionalDetails']);
+          _houseContactName = _pickString(entity, ['contactName']);
+          _houseContactNumber = _pickString(entity, ['contactNumber']);
+
+          _setControllerText(_houseTitleController, _houseTitle);
+          _setControllerText(_housePriceController, _housePrice);
+          _setControllerText(_houseContactNameController, _houseContactName);
+          _setControllerText(_houseContactNumberController, _houseContactNumber);
+        } else if (_propertyType == 'Apartment') {
+          _apartmentTitle = _pickString(entity, ['propertyTitle']);
+          _apartmentBedrooms =
+              _stringFromNum(_pickInt(entity, ['bedrooms']) ?? '');
+          _apartmentArea = _stringFromNum(
+            _pickDouble(entity, ['areaInSquareFeet']) ?? '',
+          );
+          _apartmentFloor = _stringFromNum(_pickInt(entity, ['floor']) ?? '');
+          _apartmentTotalFloors =
+              _stringFromNum(_pickInt(entity, ['totalFloors']) ?? '');
+          _apartmentCarParking = _carParkingLabelFromCount(
+            _pickInt(entity, ['carParkingCount']),
+          );
+          _apartmentBuildingAgeYears =
+              _stringFromNum(_pickInt(entity, ['buildingAge']) ?? '');
+          _apartmentPrice =
+              _stringFromNum(_pickDouble(entity, ['price']) ?? '');
+          _apartmentLocation = _pickString(entity, ['location']);
+          _apartmentMoreInfo = _pickString(
+            entity,
+            ['additionalInformation', 'additionalDetails'],
+          );
+          _apartmentContactName = _pickString(entity, ['contactName']);
+          _apartmentContactNumber = _pickString(entity, ['contactNumber']);
+
+          _setControllerText(_apartmentTitleController, _apartmentTitle);
+          _setControllerText(_apartmentPriceController, _apartmentPrice);
+          _setControllerText(
+              _apartmentContactNameController, _apartmentContactName);
+          _setControllerText(
+              _apartmentContactNumberController, _apartmentContactNumber);
+        } else if (_propertyType == 'Land') {
+          _landTitle = _pickString(entity, ['propertyTitle']);
+          _landType = _landTypeLabelFromValue(_pickInt(entity, ['landType']));
+          _landArea = _pickString(entity, ['areaLabel']);
+          _landPrice = _stringFromNum(_pickDouble(entity, ['price']) ?? '');
+          _landLocation = _pickString(entity, ['location']);
+          _landMoreInfo = _pickString(
+            entity,
+            ['additionalInformation', 'additionalDetails'],
+          );
+          _landContactName = _pickString(entity, ['contactName']);
+          _landContactNumber = _pickString(entity, ['contactNumber']);
+
+          _setControllerText(_landTitleController, _landTitle);
+          _setControllerText(_landPriceController, _landPrice);
+          _setControllerText(_landContactNameController, _landContactName);
+          _setControllerText(_landContactNumberController, _landContactNumber);
+        } else {
+          _commercialTitle = _pickString(entity, ['propertyTitle']);
+          _commercialSpaceType = _pickString(entity, ['spaceType']);
+          _commercialBuiltUpArea = _stringFromNum(
+            _pickDouble(entity, ['builtUpAreaInSquareFeet']) ?? '',
+          );
+          _commercialPrice =
+              _stringFromNum(_pickDouble(entity, ['price']) ?? '');
+          _commercialLocation = _pickString(entity, ['location']);
+          _commercialAdditionalDetails = _pickString(
+            entity,
+            ['additionalDetails', 'additionalInformation'],
+          );
+          _commercialContactName = _pickString(entity, ['contactName']);
+          _commercialContactNumber = _pickString(entity, ['contactNumber']);
+
+          _setControllerText(_commercialTitleController, _commercialTitle);
+          _setControllerText(_commercialPriceController, _commercialPrice);
+          _setControllerText(
+              _commercialContactNameController, _commercialContactName);
+          _setControllerText(
+              _commercialContactNumberController, _commercialContactNumber);
+        }
+
+        _prefillRevision += 1;
+        _didPrefillFromEditPayload = true;
+      });
+    } on MapApiException catch (ex) {
+      if (!mounted) return;
+      ToastMessage.show(context, ex.message);
+    } catch (_) {
+      if (!mounted) return;
+      ToastMessage.show(context, 'Failed to load property details.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPrefilling = false;
+        });
+      }
+    }
   }
 
   @override
@@ -642,7 +959,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   }
 
   Future<void> _handleSave() async {
-    if (_isSaving) return;
+    if (_isSaving || _isPrefilling) return;
 
     if (_propertyType == 'Commercial Space') {
       setState(() {
@@ -1193,28 +1510,42 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     });
 
     try {
-      final created = await _api.createPropertyByType(
-        propertyType: createType,
-        payload: payload,
-        bearerToken: token,
-      );
-      // Images upload + property detail endpoints use the generic PropertyId.
-      // Upstream create responses sometimes include both:
-      // - id: feature/entity id (type-specific)
-      // - propertyId: generic property GUID
-      final createdId = (created['propertyId'] ??
-              created['PropertyId'] ??
-              created['id'] ??
-              created['Id'])
-          ?.toString();
-      if (createdId == null || createdId.trim().isEmpty) {
-        throw const MapApiException(
-            'Created property response was missing an id.');
+      final editPropertyId = widget.propertyId?.trim();
+      final isEdit = editPropertyId != null && editPropertyId.isNotEmpty;
+
+      String propertyIdForUploads;
+      if (isEdit) {
+        await _api.updatePropertyViaEditEndpoint(
+          propertyId: editPropertyId,
+          payload: payload,
+          bearerToken: token,
+        );
+        propertyIdForUploads = editPropertyId;
+      } else {
+        final created = await _api.createPropertyByType(
+          propertyType: createType,
+          payload: payload,
+          bearerToken: token,
+        );
+        // Images upload + property detail endpoints use the generic PropertyId.
+        // Upstream create responses sometimes include both:
+        // - id: feature/entity id (type-specific)
+        // - propertyId: generic property GUID
+        final createdId = (created['propertyId'] ??
+                created['PropertyId'] ??
+                created['id'] ??
+                created['Id'])
+            ?.toString();
+        if (createdId == null || createdId.trim().isEmpty) {
+          throw const MapApiException(
+              'Created property response was missing an id.');
+        }
+        propertyIdForUploads = createdId;
       }
 
       PendingMapFocus.set(
         PendingMapFocusRequest(
-          propertyId: createdId,
+          propertyId: propertyIdForUploads,
           boundaryPoints: widget.boundaryPoints,
         ),
       );
@@ -1225,7 +1556,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           final picked = _photos[i].file;
           try {
             await _api.uploadPropertyImage(
-              propertyId: createdId,
+              propertyId: propertyIdForUploads,
               file: File(picked.path),
               bearerToken: token,
               isPrimary: i == 0,
@@ -1242,7 +1573,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
 
       try {
         await _api.getPropertyDetail(
-          propertyId: createdId,
+          propertyId: propertyIdForUploads,
           bearerToken: token,
         );
       } catch (_) {
@@ -1399,7 +1730,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     int? minLines,
     String? errorText,
   }) {
-    final fieldKey = ValueKey('$label-$_propertyType');
+    final fieldKey = ValueKey('$label-$_propertyType-$_prefillRevision');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2372,7 +2703,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   Widget build(BuildContext context) {
     final showListingType = _propertyType != 'Layouts';
     return WillPopScope(
-      onWillPop: () async => !_isSaving,
+      onWillPop: () async => !_isSaving && !_isPrefilling,
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(
@@ -2391,14 +2722,20 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: FilledButton(
-                onPressed: _isSaving ? null : _handleSave,
+                onPressed: (_isSaving || _isPrefilling) ? null : _handleSave,
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF0FAD97),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                child: Text(_isSaving ? 'Saving...' : 'Save'),
+                child: Text(
+                  _isSaving
+                      ? 'Saving...'
+                      : _isPrefilling
+                          ? 'Loading...'
+                          : 'Save',
+                ),
               ),
             ),
           ],
@@ -2440,9 +2777,16 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                     children: [
                       Expanded(
                         child: FilledButton.icon(
-                          onPressed: _isSaving ? null : _handleSave,
+                          onPressed:
+                              (_isSaving || _isPrefilling) ? null : _handleSave,
                           icon: const Icon(Icons.save_outlined),
-                          label: Text(_isSaving ? 'Saving...' : 'Save'),
+                          label: Text(
+                            _isSaving
+                                ? 'Saving...'
+                                : _isPrefilling
+                                    ? 'Loading...'
+                                    : 'Save',
+                          ),
                           style: FilledButton.styleFrom(
                             minimumSize: const Size.fromHeight(44),
                             backgroundColor: const Color(0xFF0FAD97),
@@ -2455,7 +2799,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: _isSaving
+                          onPressed: (_isSaving || _isPrefilling)
                               ? null
                               : () => Navigator.of(context).pop(),
                           style: OutlinedButton.styleFrom(
@@ -2511,6 +2855,52 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                           SizedBox(width: 12),
                           Text(
                             'Saving…',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              if (_isPrefilling) ...[
+                const ModalBarrier(
+                  dismissible: false,
+                  color: Color(0x1A000000),
+                ),
+                const Center(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0x22000000),
+                          blurRadius: 16,
+                          offset: Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 14,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          SizedBox(width: 12),
+                          Text(
+                            'Loading…',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,

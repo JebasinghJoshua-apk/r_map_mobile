@@ -445,6 +445,115 @@ class MobileBffMapApi {
     );
   }
 
+  Future<Map<String, dynamic>> getPropertyEditPayload({
+    required String propertyId,
+    String? bearerToken,
+  }) async {
+    final uri = _uri('/mobile/properties/$propertyId/edit');
+
+    http.Response response;
+    try {
+      final headers = <String, String>{};
+      if (bearerToken != null && bearerToken.trim().isNotEmpty) {
+        final token = bearerToken.toLowerCase().startsWith('bearer ')
+            ? bearerToken.substring('bearer '.length)
+            : bearerToken;
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      response = await _client
+          .get(uri, headers: headers.isEmpty ? null : headers)
+          .timeout(_timeout);
+    } on SocketException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException(
+        'Cannot connect to the server. Please check your network and try again.',
+      );
+    } on HttpException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException('Network error. Please try again.');
+    } on FormatException {
+      throw const MapApiException('Unexpected response from server');
+    } on TimeoutException {
+      throw const MapApiException('Request timed out. Please try again.');
+    }
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map) {
+        throw const MapApiException('Unexpected response from server');
+      }
+      return decoded.cast<String, dynamic>();
+    }
+
+    if (response.statusCode == 401) {
+      throw const MapApiException('Please login to edit properties.');
+    }
+
+    throw MapApiException(
+      _tryMessage(response.body) ??
+          'Edit payload fetch failed (${response.statusCode})',
+    );
+  }
+
+  Future<Map<String, dynamic>> updatePropertyViaEditEndpoint({
+    required String propertyId,
+    required Map<String, dynamic> payload,
+    String? bearerToken,
+  }) async {
+    final uri = _uri('/mobile/properties/$propertyId/edit');
+
+    http.Response response;
+    try {
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+      };
+      if (bearerToken != null && bearerToken.trim().isNotEmpty) {
+        final token = bearerToken.toLowerCase().startsWith('bearer ')
+            ? bearerToken.substring('bearer '.length)
+            : bearerToken;
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      response = await _client
+          .put(uri, headers: headers, body: jsonEncode(payload))
+          .timeout(_timeout);
+    } on SocketException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException(
+        'Cannot connect to the server. Please check your network and try again.',
+      );
+    } on HttpException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException('Network error. Please try again.');
+    } on FormatException {
+      throw const MapApiException('Unexpected response from server');
+    } on TimeoutException {
+      throw const MapApiException('Request timed out. Please try again.');
+    }
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map) {
+        throw const MapApiException('Unexpected response from server');
+      }
+      return decoded.cast<String, dynamic>();
+    }
+
+    if (response.statusCode == 401) {
+      throw const MapApiException('Please login to save changes.');
+    }
+
+    throw MapApiException(
+      _tryMessage(response.body) ??
+          'Property update failed (${response.statusCode})',
+    );
+  }
+
   Future<Map<String, dynamic>> createPropertyByType({
     required String propertyType,
     required Map<String, dynamic> payload,

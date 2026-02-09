@@ -1174,46 +1174,45 @@ class _PropertyPolygonEditorScreenState
               }
             },
           ),
-          if (widget.mode == PropertyPolygonEditorMode.add)
-            Positioned(
-              left: 16,
-              right: 16,
-              top: 16,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Align(
-                    alignment: Alignment.topCenter,
-                    child: _buildSearchBox(context),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _mapLabelsToggle(),
-                      const Spacer(),
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _topMapActionButton(
-                            icon: Icons.delete_outline,
-                            tooltip: 'Clear',
-                            onPressed: _points.isEmpty ? null : _clear,
-                            iconColor: const Color(0xFFDC2626),
-                          ),
-                          const SizedBox(height: 10),
-                          _topMapActionButton(
-                            icon: Icons.undo,
-                            tooltip: 'Undo last point',
-                            onPressed: _points.isEmpty ? null : _undo,
-                          ),
-                        ],
-                      ),
-                    ],
-                  )
-                ],
-              ),
+          Positioned(
+            left: 16,
+            right: 16,
+            top: 16,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: _buildSearchBox(context),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _mapLabelsToggle(),
+                    const Spacer(),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _topMapActionButton(
+                          icon: Icons.delete_outline,
+                          tooltip: 'Clear',
+                          onPressed: _points.isEmpty ? null : _clear,
+                          iconColor: const Color(0xFFDC2626),
+                        ),
+                        const SizedBox(height: 10),
+                        _topMapActionButton(
+                          icon: Icons.undo,
+                          tooltip: 'Undo last point',
+                          onPressed: _points.isEmpty ? null : _undo,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
             ),
+          ),
           Positioned(
             left: 16,
             right: 16,
