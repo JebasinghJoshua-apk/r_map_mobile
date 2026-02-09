@@ -31,6 +31,7 @@ import 'layout_detail_screen.dart';
 import 'property_detail_screen.dart';
 import '../utils/route_observer.dart';
 import '../utils/anchored_popover_geometry.dart';
+import '../utils/pending_map_focus.dart';
 
 part 'home_map_screen.helpers.dart';
 part 'home_map/home_map_filters.dart';
@@ -317,6 +318,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
     // Favorites may have been toggled in a pushed screen.
     unawaited(_refreshSavedPropertyIds());
+
+    final pendingFocus = PendingMapFocus.take();
+    if (pendingFocus != null) {
+      unawaited(_focusNewlyCreatedPropertyOnMap(pendingFocus));
+    }
   }
 
   @override

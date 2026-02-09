@@ -875,4 +875,38 @@ extension _HomeMapSelection on _HomeMapScreenState {
       ),
     );
   }
+
+  Future<void> _focusNewlyCreatedPropertyOnMap(
+    PendingMapFocusRequest request,
+  ) async {
+    final controller = _mapController;
+    if (controller == null) return;
+
+    final points = request.boundaryPoints;
+    if (points.length < 3) return;
+
+    final bounds = _boundsFromPoints(points);
+    final center = _centerOfBounds(bounds);
+
+    try {
+      await _animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
+    } catch (_) {
+      // If bounds animation fails (rare), at least center the camera.
+      await _focusPropertyOnMap(target: center, zoom: 18.0);
+      return;
+    }
+
+    // Clamp zoom after bounds fit (Google Maps may overshoot max zoom briefly).
+    double zoom;
+    try {
+      zoom = await controller.getZoomLevel();
+    } catch (_) {
+      zoom = _effectiveZoom ?? _lastCameraPosition.zoom;
+    }
+
+    const maxZoom = _selectedPlotMaxFocusZoom;
+    if (zoom > maxZoom) {
+      await _focusPropertyOnMap(target: center, zoom: maxZoom);
+    }
+  }
 }

@@ -10,6 +10,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../services/mobile_bff_map_api.dart';
 import '../state/auth_scope.dart';
 import '../utils/geojson.dart';
+import '../utils/pending_map_focus.dart';
 import '../widgets/auth_dialog.dart';
 import '../widgets/toast_message.dart';
 
@@ -1214,6 +1215,13 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         throw const MapApiException(
             'Created property response was missing an id.');
       }
+
+      PendingMapFocus.set(
+        PendingMapFocusRequest(
+          propertyId: createdId,
+          boundaryPoints: widget.boundaryPoints,
+        ),
+      );
 
       final failedUploads = <String>[];
       if (_photos.isNotEmpty) {
