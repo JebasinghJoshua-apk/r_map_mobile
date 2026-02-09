@@ -1,6 +1,9 @@
 part of '../home_map_screen.dart';
 
 extension _HomeMapCarousel on _HomeMapScreenState {
+  static const double _carouselRadiusKm = 4.0;
+  static const int _carouselMaxItems = 10;
+
   int _carouselPageCount(int itemCount) => itemCount + 2;
 
   int _itemIndexFromCarouselPage(int pageIndex, int itemCount) {
@@ -53,11 +56,14 @@ extension _HomeMapCarousel on _HomeMapScreenState {
     const carouselQueryZoom = 10.0;
 
     final expanded = _expandBounds(bounds, carouselBoundsMultiplier);
+    final center = _lastCameraPosition.target;
+    final radiusBounds = _boundsAroundCenter(center, _carouselRadiusKm);
+    final queryBounds = _mergeBounds(expanded, radiusBounds);
     final requestId = ++_independentHouseCarouselRequestSeq;
 
     try {
       final response = await _mapApi.getViewport(
-        bounds: expanded,
+        bounds: queryBounds,
         zoom: carouselQueryZoom,
         propertyTypes: const <String>['IndependentHouse'],
         bearerToken: token,
@@ -67,8 +73,8 @@ extension _HomeMapCarousel on _HomeMapScreenState {
         return;
       }
 
-      final center = _lastCameraPosition.target;
-      final houses = response.properties
+      final filteredResponse = _applyClientFilters(response);
+      final houses = filteredResponse.properties
           .where((p) => p.propertyType.trim() == 'IndependentHouse')
           .toList(growable: true);
 
@@ -84,23 +90,38 @@ extension _HomeMapCarousel on _HomeMapScreenState {
         return aScore.compareTo(bScore);
       });
 
+      // Prefer items within 4km of map center; fallback to nearest overall.
+      final withinRadius = houses.where((h) {
+        final c = h.centerPoint;
+        if (c == null) return false;
+        return _distanceKm(center, c) <= _carouselRadiusKm;
+      }).toList(growable: false);
+
+      final baseCandidates = withinRadius.isNotEmpty ? withinRadius : houses;
+      var candidates =
+          baseCandidates.take(_carouselMaxItems).toList(growable: true);
+
       final selected = anchor ?? _selectedProperty;
       if (selected != null &&
           selected.propertyType.trim() == 'IndependentHouse') {
-        final exists = houses.any(
+        final exists = candidates.any(
           (p) =>
               p.featureId.trim() == selected.featureId.trim() ||
               (p.propertyId.trim().isNotEmpty &&
                   p.propertyId.trim() == selected.propertyId.trim()),
         );
         if (!exists) {
-          houses.insert(0, selected);
+          candidates.insert(0, selected);
         }
+      }
+
+      if (candidates.length > _carouselMaxItems) {
+        candidates = candidates.take(_carouselMaxItems).toList(growable: false);
       }
 
       final nextIndex = selected == null
           ? 0
-          : houses.indexWhere(
+          : candidates.indexWhere(
               (p) =>
                   p.featureId.trim() == selected.featureId.trim() ||
                   (p.propertyId.trim().isNotEmpty &&
@@ -109,15 +130,19 @@ extension _HomeMapCarousel on _HomeMapScreenState {
 
       _updateState(() {
         _independentHousesCarousel =
-            List<MapPropertyFeature>.unmodifiable(houses);
+            List<MapPropertyFeature>.unmodifiable(candidates);
         _activeIndependentHouseIndex = nextIndex >= 0 ? nextIndex : 0;
       });
+
+      if (candidates.isEmpty) {
+        return;
+      }
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final c = _independentHouseCarouselController;
         if (!mounted || c == null || !c.hasClients) return;
         final targetPage =
-            (_activeIndependentHouseIndex.clamp(0, houses.length - 1)) + 1;
+            (_activeIndependentHouseIndex.clamp(0, candidates.length - 1)) + 1;
         if (c.page?.round() != targetPage) {
           _suppressCarouselFocusOnce = true;
           c.jumpToPage(targetPage);
@@ -138,6 +163,55 @@ extension _HomeMapCarousel on _HomeMapScreenState {
     final x = dLng * scale;
     final y = dLat;
     return x * x + y * y;
+  }
+
+  double _distanceKm(LatLng a, LatLng b) {
+    const earthRadiusKm = 6371.0;
+    final lat1 = a.latitude * (math.pi / 180.0);
+    final lat2 = b.latitude * (math.pi / 180.0);
+    final dLat = (b.latitude - a.latitude) * (math.pi / 180.0);
+    final dLng = (b.longitude - a.longitude) * (math.pi / 180.0);
+
+    final sinLat = math.sin(dLat / 2.0);
+    final sinLng = math.sin(dLng / 2.0);
+    final h =
+        (sinLat * sinLat) + math.cos(lat1) * math.cos(lat2) * (sinLng * sinLng);
+    final c = 2.0 * math.atan2(math.sqrt(h), math.sqrt(1.0 - h));
+    return earthRadiusKm * c;
+  }
+
+  LatLngBounds _boundsAroundCenter(LatLng center, double radiusKm) {
+    // Approx conversion: 1 deg latitude ~ 111 km.
+    final degLat = radiusKm / 111.0;
+    final cosLat = math.cos(center.latitude * (math.pi / 180.0)).abs();
+    final safeCosLat = cosLat < 0.0001 ? 0.0001 : cosLat;
+    final degLng = radiusKm / (111.0 * safeCosLat);
+
+    double clampLat(double v) => v.clamp(-90.0, 90.0);
+    double clampLng(double v) => v.clamp(-180.0, 180.0);
+
+    final sw = LatLng(
+      clampLat(center.latitude - degLat),
+      clampLng(center.longitude - degLng),
+    );
+    final ne = LatLng(
+      clampLat(center.latitude + degLat),
+      clampLng(center.longitude + degLng),
+    );
+
+    return LatLngBounds(southwest: sw, northeast: ne);
+  }
+
+  LatLngBounds _mergeBounds(LatLngBounds a, LatLngBounds b) {
+    final sw = LatLng(
+      math.min(a.southwest.latitude, b.southwest.latitude),
+      math.min(a.southwest.longitude, b.southwest.longitude),
+    );
+    final ne = LatLng(
+      math.max(a.northeast.latitude, b.northeast.latitude),
+      math.max(a.northeast.longitude, b.northeast.longitude),
+    );
+    return LatLngBounds(southwest: sw, northeast: ne);
   }
 
   Future<void> _handleIndependentHouseTapped(
