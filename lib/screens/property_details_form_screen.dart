@@ -8,6 +8,8 @@ import 'package:dotted_border/dotted_border.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../constants/api_constants.dart';
+import '../models/image_summary.dart';
 import '../services/mobile_bff_map_api.dart';
 import '../state/auth_scope.dart';
 import '../utils/geojson.dart';
@@ -198,7 +200,218 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   String? _errCommercialContactNumber;
   String? _errListingType;
 
+  final List<ImageSummary> _existingPhotos = <ImageSummary>[];
+  bool _isLoadingExistingPhotos = false;
+  bool _didLoadExistingPhotos = false;
+
   final List<_SelectedPhoto> _photos = <_SelectedPhoto>[];
+
+  int get _totalPhotoCount => _existingPhotos.length + _photos.length;
+
+  int get _remainingPhotoSlots {
+    final remaining = _maxPhotos - _totalPhotoCount;
+    return remaining < 0 ? 0 : remaining;
+  }
+
+  String _mediaKeyForPropertyTypeLabel(String propertyTypeLabel) {
+    switch (propertyTypeLabel.trim()) {
+      case 'Plot':
+        return 'individualplots';
+      case 'Independent House':
+        return 'independenthouse';
+      case 'Apartment':
+        return 'apartmentflat';
+      case 'Commercial Space':
+        return 'commercialspace';
+      case 'Land':
+      default:
+        return 'land';
+    }
+  }
+
+  String _absoluteMediaUrl(String rawUrl) {
+    final trimmed = rawUrl.trim();
+    if (trimmed.isEmpty) return '';
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+
+    final base = ApiConstants.mobileBffBaseUrl;
+    if (base.trim().isEmpty) return trimmed;
+
+    final normalizedBase = base.endsWith('/') ? base : '$base/';
+    final baseUri = Uri.parse(normalizedBase);
+    final relative = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
+    return baseUri.resolve(relative).toString();
+  }
+
+  Future<void> _deleteExistingPhoto(int index) async {
+    if (!_isEdit) return;
+    if (index < 0 || index >= _existingPhotos.length) return;
+    if (_isSaving || _isPrefilling) return;
+
+    final img = _existingPhotos[index];
+    final id = img.id?.trim() ?? '';
+    if (id.isEmpty) {
+      _showError('This photo cannot be deleted.');
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete photo?'),
+          content: const Text('This will permanently remove the photo.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted || confirmed != true) return;
+
+    final session = AuthScope.of(context).session;
+    final token = session?.token;
+    if (token == null || token.trim().isEmpty) {
+      _showError('Please login to delete photos.');
+      return;
+    }
+
+    try {
+      await _api.deleteImage(imageId: id, bearerToken: token);
+      if (!mounted) return;
+      setState(() {
+        _existingPhotos.removeAt(index);
+      });
+      ToastMessage.show(context, 'Photo deleted.');
+    } on MapApiException catch (ex) {
+      if (!mounted) return;
+      ToastMessage.show(context, ex.message);
+    } catch (_) {
+      if (!mounted) return;
+      ToastMessage.show(context, 'Failed to delete photo.');
+    }
+  }
+
+  void _reorderExistingPhotos(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= _existingPhotos.length) return;
+    setState(() {
+      if (newIndex > oldIndex) {
+        newIndex -= 1;
+      }
+      if (newIndex < 0) newIndex = 0;
+      if (newIndex >= _existingPhotos.length) {
+        newIndex = _existingPhotos.length - 1;
+      }
+      final item = _existingPhotos.removeAt(oldIndex);
+      _existingPhotos.insert(newIndex, item);
+    });
+  }
+
+  Future<void> _persistExistingPhotoOrder(String bearerToken) async {
+    if (!_isEdit) return;
+    if (_existingPhotos.isEmpty) return;
+
+    for (var i = 0; i < _existingPhotos.length; i += 1) {
+      final img = _existingPhotos[i];
+      final id = img.id?.trim() ?? '';
+      if (id.isEmpty) continue;
+
+      try {
+        await _api.updateImage(
+          imageId: id,
+          bearerToken: bearerToken,
+          displayOrder: i + 1,
+          isPrimary: i == 0,
+        );
+      } on MapApiException catch (ex) {
+        debugPrint('Failed to update image $id order: ${ex.message}');
+      } catch (_) {
+        debugPrint('Failed to update image $id order');
+      }
+    }
+  }
+
+  String _pickEntityIdForMedia(Map<String, dynamic> entity) {
+    final candidates = <String>[
+      'id',
+      'plotId',
+      'houseId',
+      'flatId',
+      'apartmentId',
+      'landId',
+      'commercialSpaceId',
+      'commercialId',
+    ];
+    for (final key in candidates) {
+      final value = _pickValueCaseInsensitive(entity, key);
+      final asString = value?.toString().trim() ?? '';
+      if (asString.isNotEmpty) return asString;
+    }
+    return '';
+  }
+
+  Future<void> _loadExistingPhotosIfNeeded({
+    required String propertyTypeLabel,
+    required Map<String, dynamic> entity,
+    required String bearerToken,
+  }) async {
+    if (!_isEdit) return;
+    if (_didLoadExistingPhotos) return;
+
+    final entityId = _pickEntityIdForMedia(entity);
+    if (entityId.isEmpty) {
+      _didLoadExistingPhotos = true;
+      return;
+    }
+
+    final propertyTypeKey = _mediaKeyForPropertyTypeLabel(propertyTypeLabel);
+
+    if (mounted) {
+      setState(() {
+        _isLoadingExistingPhotos = true;
+      });
+    }
+
+    try {
+      final images = await _api.getPropertyMedia(
+        propertyType: propertyTypeKey,
+        entityId: entityId,
+        bearerToken: bearerToken,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _existingPhotos
+          ..clear()
+          ..addAll(images);
+        _didLoadExistingPhotos = true;
+      });
+    } on MapApiException catch (ex) {
+      if (!mounted) return;
+      _didLoadExistingPhotos = true;
+      ToastMessage.show(context, ex.message);
+    } catch (_) {
+      if (!mounted) return;
+      _didLoadExistingPhotos = true;
+      ToastMessage.show(context, 'Failed to load existing photos.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingExistingPhotos = false;
+        });
+      }
+    }
+  }
 
   _SelectedPhoto _wrapPhoto(XFile file) {
     _photoSequence += 1;
@@ -395,6 +608,48 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     return v.toString();
   }
 
+  String _formatIndianPrice(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return '';
+
+    // Keep only digits and at most one decimal point.
+    final cleaned = trimmed.replaceAll(',', '');
+    final match = RegExp(r'^(\d+)(?:\.(\d+))?$').firstMatch(cleaned);
+    if (match == null) {
+      final digitsOnly = cleaned.replaceAll(RegExp(r'\D'), '');
+      if (digitsOnly.isEmpty) return trimmed;
+      return _formatIndianDigits(digitsOnly);
+    }
+
+    final whole = match.group(1) ?? '';
+    final fraction = match.group(2);
+    final formattedWhole = _formatIndianDigits(whole);
+    if (fraction == null || fraction.isEmpty) {
+      return formattedWhole;
+    }
+    return '$formattedWhole.$fraction';
+  }
+
+  String _formatIndianDigits(String digits) {
+    var d = digits.replaceFirst(RegExp(r'^0+(?=\d)'), '');
+    if (d.isEmpty) return '';
+    if (d.length <= 3) return d;
+
+    final last3 = d.substring(d.length - 3);
+    var rest = d.substring(0, d.length - 3);
+
+    final parts = <String>[];
+    while (rest.length > 2) {
+      parts.insert(0, rest.substring(rest.length - 2));
+      rest = rest.substring(0, rest.length - 2);
+    }
+    if (rest.isNotEmpty) {
+      parts.insert(0, rest);
+    }
+
+    return '${parts.join(',')},$last3';
+  }
+
   String _carParkingLabelFromCount(int? count) {
     final v = count ?? 0;
     if (v <= 0) return 'None';
@@ -448,6 +703,14 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         _pickValueCaseInsensitive(entity, 'listingType'),
       );
 
+      unawaited(
+        _loadExistingPhotosIfNeeded(
+          propertyTypeLabel: resolvedType,
+          entity: entity,
+          bearerToken: token,
+        ),
+      );
+
       setState(() {
         _propertyType = resolvedType;
         _listingType = listing;
@@ -455,7 +718,9 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         if (_propertyType == 'Plot') {
           _plotTitle = _pickString(entity, ['propertyTitle']);
           _plotArea = _pickString(entity, ['areaLabel']);
-          _plotPrice = _stringFromNum(_pickDouble(entity, ['price']));
+          _plotPrice = _formatIndianPrice(
+            _stringFromNum(_pickDouble(entity, ['price'])),
+          );
           _plotLocation = _pickString(entity, ['location']);
           _plotMoreDetails = _pickString(
             entity,
@@ -480,7 +745,9 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _houseCarParking = _carParkingLabelFromCount(
             _pickInt(entity, ['carParkingCount']),
           );
-          _housePrice = _stringFromNum(_pickDouble(entity, ['price']) ?? '');
+          _housePrice = _formatIndianPrice(
+            _stringFromNum(_pickDouble(entity, ['price']) ?? ''),
+          );
           _houseLocation = _pickString(entity, ['location']);
           _houseMoreDetails = _pickString(entity, ['additionalDetails']);
           _houseContactName = _pickString(entity, ['contactName']);
@@ -506,8 +773,9 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           );
           _apartmentBuildingAgeYears =
               _stringFromNum(_pickInt(entity, ['buildingAge']) ?? '');
-          _apartmentPrice =
-              _stringFromNum(_pickDouble(entity, ['price']) ?? '');
+          _apartmentPrice = _formatIndianPrice(
+            _stringFromNum(_pickDouble(entity, ['price']) ?? ''),
+          );
           _apartmentLocation = _pickString(entity, ['location']);
           _apartmentMoreInfo = _pickString(
             entity,
@@ -526,7 +794,9 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _landTitle = _pickString(entity, ['propertyTitle']);
           _landType = _landTypeLabelFromValue(_pickInt(entity, ['landType']));
           _landArea = _pickString(entity, ['areaLabel']);
-          _landPrice = _stringFromNum(_pickDouble(entity, ['price']) ?? '');
+          _landPrice = _formatIndianPrice(
+            _stringFromNum(_pickDouble(entity, ['price']) ?? ''),
+          );
           _landLocation = _pickString(entity, ['location']);
           _landMoreInfo = _pickString(
             entity,
@@ -545,8 +815,9 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _commercialBuiltUpArea = _stringFromNum(
             _pickDouble(entity, ['builtUpAreaInSquareFeet']) ?? '',
           );
-          _commercialPrice =
-              _stringFromNum(_pickDouble(entity, ['price']) ?? '');
+          _commercialPrice = _formatIndianPrice(
+            _stringFromNum(_pickDouble(entity, ['price']) ?? ''),
+          );
           _commercialLocation = _pickString(entity, ['location']);
           _commercialAdditionalDetails = _pickString(
             entity,
@@ -585,10 +856,14 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    if (_didPrefillContactFromUser) return;
+    unawaited(_prefillFromEditPayloadIfNeeded());
+
     final session = AuthScope.of(context).session;
     final user = session?.user;
-    if (user == null) return;
+
+    if (_didPrefillContactFromUser || user == null) {
+      return;
+    }
 
     final name = user.displayName.trim();
     final phone = user.phoneNumber.trim();
@@ -820,18 +1095,18 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   }
 
   Future<void> _pickFromGallery() async {
-    if (_photos.length >= _maxPhotos) {
+    if (_totalPhotoCount >= _maxPhotos) {
       _showError('You can add up to $_maxPhotos photos.');
       return;
     }
 
     try {
-      final beforeCount = _photos.length;
+      final beforeCount = _totalPhotoCount;
       final picks = await _imagePicker.pickMultiImage(imageQuality: 85);
       if (picks.isEmpty) return;
       if (!mounted) return;
       setState(() {
-        final remaining = _maxPhotos - _photos.length;
+        final remaining = _remainingPhotoSlots;
         if (remaining <= 0) {
           return;
         }
@@ -851,7 +1126,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   }
 
   Future<void> _captureFromCamera() async {
-    if (_photos.length >= _maxPhotos) {
+    if (_totalPhotoCount >= _maxPhotos) {
       _showError('You can add up to $_maxPhotos photos.');
       return;
     }
@@ -864,7 +1139,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       if (shot == null) return;
       if (!mounted) return;
       setState(() {
-        if (_photos.length >= _maxPhotos) return;
+        if (_totalPhotoCount >= _maxPhotos) return;
         _photos.add(_wrapPhoto(shot));
       });
     } catch (e) {
@@ -876,7 +1151,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   }
 
   Future<void> _showAddPhotoOptions() async {
-    if (_photos.length >= _maxPhotos) {
+    if (_totalPhotoCount >= _maxPhotos) {
       _showError('You can add up to $_maxPhotos photos.');
       return;
     }
@@ -1549,17 +1824,23 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         ),
       );
 
+      if (isEdit) {
+        await _persistExistingPhotoOrder(token);
+      }
+
       final failedUploads = <String>[];
       if (_photos.isNotEmpty) {
         for (var i = 0; i < _photos.length; i += 1) {
           final picked = _photos[i].file;
           try {
+            final existingCount = _existingPhotos.length;
+            final shouldMakePrimary = existingCount == 0 && i == 0;
             await _api.uploadPropertyImage(
               propertyId: propertyIdForUploads,
               file: File(picked.path),
               bearerToken: token,
-              isPrimary: i == 0,
-              displayOrder: i + 1,
+              isPrimary: shouldMakePrimary,
+              displayOrder: existingCount + i + 1,
               altText: picked.name,
             );
           } on MapApiException catch (ex) {
@@ -1854,7 +2135,9 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   }
 
   Widget _buildPhotosSection() {
-    final countLabel = '${_photos.length}/$_maxPhotos';
+    final total = _totalPhotoCount;
+    final countLabel = '$total/$_maxPhotos';
+    final hasAny = _existingPhotos.isNotEmpty || _photos.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1892,7 +2175,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           ],
         ),
         const SizedBox(height: 10),
-        if (_photos.isEmpty)
+        if (!hasAny && !_isLoadingExistingPhotos)
           DottedBorder(
             color: const Color(0xFFCBD5E1),
             strokeWidth: 1.2,
@@ -1926,118 +2209,243 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
             ),
           )
         else ...[
-          SizedBox(
-            height: 86,
-            child: ReorderableListView.builder(
-              scrollDirection: Axis.horizontal,
-              buildDefaultDragHandles: false,
-              onReorder: _reorderPhotos,
-              itemCount: _photos.length,
-              proxyDecorator: (child, _, __) {
-                return Material(
-                  elevation: 6,
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                  child: child,
-                );
-              },
-              itemBuilder: (context, index) {
-                final selected = _photos[index];
-                final photo = selected.file;
-                return Padding(
-                  key: ValueKey('photo:${selected.id}'),
-                  padding: EdgeInsets.only(
-                      right: index == _photos.length - 1 ? 0 : 10),
-                  child: ReorderableDelayedDragStartListener(
-                    index: index,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Stack(
-                        children: [
-                          Container(
-                            width: 112,
-                            height: 86,
-                            color: const Color(0xFFF1F5F9),
-                            child: Image.file(
-                              File(photo.path),
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Center(
-                                child: Icon(Icons.broken_image_outlined,
-                                    color: Color(0xFF94A3B8)),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            top: 6,
-                            right: 6,
-                            child: Material(
-                              color: Colors.black54,
-                              borderRadius: BorderRadius.circular(16),
-                              child: InkWell(
-                                onTap: () => _removeImage(index),
-                                borderRadius: BorderRadius.circular(16),
-                                child: const Padding(
-                                  padding: EdgeInsets.all(6),
-                                  child: Icon(Icons.close,
-                                      size: 14, color: Colors.white),
-                                ),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            bottom: 6,
-                            left: 6,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.black54,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Text(
-                                index == 0 ? 'Primary' : '${index + 1}',
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+          if (_isLoadingExistingPhotos && !hasAny)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    'Loading photos…',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF64748B),
                     ),
                   ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Text(
-                '${_photos.length} new image${_photos.length == 1 ? '' : 's'} added',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF64748B),
-                ),
+                ],
               ),
-              const Spacer(),
-              InkWell(
-                onTap: _clearNewPhotos,
-                child: const Text(
-                  'Clear New Photos',
-                  style: TextStyle(
+            ),
+          if (_existingPhotos.isNotEmpty) ...[
+            SizedBox(
+              height: 86,
+              child: ReorderableListView.builder(
+                scrollDirection: Axis.horizontal,
+                buildDefaultDragHandles: false,
+                onReorder: _reorderExistingPhotos,
+                itemCount: _existingPhotos.length,
+                proxyDecorator: (child, _, __) {
+                  return Material(
+                    elevation: 6,
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                    child: child,
+                  );
+                },
+                itemBuilder: (context, index) {
+                  final img = _existingPhotos[index];
+                  final url = _absoluteMediaUrl(img.fileUrl);
+                  return Padding(
+                    key: ValueKey('existing:${img.id ?? img.fileUrl}'),
+                    padding: EdgeInsets.only(
+                        right: index == _existingPhotos.length - 1 ? 0 : 10),
+                    child: ReorderableDelayedDragStartListener(
+                      index: index,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Stack(
+                          children: [
+                            Container(
+                              width: 112,
+                              height: 86,
+                              color: const Color(0xFFF1F5F9),
+                              child: url.isEmpty
+                                  ? const Center(
+                                      child: Icon(
+                                          Icons.image_not_supported_outlined,
+                                          color: Color(0xFF94A3B8)),
+                                    )
+                                  : Image.network(
+                                      url,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) =>
+                                          const Center(
+                                        child: Icon(Icons.broken_image_outlined,
+                                            color: Color(0xFF94A3B8)),
+                                      ),
+                                    ),
+                            ),
+                            Positioned(
+                              top: 6,
+                              right: 6,
+                              child: Material(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(16),
+                                child: InkWell(
+                                  onTap: () => _deleteExistingPhoto(index),
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(6),
+                                    child: Icon(Icons.delete_outline,
+                                        size: 14, color: Colors.white),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              bottom: 6,
+                              left: 6,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Text(
+                                  index == 0 ? 'Primary' : '${index + 1}',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (_photos.isNotEmpty) const SizedBox(height: 10),
+          ],
+          if (_photos.isNotEmpty) ...[
+            SizedBox(
+              height: 86,
+              child: ReorderableListView.builder(
+                scrollDirection: Axis.horizontal,
+                buildDefaultDragHandles: false,
+                onReorder: _reorderPhotos,
+                itemCount: _photos.length,
+                proxyDecorator: (child, _, __) {
+                  return Material(
+                    elevation: 6,
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                    child: child,
+                  );
+                },
+                itemBuilder: (context, index) {
+                  final selected = _photos[index];
+                  final photo = selected.file;
+                  return Padding(
+                    key: ValueKey('photo:${selected.id}'),
+                    padding: EdgeInsets.only(
+                        right: index == _photos.length - 1 ? 0 : 10),
+                    child: ReorderableDelayedDragStartListener(
+                      index: index,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Stack(
+                          children: [
+                            Container(
+                              width: 112,
+                              height: 86,
+                              color: const Color(0xFFF1F5F9),
+                              child: Image.file(
+                                File(photo.path),
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Center(
+                                  child: Icon(Icons.broken_image_outlined,
+                                      color: Color(0xFF94A3B8)),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 6,
+                              right: 6,
+                              child: Material(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(16),
+                                child: InkWell(
+                                  onTap: () => _removeImage(index),
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(6),
+                                    child: Icon(Icons.close,
+                                        size: 14, color: Colors.white),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              bottom: 6,
+                              left: 6,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Text(
+                                  index == 0 ? 'Primary' : '${index + 1}',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text(
+                  '${_photos.length} new image${_photos.length == 1 ? '' : 's'} added',
+                  style: const TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFFEF4444),
-                    decoration: TextDecoration.underline,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF64748B),
                   ),
                 ),
-              ),
-            ],
-          ),
+                const Spacer(),
+                InkWell(
+                  onTap: _clearNewPhotos,
+                  child: const Text(
+                    'Clear New Photos',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFEF4444),
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ],
     );

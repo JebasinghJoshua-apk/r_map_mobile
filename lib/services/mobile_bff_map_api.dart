@@ -217,6 +217,135 @@ class MobileBffMapApi {
     );
   }
 
+  Future<void> deleteImage({
+    required String imageId,
+    String? bearerToken,
+  }) async {
+    final trimmedId = imageId.trim();
+    if (trimmedId.isEmpty) {
+      throw const MapApiException('Invalid image id');
+    }
+
+    final uri = _uri('/mobile/images/$trimmedId');
+
+    http.Response response;
+    try {
+      final headers = <String, String>{};
+      if (bearerToken != null && bearerToken.trim().isNotEmpty) {
+        final token = bearerToken.toLowerCase().startsWith('bearer ')
+            ? bearerToken.substring('bearer '.length)
+            : bearerToken;
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      response = await _client
+          .delete(uri, headers: headers.isEmpty ? null : headers)
+          .timeout(_timeout);
+    } on SocketException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException(
+        'Cannot connect to the server. Please check your network and try again.',
+      );
+    } on HttpException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException('Network error. Please try again.');
+    } on FormatException {
+      throw const MapApiException('Unexpected response from server');
+    } on TimeoutException {
+      throw const MapApiException(
+        'Request timed out. Please try again.',
+      );
+    }
+
+    if (response.statusCode == 204) {
+      return;
+    }
+
+    if (response.statusCode == 401) {
+      throw const MapApiException('Please login to delete photos.');
+    }
+
+    throw MapApiException(
+      _tryMessage(response.body) ??
+          'Delete photo failed (${response.statusCode})',
+    );
+  }
+
+  Future<ImageSummary> updateImage({
+    required String imageId,
+    int? displayOrder,
+    bool? isPrimary,
+    bool? isActive,
+    String? altText,
+    String? description,
+    String? bearerToken,
+  }) async {
+    final trimmedId = imageId.trim();
+    if (trimmedId.isEmpty) {
+      throw const MapApiException('Invalid image id');
+    }
+
+    final uri = _uri('/mobile/images/$trimmedId');
+
+    http.Response response;
+    try {
+      final headers = <String, String>{'Content-Type': 'application/json'};
+      if (bearerToken != null && bearerToken.trim().isNotEmpty) {
+        final token = bearerToken.toLowerCase().startsWith('bearer ')
+            ? bearerToken.substring('bearer '.length)
+            : bearerToken;
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final body = <String, dynamic>{
+        if (displayOrder != null) 'displayOrder': displayOrder,
+        if (isPrimary != null) 'isPrimary': isPrimary,
+        if (isActive != null) 'isActive': isActive,
+        if (altText != null) 'altText': altText,
+        if (description != null) 'description': description,
+      };
+
+      response = await _client
+          .put(uri, headers: headers, body: jsonEncode(body))
+          .timeout(_timeout);
+    } on SocketException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException(
+        'Cannot connect to the server. Please check your network and try again.',
+      );
+    } on HttpException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException('Network error. Please try again.');
+    } on FormatException {
+      throw const MapApiException('Unexpected response from server');
+    } on TimeoutException {
+      throw const MapApiException(
+        'Request timed out. Please try again.',
+      );
+    }
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map) {
+        throw const MapApiException('Unexpected response from server');
+      }
+      return ImageSummary.fromJson(decoded.cast<String, dynamic>());
+    }
+
+    if (response.statusCode == 401) {
+      throw const MapApiException('Please login to update photos.');
+    }
+
+    throw MapApiException(
+      _tryMessage(response.body) ??
+          'Update photo failed (${response.statusCode})',
+    );
+  }
+
   Future<List<NearbyPropertyCard>> getNearbyLayouts({
     required LatLng anchor,
     int limit = 15,
