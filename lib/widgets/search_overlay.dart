@@ -33,6 +33,7 @@ class SearchOverlay extends StatefulWidget {
     this.getMapCenter,
     this.onSearchTap,
     this.onFilterTap,
+    this.onOpenChanged,
     this.hasActiveFilters = false,
     this.favoritesCount,
   });
@@ -54,6 +55,7 @@ class SearchOverlay extends StatefulWidget {
 
   final VoidCallback? onSearchTap;
   final void Function(Rect panelAnchorRect, Rect arrowAnchorRect)? onFilterTap;
+  final ValueChanged<bool>? onOpenChanged;
   final bool hasActiveFilters;
   final int? favoritesCount;
 
@@ -86,12 +88,38 @@ class _SearchOverlayState extends State<SearchOverlay> {
   bool _isLoading = false;
   bool _isCompactMode = false;
   bool _suppressSuggestionAndRecentPanels = false;
+  bool? _lastReportedOpen;
 
   bool get _shouldShowRecents {
     return !_suppressSuggestionAndRecentPanels &&
         !_isCompactMode &&
         _controller.text.trim().isEmpty &&
         _recentPlaces.isNotEmpty;
+  }
+
+  bool get _shouldShowSuggestions {
+    return !_suppressSuggestionAndRecentPanels &&
+        !_isCompactMode &&
+        _predictions.isNotEmpty;
+  }
+
+  bool _computeIsOpen() {
+    if (_isCompactMode) return false;
+    return _focusNode.hasFocus || _shouldShowRecents || _shouldShowSuggestions;
+  }
+
+  void _reportOpenStateIfChanged() {
+    final onOpenChanged = widget.onOpenChanged;
+    if (onOpenChanged == null) return;
+
+    final isOpen = _computeIsOpen();
+    if (_lastReportedOpen == isOpen) return;
+    _lastReportedOpen = isOpen;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.onOpenChanged?.call(isOpen);
+    });
   }
 
   Future<void> showMyPropertiesPopup() async {
@@ -140,6 +168,9 @@ class _SearchOverlayState extends State<SearchOverlay> {
   void initState() {
     super.initState();
     _loadRecentPlaces();
+
+    _focusNode.addListener(_reportOpenStateIfChanged);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _focusSearchField(forceKeyboard: true);
@@ -149,6 +180,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
 
   @override
   void dispose() {
+    _focusNode.removeListener(_reportOpenStateIfChanged);
     _controller.dispose();
     _focusNode.dispose();
     _debounce?.cancel();
@@ -393,6 +425,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    _reportOpenStateIfChanged();
+
     final bool showBrandHeader = !_isCompactMode;
     final bool showCompactRLogoInSearchBar = _isCompactMode;
     final double searchCardRadius = _isCompactMode ? 6 : 8;

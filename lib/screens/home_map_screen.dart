@@ -119,6 +119,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   DateTime? _viewportFetchingStartedAt;
   Timer? _viewportFetchingHideTimer;
 
+  bool _isSearchOverlayOpen = true;
+
   final LinkedHashMap<String, _ViewportRenderCacheEntry> _viewportCache =
       LinkedHashMap<String, _ViewportRenderCacheEntry>();
 
@@ -897,7 +899,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     final showEmptyState = isRouteCurrent &&
         !isBottomPanelOpen &&
         _hasViewportResult &&
-        isViewportEmpty;
+        isViewportEmpty &&
+        !_isSearchOverlayOpen;
     final markers = <Marker>{
       ..._viewportMarkers,
       ..._plotLabelMarkers,
@@ -977,6 +980,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                         onMyPropertiesOpened: _closeAnyPanel,
                         getMapCenter: () => _lastCameraPosition.target,
                         onSearchTap: _closeAnyPanel,
+                        onOpenChanged: (isOpen) {
+                          if (_isSearchOverlayOpen == isOpen) return;
+                          _safeSetState(() {
+                            _isSearchOverlayOpen = isOpen;
+                          });
+                        },
                         onFilterTap: (panelRect, arrowRect) =>
                             unawaited(_openFilters(panelRect, arrowRect)),
                         hasActiveFilters: _hasAppliedNonDefaultFilters,
