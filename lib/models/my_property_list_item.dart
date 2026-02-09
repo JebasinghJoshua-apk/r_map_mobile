@@ -66,9 +66,8 @@ class MyPropertyListItem {
 
     return MyPropertyListItem(
       id: id,
-      propertyId: (propertyId == null || propertyId.trim().isEmpty)
-          ? id
-          : propertyId,
+      propertyId:
+          (propertyId == null || propertyId.trim().isEmpty) ? id : propertyId,
       name: (json['name'] as String?) ?? '',
       propertyType: (json['propertyType'] as String?) ?? '',
       address: (json['address'] as String?) ?? '',

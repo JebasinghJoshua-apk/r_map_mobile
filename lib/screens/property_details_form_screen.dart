@@ -291,7 +291,8 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     return _listingTypes.contains(titled) ? titled : v;
   }
 
-  String _resolvePropertyTypeLabel(String rawType, Map<String, dynamic> entity) {
+  String _resolvePropertyTypeLabel(
+      String rawType, Map<String, dynamic> entity) {
     final trimmed = rawType.trim();
     if (trimmed.isNotEmpty && _propertyTypes.contains(trimmed)) {
       return trimmed;
@@ -435,14 +436,12 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       );
       if (!mounted) return;
 
-      final rawType = (payload['type'] ?? payload['propertyType'] ?? '')
-          .toString()
-          .trim();
+      final rawType =
+          (payload['type'] ?? payload['propertyType'] ?? '').toString().trim();
 
       final entityRaw = payload['entity'];
-      final entity = entityRaw is Map
-          ? entityRaw.cast<String, dynamic>()
-          : payload;
+      final entity =
+          entityRaw is Map ? entityRaw.cast<String, dynamic>() : payload;
 
       final resolvedType = _resolvePropertyTypeLabel(rawType, entity);
       final listing = _resolveListingType(
@@ -471,8 +470,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _setControllerText(_plotContactNumberController, _plotContactNumber);
         } else if (_propertyType == 'Independent House') {
           _houseTitle = _pickString(entity, ['propertyTitle']);
-          _houseBedrooms =
-              _stringFromNum(_pickInt(entity, ['bedrooms']) ?? '');
+          _houseBedrooms = _stringFromNum(_pickInt(entity, ['bedrooms']) ?? '');
           _houseBuiltUpArea = _stringFromNum(
             _pickDouble(entity, ['builtUpAreaInSquareFeet']) ?? '',
           );
@@ -491,7 +489,8 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           _setControllerText(_houseTitleController, _houseTitle);
           _setControllerText(_housePriceController, _housePrice);
           _setControllerText(_houseContactNameController, _houseContactName);
-          _setControllerText(_houseContactNumberController, _houseContactNumber);
+          _setControllerText(
+              _houseContactNumberController, _houseContactNumber);
         } else if (_propertyType == 'Apartment') {
           _apartmentTitle = _pickString(entity, ['propertyTitle']);
           _apartmentBedrooms =
