@@ -893,9 +893,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         _roadPolygons.isEmpty &&
         _roadPolylines.isEmpty;
 
-    final showEmptyState = !isBottomPanelOpen &&
-        _hasViewportResult &&
-        isViewportEmpty;
+    final showEmptyState =
+        !isBottomPanelOpen && _hasViewportResult && isViewportEmpty;
     final markers = <Marker>{
       ..._viewportMarkers,
       ..._plotLabelMarkers,
