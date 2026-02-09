@@ -880,6 +880,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
   @override
   Widget build(BuildContext context) {
+    final isRouteCurrent = ModalRoute.of(context)?.isCurrent ?? true;
     final selectedPlot = _selectedPlot;
     final bottomSystemInset = MediaQuery.of(context).viewPadding.bottom;
     final bottomPanelInset = bottomSystemInset > 0 ? bottomSystemInset : 0.0;
@@ -893,8 +894,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         _roadPolygons.isEmpty &&
         _roadPolylines.isEmpty;
 
-    final showEmptyState =
-        !isBottomPanelOpen && _hasViewportResult && isViewportEmpty;
+    final showEmptyState = isRouteCurrent &&
+        !isBottomPanelOpen &&
+        _hasViewportResult &&
+        isViewportEmpty;
     final markers = <Marker>{
       ..._viewportMarkers,
       ..._plotLabelMarkers,
