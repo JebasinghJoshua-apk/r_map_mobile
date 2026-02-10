@@ -11,6 +11,7 @@ import '../models/auth_session.dart';
 import '../models/my_property_list_item.dart';
 import '../models/recent_place.dart';
 import '../models/saved_property.dart';
+import '../services/analytics_service.dart';
 import '../services/mobile_bff_map_api.dart';
 import '../services/mobile_bff_saved_properties_api.dart';
 import '../state/auth_scope.dart';
@@ -339,6 +340,10 @@ class _SearchOverlayState extends State<SearchOverlay> {
       final zoom = _suggestZoomForPlaceTypes(types, label);
 
       widget.onPlaceSelected(latLng, label, zoom);
+
+      // Track search selection (fire-and-forget, no UI impact).
+      AnalyticsService.instance.logMapSearch(query: label);
+
       if (!mounted) return true;
       setState(() {
         _controller.text = label;

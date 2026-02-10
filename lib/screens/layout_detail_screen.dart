@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../constants/api_constants.dart';
 import '../models/map_viewport_models.dart';
+import '../services/analytics_service.dart';
 import '../services/mobile_bff_layouts_api.dart';
 import '../state/auth_scope.dart';
 import '../widgets/delimited_bullet_list.dart';
@@ -104,6 +105,8 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
   void initState() {
     super.initState();
     _api = MobileBffLayoutsApi();
+    AnalyticsService.instance.logScreenView('LayoutDetail');
+    AnalyticsService.instance.logLayoutViewed(layoutId: widget.layoutId);
   }
 
   @override

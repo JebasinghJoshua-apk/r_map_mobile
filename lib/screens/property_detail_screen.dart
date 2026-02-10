@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/map_viewport_models.dart';
+import '../services/analytics_service.dart';
 import '../services/mobile_bff_saved_properties_api.dart';
 import '../state/auth_scope.dart';
 import '../widgets/auth_dialog.dart';
@@ -44,6 +45,12 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   void initState() {
     super.initState();
     _savedPropertiesApi = MobileBffSavedPropertiesApi();
+    AnalyticsService.instance.logScreenView('PropertyDetail');
+    AnalyticsService.instance.logPropertyViewed(
+      propertyId: widget.feature.propertyId,
+      propertyType: widget.feature.propertyType,
+      propertyName: widget.feature.name,
+    );
   }
 
   @override

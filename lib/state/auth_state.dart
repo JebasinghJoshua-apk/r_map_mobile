@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/auth_session.dart';
+import '../services/analytics_service.dart';
 import '../services/mobile_bff_auth_api.dart';
 
 class AuthState extends ChangeNotifier {
@@ -51,6 +52,8 @@ class AuthState extends ChangeNotifier {
         await _api.login(phoneOrEmail: phoneOrEmail, password: password);
     await _persist(session);
     _session = session;
+    AnalyticsService.instance.setUserId(session.user.id);
+    AnalyticsService.instance.logLogin();
     notifyListeners();
   }
 
@@ -68,6 +71,8 @@ class AuthState extends ChangeNotifier {
     );
     await _persist(session);
     _session = session;
+    AnalyticsService.instance.setUserId(session.user.id);
+    AnalyticsService.instance.logSignUp();
     notifyListeners();
   }
 
@@ -76,6 +81,8 @@ class AuthState extends ChangeNotifier {
     await prefs.remove(_tokenKey);
     await prefs.remove(_userKey);
     _session = null;
+    AnalyticsService.instance.setUserId(null);
+    AnalyticsService.instance.logLogout();
     notifyListeners();
   }
 

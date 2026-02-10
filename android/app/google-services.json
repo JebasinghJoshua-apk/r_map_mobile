@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "700895122851",
+    "project_id": "rmap-60045",
+    "storage_bucket": "rmap-60045.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:700895122851:android:5dfb52058dd40378693616",
+        "android_client_info": {
+          "package_name": "com.example.r_map_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBlje8H5x0l0WoLF-WcTMxHxXzMkWPXDlQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
