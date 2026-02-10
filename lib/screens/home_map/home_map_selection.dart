@@ -240,6 +240,12 @@ extension _HomeMapSelection on _HomeMapScreenState {
 
   Future<void> _moveCameraTo(LatLng target, String label, double zoom) async {
     if (_mapController == null) return;
+
+    // Reset viewport result flag so the "No listings here yet" empty-state
+    // does not flash while we wait for the viewport response at the new
+    // location.
+    _hasViewportResult = false;
+
     await _animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(target: target, zoom: zoom),
@@ -260,6 +266,11 @@ extension _HomeMapSelection on _HomeMapScreenState {
     double zoom,
   ) async {
     if (_mapController == null) return;
+
+    // Reset so the empty-state popup does not flash before the viewport
+    // response arrives at the new location.
+    _hasViewportResult = false;
+
     await _animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(target: target, zoom: zoom),
