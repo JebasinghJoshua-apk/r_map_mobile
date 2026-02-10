@@ -6,17 +6,18 @@ class ApiConstants {
 
   static const String mobileBffBaseUrl = String.fromEnvironment(
     'MOBILE_BFF_BASE_URL',
-    // For Android emulators, host machine is available at 10.0.2.2.
-    // For physical devices, pass your LAN IP via --dart-define.
-    defaultValue: 'http://10.0.2.2:5150',
+    // Defaults to Azure production. For local dev, override via:
+    //   --dart-define=MOBILE_BFF_BASE_URL=http://192.168.1.38:5150
+    defaultValue: 'https://rmap-prod-mobilebff.azurewebsites.net',
   );
 
   // Base URL for the upstream API (used for resolving /uploads/* URLs).
   // Defaults to the local dev API port.
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    // For Android emulators, host machine is available at 10.0.2.2.
-    defaultValue: 'http://10.0.2.2:5132',
+    // Defaults to Azure production. For local dev, override via:
+    //   --dart-define=API_BASE_URL=http://192.168.1.38:5132
+    defaultValue: 'https://rmap-prod-api.azurewebsites.net',
   );
 
   // Optional explicit overrides (empty when not provided).
