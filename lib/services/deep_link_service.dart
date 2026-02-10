@@ -171,8 +171,7 @@ class DeepLinkService {
       }
 
       // Determine if this is a layout or a regular property.
-      final isLayout =
-          target.propertyType.toLowerCase() == 'layout' ||
+      final isLayout = target.propertyType.toLowerCase() == 'layout' ||
           target.propertyType.toLowerCase() == 'layouts';
 
       if (isLayout) {
@@ -190,8 +189,8 @@ class DeepLinkService {
         final feature = MapPropertyFeature(
           propertyId: summary['propertyId'] as String? ?? '',
           featureId: summary['featureId'] as String? ?? target.featureId,
-          propertyType: summary['propertyType'] as String? ??
-              target.propertyType,
+          propertyType:
+              summary['propertyType'] as String? ?? target.propertyType,
           name: summary['title'] as String? ?? 'Property',
           isOwnedByCurrentUser: false,
           listingType: null,
@@ -227,9 +226,8 @@ class DeepLinkService {
         '${Uri.encodeComponent(propertyType)}/$featureId';
 
     try {
-      final response = await http
-          .get(Uri.parse(url))
-          .timeout(const Duration(seconds: 10));
+      final response =
+          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
