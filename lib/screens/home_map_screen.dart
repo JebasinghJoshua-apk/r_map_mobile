@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_place/google_place.dart';
 
+import '../app.dart';
 import '../constants/search_constants.dart';
 import '../services/mobile_bff_map_api.dart';
 import '../services/mobile_bff_plots_api.dart';
@@ -313,6 +314,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     if (googlePlacesApiKey != 'YOUR_GOOGLE_PLACES_API_KEY') {
       _googlePlace = GooglePlace(googlePlacesApiKey);
     }
+    // Signal that the navigator is ready for deep-link navigation.
+    deepLinkService.markHomeReady();
   }
 
   @override

@@ -2,9 +2,17 @@ import 'package:flutter/material.dart';
 
 import 'screens/splash_screen.dart';
 import 'services/analytics_service.dart';
+import 'services/deep_link_service.dart';
 import 'state/auth_scope.dart';
 import 'state/auth_state.dart';
 import 'utils/route_observer.dart';
+
+/// Global navigator key used by the deep-link service to push routes from
+/// outside the widget tree.
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
+/// Singleton deep-link service initialised at app startup.
+late final DeepLinkService deepLinkService;
 
 class RMapApp extends StatefulWidget {
   const RMapApp({super.key});
@@ -21,10 +29,14 @@ class _RMapAppState extends State<RMapApp> {
     super.initState();
     _authState = AuthState();
     _authState.initialize();
+
+    deepLinkService = DeepLinkService(navigatorKey: appNavigatorKey);
+    deepLinkService.initialize();
   }
 
   @override
   void dispose() {
+    deepLinkService.dispose();
     _authState.dispose();
     super.dispose();
   }
@@ -71,6 +83,7 @@ class _RMapAppState extends State<RMapApp> {
             ),
           ),
         ),
+        navigatorKey: appNavigatorKey,
         navigatorObservers: [
           routeObserver,
           AnalyticsService.instance.observer,

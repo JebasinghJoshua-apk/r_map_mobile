@@ -1,0 +1,288 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+
+import '../constants/api_constants.dart';
+import '../models/map_viewport_models.dart';
+import '../screens/property_detail_screen.dart';
+import '../screens/layout_detail_screen.dart';
+
+/// Parsed deep-link destination.
+class _DeepLinkTarget {
+  const _DeepLinkTarget({
+    required this.propertyType,
+    required this.featureId,
+    required this.isSharePage,
+  });
+  final String propertyType;
+  final String featureId;
+  final bool isSharePage;
+}
+
+/// Handles incoming deep links for `/property/...` and `/share/...` URLs and
+/// navigates to the appropriate detail screen.
+///
+/// Uses a [MethodChannel] to receive deep link intents from Android native code.
+/// Cold-start links are fetched via [getInitialLink], warm-start links arrive
+/// via the stream.
+class DeepLinkService {
+  DeepLinkService({required this.navigatorKey});
+
+  final GlobalKey<NavigatorState> navigatorKey;
+
+  /// Pending deep-link URI that arrived before the navigator was ready
+  /// (e.g. during the splash screen).
+  Uri? _pendingUri;
+
+  /// Whether the home screen has signalled it is ready.
+  bool _homeScreenReady = false;
+
+  static const _allowedHosts = {
+    'mango-beach-047e3b400.4.azurestaticapps.net',
+  };
+
+  static const _channel = MethodChannel('com.example.r_map_mobile/deeplink');
+
+  // ───────────────────────────────────────────────────────────────────
+  //  Public API
+  // ───────────────────────────────────────────────────────────────────
+
+  /// Call once from main / app widget. Sets up the listener for incoming links.
+  Future<void> initialize() async {
+    // Handle initial link (cold start via deep link).
+    try {
+      final initialLink = await _channel.invokeMethod<String>('getInitialLink');
+      if (initialLink != null && initialLink.isNotEmpty) {
+        final uri = Uri.tryParse(initialLink);
+        if (uri != null) _handleUri(uri);
+      }
+    } catch (_) {
+      // No initial link or channel not available.
+    }
+
+    // Listen for warm-start links.
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'onNewLink') {
+        final link = call.arguments as String?;
+        if (link != null && link.isNotEmpty) {
+          final uri = Uri.tryParse(link);
+          if (uri != null) _handleUri(uri);
+        }
+      }
+    });
+  }
+
+  /// Call from the home screen's initState so the service knows navigation is
+  /// safe.
+  void markHomeReady() {
+    _homeScreenReady = true;
+    _drainPending();
+  }
+
+  void dispose() {
+    _channel.setMethodCallHandler(null);
+  }
+
+  // ───────────────────────────────────────────────────────────────────
+  //  Link handling
+  // ───────────────────────────────────────────────────────────────────
+
+  void _handleUri(Uri uri) {
+    debugPrint('[DeepLink] received: $uri');
+
+    // Only handle our known hosts.
+    if (!_allowedHosts.contains(uri.host)) return;
+
+    final target = _parseUri(uri);
+    if (target == null) return;
+
+    if (!_homeScreenReady) {
+      // The app just launched – stash this until the navigator is ready.
+      _pendingUri = uri;
+      return;
+    }
+
+    _navigateToTarget(target);
+  }
+
+  void _drainPending() {
+    if (_pendingUri == null) return;
+    final uri = _pendingUri!;
+    _pendingUri = null;
+    final target = _parseUri(uri);
+    if (target != null) {
+      // Small delay to ensure the home screen is fully mounted.
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _navigateToTarget(target);
+      });
+    }
+  }
+
+  /// Parses `/property/{propertyType}/{featureId}/...` or
+  /// `/share/{propertyType}/{featureId}` into a [_DeepLinkTarget].
+  _DeepLinkTarget? _parseUri(Uri uri) {
+    final segments = uri.pathSegments;
+    // /property/{type}/{featureId}[/{slug}]
+    if (segments.length >= 3 && segments[0] == 'property') {
+      return _DeepLinkTarget(
+        propertyType: segments[1],
+        featureId: segments[2],
+        isSharePage: false,
+      );
+    }
+    // /share/{type}/{featureId}
+    if (segments.length >= 3 && segments[0] == 'share') {
+      return _DeepLinkTarget(
+        propertyType: segments[1],
+        featureId: segments[2],
+        isSharePage: true,
+      );
+    }
+    return null;
+  }
+
+  Future<void> _navigateToTarget(_DeepLinkTarget target) async {
+    final nav = navigatorKey.currentState;
+    if (nav == null) return;
+
+    debugPrint(
+      '[DeepLink] navigating → ${target.propertyType}/${target.featureId}',
+    );
+
+    // Show a lightweight loading overlay while we fetch property info.
+    _showLoadingOverlay(nav.context);
+
+    try {
+      // Fetch light-weight share summary from the public API.
+      final summary = await _fetchShareSummary(
+        target.propertyType,
+        target.featureId,
+      );
+
+      // Dismiss loading overlay.
+      if (nav.canPop()) nav.pop();
+
+      if (summary == null) {
+        _showError(nav.context, 'Property not found');
+        return;
+      }
+
+      // Determine if this is a layout or a regular property.
+      final isLayout =
+          target.propertyType.toLowerCase() == 'layout' ||
+          target.propertyType.toLowerCase() == 'layouts';
+
+      if (isLayout) {
+        // LayoutDetailScreen takes a layoutId (which is the featureId for
+        // layouts).
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => LayoutDetailScreen(
+              layoutId: target.featureId,
+            ),
+          ),
+        );
+      } else {
+        // Build a minimal MapPropertyFeature from the share summary.
+        final feature = MapPropertyFeature(
+          propertyId: summary['propertyId'] as String? ?? '',
+          featureId: summary['featureId'] as String? ?? target.featureId,
+          propertyType: summary['propertyType'] as String? ??
+              target.propertyType,
+          name: summary['title'] as String? ?? 'Property',
+          isOwnedByCurrentUser: false,
+          listingType: null,
+          boundaryGeoJson: null,
+          centerGeoJson: null,
+          metadata: _buildMetadataFromSummary(summary),
+        );
+
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => PropertyDetailScreen(feature: feature),
+          ),
+        );
+      }
+    } catch (e) {
+      // Dismiss loading overlay on error.
+      if (nav.canPop()) nav.pop();
+      debugPrint('[DeepLink] error: $e');
+      _showError(nav.context, 'Could not open property');
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────────
+  //  API helpers
+  // ───────────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>?> _fetchShareSummary(
+    String propertyType,
+    String featureId,
+  ) async {
+    final baseUrl = ApiConstants.apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final url = '$baseUrl/api/share/property/'
+        '${Uri.encodeComponent(propertyType)}/$featureId';
+
+    try {
+      final response = await http
+          .get(Uri.parse(url))
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('[DeepLink] fetch error: $e');
+    }
+    return null;
+  }
+
+  Map<String, String?> _buildMetadataFromSummary(Map<String, dynamic> s) {
+    return <String, String?>{
+      if (s['location'] != null) 'location': s['location'] as String?,
+      if (s['priceLabel'] != null) 'price': s['priceLabel'] as String?,
+      if (s['areaLabel'] != null) 'area': s['areaLabel'] as String?,
+      if (s['bedroomsLabel'] != null) 'bedrooms': s['bedroomsLabel'] as String?,
+      if (s['listingLabel'] != null) 'listing': s['listingLabel'] as String?,
+      if (s['subtitle'] != null) 'subtitle': s['subtitle'] as String?,
+    };
+  }
+
+  // ───────────────────────────────────────────────────────────────────
+  //  UI helpers
+  // ───────────────────────────────────────────────────────────────────
+
+  void _showLoadingOverlay(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Opening property…'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showError(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
+    );
+  }
+}
