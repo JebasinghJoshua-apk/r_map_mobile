@@ -8,6 +8,7 @@ import '../services/analytics_service.dart';
 import '../services/mobile_bff_layouts_api.dart';
 import '../state/auth_scope.dart';
 import '../widgets/delimited_bullet_list.dart';
+import '../widgets/share_property_sheet.dart';
 import '../widgets/toast_message.dart';
 
 class LayoutDetailScreen extends StatefulWidget {
@@ -301,12 +302,23 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Copy link',
-            onPressed: () async {
-              final link = '/property/Layout/${widget.layoutId}';
-              await Clipboard.setData(ClipboardData(text: link));
-              if (!context.mounted) return;
-              ToastMessage.show(context, 'Copied link');
+            tooltip: 'Share',
+            onPressed: () {
+              final heroUrl = images.isNotEmpty
+                  ? resolveMediaUrl(images.first.fileUrl)
+                  : null;
+              showSharePropertySheet(
+                context,
+                SharePropertyInfo(
+                  title: title,
+                  propertyType: 'Layout',
+                  featureId: widget.layoutId,
+                  location: location,
+                  priceLabel: null,
+                  listingType: null,
+                  heroImageUrl: heroUrl,
+                ),
+              );
             },
             icon: const Icon(Icons.share_outlined),
           ),

@@ -10,6 +10,7 @@ import '../state/auth_scope.dart';
 import '../widgets/auth_dialog.dart';
 import '../widgets/delimited_bullet_list.dart';
 import '../widgets/property_details_panel.dart';
+import '../widgets/share_property_sheet.dart';
 import '../widgets/toast_message.dart';
 
 class PropertyDetailScreen extends StatefulWidget {
@@ -365,13 +366,23 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
         actions: [
           if (canCopyLink)
             IconButton(
-              tooltip: 'Copy link',
-              onPressed: () async {
-                final link =
-                    '/property/${feature.propertyType.trim()}/${feature.featureId.trim()}';
-                await Clipboard.setData(ClipboardData(text: link));
-                if (!context.mounted) return;
-                ToastMessage.show(context, 'Copied link');
+              tooltip: 'Share',
+              onPressed: () {
+                final heroUrl = effectiveImageUrls.isNotEmpty
+                    ? effectiveImageUrls.first
+                    : null;
+                showSharePropertySheet(
+                  context,
+                  SharePropertyInfo(
+                    title: title,
+                    propertyType: feature.propertyType.trim(),
+                    featureId: feature.featureId.trim(),
+                    location: location,
+                    priceLabel: price,
+                    listingType: listingType.isNotEmpty ? listingType : null,
+                    heroImageUrl: heroUrl,
+                  ),
+                );
               },
               icon: const Icon(Icons.share_outlined),
             ),

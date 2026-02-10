@@ -4,6 +4,13 @@ class ApiConstants {
   static const String _defaultAndroidEmulatorApiBaseUrl =
       'http://10.0.2.2:5132';
 
+  /// Public web-app URL used when constructing shareable links.
+  /// Override via: --dart-define=WEB_BASE_URL=https://your-site.example
+  static const String webBaseUrl = String.fromEnvironment(
+    'WEB_BASE_URL',
+    defaultValue: 'https://mango-beach-047e3b400.4.azurestaticapps.net',
+  );
+
   static const String mobileBffBaseUrl = String.fromEnvironment(
     'MOBILE_BFF_BASE_URL',
     // Defaults to Azure production. For local dev, override via:
