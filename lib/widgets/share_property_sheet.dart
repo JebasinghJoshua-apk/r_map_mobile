@@ -65,17 +65,21 @@ String _buildShareUrl(SharePropertyInfo info) {
 }
 
 String _buildShareText(SharePropertyInfo info) {
-  final parts = <String>[info.title];
+  final lines = <String>['🏠 ${info.title}'];
   final location = info.location?.trim() ?? '';
   // Only add location if it's not already present in the title
   if (location.isNotEmpty &&
       !info.title.toLowerCase().contains(location.toLowerCase())) {
-    parts.add(location);
+    lines.add('📍 $location');
   }
   if (info.priceLabel != null && info.priceLabel!.trim().isNotEmpty) {
-    parts.add(info.priceLabel!.trim());
+    // Convert "INR 45,00,000" → "₹45,00,000"
+    final price = info.priceLabel!
+        .trim()
+        .replaceFirst(RegExp(r'^INR\s*', caseSensitive: false), '₹');
+    lines.add('💰 $price');
   }
-  return parts.join(' — ');
+  return lines.join('\n');
 }
 
 String _buildMapImageUrl(SharePropertyInfo info) {
@@ -210,13 +214,14 @@ class _SharePropertySheetState extends State<_SharePropertySheet> {
     // Prefer the actual property photo; fall back to the map image.
     final imageUrl = _heroImageUrl ?? _mapImageUrl;
     final file = await _downloadImage(imageUrl);
+    final fullText = '$_shareText\n\nView details:\n$_shareUrl';
     if (file != null) {
       await Share.shareXFiles(
         [XFile(file.path)],
-        text: '$_shareText\n$_shareUrl',
+        text: fullText,
       );
     } else {
-      await Share.share('$_shareText\n$_shareUrl');
+      await Share.share(fullText);
     }
   }
 
