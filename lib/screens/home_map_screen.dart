@@ -1000,6 +1000,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                         onMyPropertyDeleted: _onMyPropertyDeleted,
                         onMyPropertiesOpened: _closeAnyPanel,
                         getMapCenter: () => _lastCameraPosition.target,
+                        getMapZoom: () => _lastCameraPosition.zoom,
                         onSearchTap: _closeAnyPanel,
                         onOpenChanged: (isOpen) {
                           if (_isSearchOverlayOpen == isOpen) return;

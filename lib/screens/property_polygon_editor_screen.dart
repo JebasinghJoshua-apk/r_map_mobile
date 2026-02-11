@@ -18,6 +18,7 @@ class PropertyPolygonEditorScreen extends StatefulWidget {
     super.key,
     required this.mode,
     this.initialCenter,
+    this.initialZoom,
     this.initialPoints,
     this.bearerToken,
     this.excludePropertyId,
@@ -27,6 +28,7 @@ class PropertyPolygonEditorScreen extends StatefulWidget {
 
   final PropertyPolygonEditorMode mode;
   final LatLng? initialCenter;
+  final double? initialZoom;
   final List<LatLng>? initialPoints;
   final String? bearerToken;
   final String? excludePropertyId;
@@ -50,6 +52,7 @@ class _PropertyPolygonEditorScreenState
   static const Color _viewportGrayFill = Color(0x654B5563);
 
   late final LatLng _center;
+  late final double _zoom;
   List<LatLng> _points = <LatLng>[];
   int _geometryRevision = 0;
 
@@ -87,6 +90,7 @@ class _PropertyPolygonEditorScreenState
     unawaited(_loadMapStyle());
 
     _center = _resolveInitialCenter();
+    _zoom = widget.initialZoom ?? 16;
 
     final seedPoints = widget.initialPoints ?? const <LatLng>[];
     if (seedPoints.isNotEmpty) {
@@ -1139,7 +1143,7 @@ class _PropertyPolygonEditorScreenState
       body: Stack(
         children: [
           GoogleMap(
-            initialCameraPosition: CameraPosition(target: _center, zoom: 16),
+            initialCameraPosition: CameraPosition(target: _center, zoom: _zoom),
             mapType: _mapType,
             style: _mapType == MapType.normal ? _lightMapStyle : null,
             myLocationButtonEnabled: true,

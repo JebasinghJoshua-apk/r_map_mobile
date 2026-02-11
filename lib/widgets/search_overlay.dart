@@ -32,6 +32,7 @@ class SearchOverlay extends StatefulWidget {
     this.onMyPropertyDeleted,
     this.onMyPropertiesOpened,
     this.getMapCenter,
+    this.getMapZoom,
     this.onSearchTap,
     this.onFilterTap,
     this.onOpenChanged,
@@ -53,6 +54,7 @@ class SearchOverlay extends StatefulWidget {
   final Future<void> Function(MyPropertyListItem item)? onMyPropertyDeleted;
   final VoidCallback? onMyPropertiesOpened;
   final LatLng? Function()? getMapCenter;
+  final double? Function()? getMapZoom;
 
   final VoidCallback? onSearchTap;
   final void Function(Rect panelAnchorRect, Rect arrowAnchorRect)? onFilterTap;
@@ -152,6 +154,7 @@ class SearchOverlayState extends State<SearchOverlay> {
         bearerToken: token,
         mapApi: _mapApi,
         getMapCenter: widget.getMapCenter,
+        getMapZoom: widget.getMapZoom,
         onMyPropertySelected: widget.onMyPropertySelected,
         onMyPropertyDeleted: widget.onMyPropertyDeleted,
         onOpened: widget.onMyPropertiesOpened,

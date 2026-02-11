@@ -16,6 +16,7 @@ class MyPropertiesDialog extends StatefulWidget {
     required this.bearerToken,
     required this.mapApi,
     required this.getMapCenter,
+    required this.getMapZoom,
     required this.onMyPropertySelected,
     required this.onMyPropertyDeleted,
     required this.onOpened,
@@ -24,6 +25,7 @@ class MyPropertiesDialog extends StatefulWidget {
   final String bearerToken;
   final MobileBffMapApi mapApi;
   final LatLng? Function()? getMapCenter;
+  final double? Function()? getMapZoom;
   final Future<void> Function(MyPropertyListItem item)? onMyPropertySelected;
   final Future<void> Function(MyPropertyListItem item)? onMyPropertyDeleted;
   final VoidCallback? onOpened;
@@ -103,6 +105,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
   Future<void> _openEditor({
     required PropertyPolygonEditorMode mode,
     LatLng? center,
+    double? zoom,
     List<LatLng>? initialPoints,
     bool showDetailsOnNext = false,
     String? initialPropertyType,
@@ -115,6 +118,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
         builder: (_) => PropertyPolygonEditorScreen(
           mode: mode,
           initialCenter: center,
+          initialZoom: zoom,
           initialPoints: initialPoints,
           bearerToken: widget.bearerToken,
           excludePropertyId: excludePropertyId,
@@ -471,9 +475,11 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                         return;
                       }
                       final center = widget.getMapCenter?.call();
+                      final zoom = widget.getMapZoom?.call();
                       await _openEditor(
                         mode: PropertyPolygonEditorMode.add,
                         center: center,
+                        zoom: zoom,
                         showDetailsOnNext: true,
                         initialPropertyType: selectedType,
                       );
