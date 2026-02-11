@@ -1135,18 +1135,22 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                           clipBehavior: Clip.none,
                           children: [
                             Positioned(
-                              top: -8,
-                              right: -10,
+                              top: -12,
+                              right: -14,
                               child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
                                 onTap: () {
                                   _emptyStateDismissTimer?.cancel();
                                   _emptyStateDismissTimer = null;
                                   setState(() => _isEmptyStateDismissed = true);
                                 },
-                                child: Icon(
-                                  Icons.close,
-                                  size: 18,
-                                  color: Color(0xFF64748B),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: Icon(
+                                    Icons.close,
+                                    size: 18,
+                                    color: Color(0xFF64748B),
+                                  ),
                                 ),
                               ),
                             ),
