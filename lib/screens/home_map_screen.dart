@@ -23,6 +23,7 @@ import '../widgets/property_details_panel.dart';
 import '../widgets/search_overlay.dart';
 import '../widgets/toast_message.dart';
 import '../services/mobile_bff_saved_properties_api.dart';
+import '../services/ip_geolocation_service.dart';
 import '../models/map_viewport_models.dart';
 import '../models/my_property_list_item.dart';
 import '../models/nearby_property_card.dart';
@@ -89,6 +90,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   late final MobileBffMapApi _mapApi;
   late final MobileBffPlotsApi _plotsApi;
   late final MobileBffSavedPropertiesApi _savedPropertiesApi;
+
+  // IP-based geolocation state
+  bool _hasMovedToIpLocation = false;
+  LatLng? _pendingIpLocation;
 
   void _safeSetState(VoidCallback fn) {
     if (!mounted) return;
@@ -322,8 +327,29 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     if (googlePlacesApiKey != 'YOUR_GOOGLE_PLACES_API_KEY') {
       _googlePlace = GooglePlace(googlePlacesApiKey);
     }
+    // Fetch IP-based location in parallel (no blocking)
+    _fetchIpLocation();
     // Signal that the navigator is ready for deep-link navigation.
     deepLinkService.markHomeReady();
+  }
+
+  Future<void> _fetchIpLocation() async {
+    final result = await IpGeolocationService.getLocation();
+    if (result == null || !mounted || _hasMovedToIpLocation) return;
+
+    final ipLatLng = LatLng(result.latitude, result.longitude);
+
+    // If map controller is ready, animate now
+    final controller = _mapController;
+    if (controller != null) {
+      _hasMovedToIpLocation = true;
+      await controller.animateCamera(
+        CameraUpdate.newLatLngZoom(ipLatLng, _initialCameraPosition.zoom),
+      );
+    } else {
+      // Controller not ready yet - store for when it's created
+      _pendingIpLocation = ipLatLng;
+    }
   }
 
   @override

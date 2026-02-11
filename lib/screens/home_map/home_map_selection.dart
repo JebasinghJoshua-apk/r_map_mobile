@@ -502,6 +502,20 @@ extension _HomeMapSelection on _HomeMapScreenState {
 
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
+    // Check if IP location was fetched before controller was ready
+    _tryMoveToIpLocation();
+  }
+
+  void _tryMoveToIpLocation() {
+    final pending = _pendingIpLocation;
+    final controller = _mapController;
+    if (pending != null && controller != null && !_hasMovedToIpLocation) {
+      _hasMovedToIpLocation = true;
+      _pendingIpLocation = null;
+      controller.animateCamera(
+        CameraUpdate.newLatLngZoom(pending, _initialCameraPosition.zoom),
+      );
+    }
   }
 
   void _onCameraIdle() {

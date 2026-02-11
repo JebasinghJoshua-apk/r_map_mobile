@@ -51,9 +51,5 @@
 	<string>Allow access to your photo library to select property photos.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Allow saving property photos to your library if needed.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Allow location access to show properties near you.</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Allow location access to show properties near you.</string>
 </dict>
 </plist>
