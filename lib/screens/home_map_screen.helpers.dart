@@ -15,8 +15,8 @@ const double _hybridZoomExit = 17.5;
 const String _lightMapStyleAssetPath = 'assets/map_light.json';
 
 const CameraPosition _initialCameraPosition = CameraPosition(
-  target: LatLng(37.4221, -122.0841),
-  zoom: 14,
+  target: LatLng(9.508604738700296, 78.09598717263208),
+  zoom: 16,
 );
 
 const double _minPlotPolygonZoom = 16.2;

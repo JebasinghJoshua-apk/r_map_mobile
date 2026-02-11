@@ -46,6 +46,7 @@ dependencies:
   firebase_analytics: ^11.4.4
   share_plus: ^10.1.4
   path_provider: ^2.1.5
+  location: ^6.0.2
 
 dev_dependencies:
   flutter_test:
