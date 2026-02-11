@@ -65,21 +65,40 @@ String _buildShareUrl(SharePropertyInfo info) {
 }
 
 String _buildShareText(SharePropertyInfo info) {
-  final lines = <String>['🏠 ${info.title}'];
+  final parts = <String>[];
+
+  // Title combined with location using "in"
   final location = info.location?.trim() ?? '';
-  // Only add location if it's not already present in the title
-  if (location.isNotEmpty &&
-      !info.title.toLowerCase().contains(location.toLowerCase())) {
-    lines.add('📍 $location');
+  final locationInTitle = location.isNotEmpty &&
+      info.title.toLowerCase().contains(location.toLowerCase());
+  if (location.isNotEmpty && !locationInTitle) {
+    parts.add('${info.title} in $location');
+  } else {
+    parts.add(info.title);
   }
+
+  // Price
   if (info.priceLabel != null && info.priceLabel!.trim().isNotEmpty) {
     // Convert "INR 45,00,000" → "₹45,00,000"
     final price = info.priceLabel!
         .trim()
         .replaceFirst(RegExp(r'^INR\s*', caseSensitive: false), '₹');
-    lines.add('💰 $price');
+    parts.add(price);
   }
-  return lines.join('\n');
+
+  // Listing type
+  final listingType = info.listingType?.trim().toLowerCase() ?? '';
+  if (listingType.isNotEmpty) {
+    final displayType = switch (listingType) {
+      'sell' => 'For Sale',
+      'rent' => 'For Rent',
+      'lease' => 'For Lease',
+      _ => info.listingType!.trim(),
+    };
+    parts.add(displayType);
+  }
+
+  return parts.join(' | ');
 }
 
 String _buildMapImageUrl(SharePropertyInfo info) {
