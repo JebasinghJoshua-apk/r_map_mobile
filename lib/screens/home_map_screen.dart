@@ -121,6 +121,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   DateTime? _viewportFetchingStartedAt;
   Timer? _viewportFetchingHideTimer;
 
+  bool _isEmptyStateDismissed = false;
+  Timer? _emptyStateDismissTimer;
+  bool _triggeredByPlaceSearch = false;
+
   bool _isSearchOverlayOpen = true;
 
   final LinkedHashMap<String, _ViewportRenderCacheEntry> _viewportCache =
@@ -542,6 +546,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     _viewportDebounceTimer?.cancel();
     _viewportLoadingTimer?.cancel();
     _viewportFetchingHideTimer?.cancel();
+    _emptyStateDismissTimer?.cancel();
     _independentHouseCarouselDebounce?.cancel();
     _connectivitySubscription?.cancel();
     _zoomNotifier.dispose();
@@ -913,7 +918,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         !isBottomPanelOpen &&
         _hasViewportResult &&
         isViewportEmpty &&
-        !_isSearchOverlayOpen;
+        !_isSearchOverlayOpen &&
+        !_isEmptyStateDismissed &&
+        _triggeredByPlaceSearch;
     final markers = <Marker>{
       ..._viewportMarkers,
       ..._plotLabelMarkers,
@@ -1097,74 +1104,105 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
               ),
             ),
           if (showEmptyState)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: Center(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.94),
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x1F0F172A),
-                          blurRadius: 16,
-                          offset: Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'No listings here yet 👀',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF0F172A),
-                            ),
+            Builder(
+              builder: (context) {
+                _emptyStateDismissTimer ??= Timer(
+                  const Duration(seconds: 8),
+                  () {
+                    if (mounted) {
+                      setState(() => _isEmptyStateDismissed = true);
+                    }
+                  },
+                );
+                return Positioned.fill(
+                  child: Center(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.94),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x1F0F172A),
+                            blurRadius: 16,
+                            offset: Offset(0, 8),
                           ),
-                          SizedBox(height: 6),
-                          Text(
-                            'Listings in this area are coming soon.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF475569),
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Be the first to add a property.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF0FAD97),
-                            ),
-                          ),
-                          if (_isViewportFetching) ...[
-                            SizedBox(height: 10),
-                            Text(
-                              'Checking this area…',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF64748B),
+                        ],
+                      ),
+                      child: Padding(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Positioned(
+                              top: -8,
+                              right: -10,
+                              child: GestureDetector(
+                                onTap: () {
+                                  _emptyStateDismissTimer?.cancel();
+                                  _emptyStateDismissTimer = null;
+                                  setState(() => _isEmptyStateDismissed = true);
+                                },
+                                child: Icon(
+                                  Icons.close,
+                                  size: 18,
+                                  color: Color(0xFF64748B),
+                                ),
                               ),
                             ),
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'No listings here yet 👀',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
+                                SizedBox(height: 6),
+                                Text(
+                                  'Listings in this area are coming soon.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF475569),
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Be the first to add a property.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF0FAD97),
+                                  ),
+                                ),
+                                if (_isViewportFetching) ...[
+                                  SizedBox(height: 10),
+                                  Text(
+                                    'Checking this area…',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           if (selectedPlot != null)
             Positioned(

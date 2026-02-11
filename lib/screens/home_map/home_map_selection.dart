@@ -245,6 +245,10 @@ extension _HomeMapSelection on _HomeMapScreenState {
     // does not flash while we wait for the viewport response at the new
     // location.
     _hasViewportResult = false;
+    _isEmptyStateDismissed = false;
+    _emptyStateDismissTimer?.cancel();
+    _emptyStateDismissTimer = null;
+    _triggeredByPlaceSearch = true;
 
     await _animateCamera(
       CameraUpdate.newCameraPosition(
@@ -270,6 +274,10 @@ extension _HomeMapSelection on _HomeMapScreenState {
     // Reset so the empty-state popup does not flash before the viewport
     // response arrives at the new location.
     _hasViewportResult = false;
+    _isEmptyStateDismissed = false;
+    _emptyStateDismissTimer?.cancel();
+    _emptyStateDismissTimer = null;
+    _triggeredByPlaceSearch = true;
 
     await _animateCamera(
       CameraUpdate.newCameraPosition(
@@ -516,6 +524,10 @@ extension _HomeMapSelection on _HomeMapScreenState {
     // `onCameraMoveStarted` fires for both programmatic and user-gesture moves.
     // We only care about detecting manual camera changes after a property tap.
     if (_isProgrammaticCameraMove) return;
+
+    // User manually panned/zoomed — hide the "No listings" empty state.
+    _triggeredByPlaceSearch = false;
+
     if (_selectedProperty == null) return;
     if (_cameraBeforePropertyFocus == null) return;
     _userMovedCameraSincePropertyFocus = true;
