@@ -324,11 +324,14 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          padding: const EdgeInsets.only(bottom: 24),
-          children: [
+      body: Builder(
+        builder: (context) {
+          final bottomInset = MediaQuery.of(context).padding.bottom;
+          return RefreshIndicator(
+            onRefresh: _load,
+            child: ListView(
+              padding: EdgeInsets.only(bottom: 24 + bottomInset),
+              children: [
             _HeroCarousel(
               height: 360,
               images: images
@@ -537,6 +540,8 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
             ),
           ],
         ),
+      );
+        },
       ),
     );
   }

@@ -402,9 +402,12 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
             ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 24),
-        children: [
+      body: Builder(
+        builder: (context) {
+          final bottomInset = MediaQuery.of(context).padding.bottom;
+          return ListView(
+            padding: EdgeInsets.only(bottom: 24 + bottomInset),
+            children: [
           Stack(
             children: [
               _HeroCarousel(
@@ -560,6 +563,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
             ),
           ),
         ],
+      );
+        },
       ),
     ),
     );
