@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_place/google_place.dart';
-import 'package:location/location.dart' as loc;
 
 import '../app.dart';
 import '../constants/search_constants.dart';
@@ -91,9 +90,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   late final MobileBffPlotsApi _plotsApi;
   late final MobileBffSavedPropertiesApi _savedPropertiesApi;
 
-  // Resolved initial position (user location or fallback). Null while resolving.
-  CameraPosition? _resolvedInitialPosition;
-
   void _safeSetState(VoidCallback fn) {
     if (!mounted) return;
     setState(fn);
@@ -134,7 +130,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   final LinkedHashMap<String, _ViewportRenderCacheEntry> _viewportCache =
       LinkedHashMap<String, _ViewportRenderCacheEntry>();
 
-  late CameraPosition _lastCameraPosition;
+  CameraPosition _lastCameraPosition = _initialCameraPosition;
   double? _effectiveZoom;
   Timer? _viewportDebounceTimer;
   int _viewportRequestSeq = 0;
@@ -318,7 +314,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   @override
   void initState() {
     super.initState();
-    _lastCameraPosition = _initialCameraPosition;
     _mapApi = MobileBffMapApi();
     _plotsApi = MobileBffPlotsApi();
     _savedPropertiesApi = MobileBffSavedPropertiesApi();
@@ -327,66 +322,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     if (googlePlacesApiKey != 'YOUR_GOOGLE_PLACES_API_KEY') {
       _googlePlace = GooglePlace(googlePlacesApiKey);
     }
-    // Resolve initial map position (user location or fallback).
-    _resolveInitialPosition();
     // Signal that the navigator is ready for deep-link navigation.
     deepLinkService.markHomeReady();
-  }
-
-  Future<void> _resolveInitialPosition() async {
-    try {
-      final location = loc.Location();
-
-      // Check if location services are enabled (don't prompt)
-      final serviceEnabled = await location.serviceEnabled();
-      if (!serviceEnabled) {
-        _setInitialPosition(_initialCameraPosition);
-        return;
-      }
-
-      // Check permission (request if denied, skip if deniedForever)
-      var permission = await location.hasPermission();
-      if (permission == loc.PermissionStatus.denied) {
-        permission = await location.requestPermission();
-        if (permission != loc.PermissionStatus.granted &&
-            permission != loc.PermissionStatus.grantedLimited) {
-          _setInitialPosition(_initialCameraPosition);
-          return;
-        }
-      }
-      if (permission == loc.PermissionStatus.deniedForever) {
-        _setInitialPosition(_initialCameraPosition);
-        return;
-      }
-
-      // Get current position with a short timeout
-      final locationData = await location.getLocation().timeout(
-            const Duration(seconds: 5),
-            onTimeout: () => throw TimeoutException('Location timeout'),
-          );
-
-      final lat = locationData.latitude;
-      final lng = locationData.longitude;
-      if (lat == null || lng == null) {
-        _setInitialPosition(_initialCameraPosition);
-        return;
-      }
-
-      _setInitialPosition(CameraPosition(
-        target: LatLng(lat, lng),
-        zoom: _initialCameraPosition.zoom,
-      ));
-    } catch (_) {
-      _setInitialPosition(_initialCameraPosition);
-    }
-  }
-
-  void _setInitialPosition(CameraPosition position) {
-    if (!mounted) return;
-    setState(() {
-      _resolvedInitialPosition = position;
-      _lastCameraPosition = position;
-    });
   }
 
   @override
@@ -991,21 +928,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       ..._amenityLabelMarkers,
     };
 
-    final initialPosition = _resolvedInitialPosition;
-    if (initialPosition == null) {
-      // Still resolving initial position - show loading indicator
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(color: Color(0xFF0FAD97)),
-        ),
-      );
-    }
-
     return Scaffold(
       body: Stack(
         children: [
           GoogleMap(
-            initialCameraPosition: initialPosition,
+            initialCameraPosition: _initialCameraPosition,
             onMapCreated: _onMapCreated,
             onTap: (_) => _closeAnyPanel(),
             onCameraMoveStarted: _onCameraMoveStarted,
