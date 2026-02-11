@@ -367,206 +367,209 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
         }
       },
       child: Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        elevation: 0,
-        title: Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        actions: [
-          if (canCopyLink)
-            IconButton(
-              tooltip: 'Share',
-              onPressed: () {
-                final heroUrl = effectiveImageUrls.isNotEmpty
-                    ? effectiveImageUrls.first
-                    : null;
-                showSharePropertySheet(
-                  context,
-                  SharePropertyInfo(
-                    title: title,
-                    propertyType: feature.propertyType.trim(),
-                    featureId: feature.featureId.trim(),
-                    location: location,
-                    priceLabel: price,
-                    listingType: listingType.isNotEmpty ? listingType : null,
-                    heroImageUrl: heroUrl,
-                  ),
-                );
-              },
-              icon: const Icon(Icons.share_outlined),
-            ),
-        ],
-      ),
-      body: Builder(
-        builder: (context) {
-          final bottomInset = MediaQuery.of(context).padding.bottom;
-          return ListView(
-            padding: EdgeInsets.only(bottom: 24 + bottomInset),
-            children: [
-          Stack(
-            children: [
-              _HeroCarousel(
-                height: 360,
-                images: images,
-                loading: widget.isLoadingImages,
-                error: widget.imagesError,
-                onIndexChanged: (idx) => setState(() => _activeIndex = idx),
-                controller: _pageController,
-                activeIndex: _activeIndex,
-              ),
-              Positioned(
-                top: 14,
-                right: 6,
-                child: _favoriteButton(),
-              ),
-            ],
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          elevation: 0,
+          title: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 680),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF0F172A),
-                      ),
+          actions: [
+            if (canCopyLink)
+              IconButton(
+                tooltip: 'Share',
+                onPressed: () {
+                  final heroUrl = effectiveImageUrls.isNotEmpty
+                      ? effectiveImageUrls.first
+                      : null;
+                  showSharePropertySheet(
+                    context,
+                    SharePropertyInfo(
+                      title: title,
+                      propertyType: feature.propertyType.trim(),
+                      featureId: feature.featureId.trim(),
+                      location: location,
+                      priceLabel: price,
+                      listingType: listingType.isNotEmpty ? listingType : null,
+                      heroImageUrl: heroUrl,
                     ),
-                    if (location != null) ...[
-                      const SizedBox(height: 10),
-                      Row(
+                  );
+                },
+                icon: const Icon(Icons.share_outlined),
+              ),
+          ],
+        ),
+        body: Builder(
+          builder: (context) {
+            final bottomInset = MediaQuery.of(context).padding.bottom;
+            return ListView(
+              padding: EdgeInsets.only(bottom: 24 + bottomInset),
+              children: [
+                Stack(
+                  children: [
+                    _HeroCarousel(
+                      height: 360,
+                      images: images,
+                      loading: widget.isLoadingImages,
+                      error: widget.imagesError,
+                      onIndexChanged: (idx) =>
+                          setState(() => _activeIndex = idx),
+                      controller: _pageController,
+                      activeIndex: _activeIndex,
+                    ),
+                    Positioned(
+                      top: 14,
+                      right: 6,
+                      child: _favoriteButton(),
+                    ),
+                  ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 680),
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Padding(
-                            padding: EdgeInsets.only(top: 2),
-                            child: Icon(
-                              Icons.location_on_outlined,
-                              size: 18,
-                              color: Color(0xFF94A3B8),
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF0F172A),
                             ),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              location,
-                              style: const TextStyle(
-                                color: Color(0xFF64748B),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                height: 1.35,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _StatCard(
-                            label: 'PRICE',
-                            value: labelOrDash(price),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _StatCard(
-                            label: 'LISTING',
-                            value: labelOrDash(listingType),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (additionalInfo != null) ...[
-                      const SizedBox(height: 14),
-                      _SectionCard(
-                        title: 'ADDITIONAL INFO',
-                        child: DelimitedBulletList(
-                          text: additionalInfo,
-                          delimiter: '~~',
-                          textStyle: const TextStyle(
-                            color: Color(0xFF334155),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            height: 1.45,
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 14),
-                    _SectionCard(
-                      title: 'PROPERTY OVERVIEW',
-                      child: Column(
-                        children: [
-                          _KeyValueRow(
-                            label: 'Type',
-                            value: labelOrDash(propertyTypeLabel),
-                          ),
-                          const SizedBox(height: 10),
-                          _KeyValueRow(
-                            label: 'Price',
-                            value: labelOrDash(price),
-                          ),
-                          const SizedBox(height: 10),
-                          _KeyValueRow(
-                            label: 'Facing',
-                            value: labelOrDash(facing),
                           ),
                           if (location != null) ...[
                             const SizedBox(height: 10),
-                            _KeyValueRow(
-                              label: 'Location',
-                              value: location,
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 2),
+                                  child: Icon(
+                                    Icons.location_on_outlined,
+                                    size: 18,
+                                    color: Color(0xFF94A3B8),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    location,
+                                    style: const TextStyle(
+                                      color: Color(0xFF64748B),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
-                          if (listingType.isNotEmpty) ...[
-                            const SizedBox(height: 10),
-                            _KeyValueRow(
-                              label: 'Listing',
-                              value: listingType,
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _StatCard(
+                                  label: 'PRICE',
+                                  value: labelOrDash(price),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _StatCard(
+                                  label: 'LISTING',
+                                  value: labelOrDash(listingType),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (additionalInfo != null) ...[
+                            const SizedBox(height: 14),
+                            _SectionCard(
+                              title: 'ADDITIONAL INFO',
+                              child: DelimitedBulletList(
+                                text: additionalInfo,
+                                delimiter: '~~',
+                                textStyle: const TextStyle(
+                                  color: Color(0xFF334155),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.45,
+                                ),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 14),
+                          _SectionCard(
+                            title: 'PROPERTY OVERVIEW',
+                            child: Column(
+                              children: [
+                                _KeyValueRow(
+                                  label: 'Type',
+                                  value: labelOrDash(propertyTypeLabel),
+                                ),
+                                const SizedBox(height: 10),
+                                _KeyValueRow(
+                                  label: 'Price',
+                                  value: labelOrDash(price),
+                                ),
+                                const SizedBox(height: 10),
+                                _KeyValueRow(
+                                  label: 'Facing',
+                                  value: labelOrDash(facing),
+                                ),
+                                if (location != null) ...[
+                                  const SizedBox(height: 10),
+                                  _KeyValueRow(
+                                    label: 'Location',
+                                    value: location,
+                                  ),
+                                ],
+                                if (listingType.isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  _KeyValueRow(
+                                    label: 'Listing',
+                                    value: listingType,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          if (remaining.isNotEmpty) ...[
+                            const SizedBox(height: 14),
+                            _SectionCard(
+                              title: 'MORE DETAILS',
+                              child: Column(
+                                children: [
+                                  for (var i = 0;
+                                      i < remaining.length;
+                                      i++) ...[
+                                    if (i > 0) const SizedBox(height: 10),
+                                    _KeyValueRow(
+                                      label: remaining[i].key,
+                                      value: remaining[i].value,
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
                           ],
                         ],
                       ),
                     ),
-                    if (remaining.isNotEmpty) ...[
-                      const SizedBox(height: 14),
-                      _SectionCard(
-                        title: 'MORE DETAILS',
-                        child: Column(
-                          children: [
-                            for (var i = 0; i < remaining.length; i++) ...[
-                              if (i > 0) const SizedBox(height: 10),
-                              _KeyValueRow(
-                                label: remaining[i].key,
-                                value: remaining[i].value,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          ),
-        ],
-      );
-        },
+              ],
+            );
+          },
+        ),
       ),
-    ),
     );
   }
 }

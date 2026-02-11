@@ -332,215 +332,217 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
             child: ListView(
               padding: EdgeInsets.only(bottom: 24 + bottomInset),
               children: [
-            _HeroCarousel(
-              height: 360,
-              images: images
-                  .map((img) => _HeroImage(
-                        url: resolveMediaUrl(img.fileUrl),
-                        alt: _trimOrEmpty(img.altText).isEmpty
-                            ? title
-                            : img.altText!,
-                      ))
-                  .toList(growable: false),
-              loading: _loading,
-              error: _error,
-              onIndexChanged: (idx) => setState(() => _activeIndex = idx),
-              controller: _pageController,
-              activeIndex: _activeIndex,
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  if (location != null) ...[
-                    const SizedBox(height: 10),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.only(top: 2),
-                          child: Icon(
-                            Icons.location_on_outlined,
-                            size: 18,
-                            color: Color(0xFF94A3B8),
-                          ),
+                _HeroCarousel(
+                  height: 360,
+                  images: images
+                      .map((img) => _HeroImage(
+                            url: resolveMediaUrl(img.fileUrl),
+                            alt: _trimOrEmpty(img.altText).isEmpty
+                                ? title
+                                : img.altText!,
+                          ))
+                      .toList(growable: false),
+                  loading: _loading,
+                  error: _error,
+                  onIndexChanged: (idx) => setState(() => _activeIndex = idx),
+                  controller: _pageController,
+                  activeIndex: _activeIndex,
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
                         ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            location,
-                            style: const TextStyle(
-                              color: Color(0xFF64748B),
-                              fontSize: 13,
+                      ),
+                      if (location != null) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(
+                                Icons.location_on_outlined,
+                                size: 18,
+                                color: Color(0xFF94A3B8),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                location,
+                                style: const TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _StatCard(
+                              label: 'TOTAL PLOTS',
+                              value: plotsCountLabel?.trim().isNotEmpty ?? false
+                                  ? plotsCountLabel!.trim()
+                                  : '—',
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _StatCard(
+                              label: 'TOTAL AREA',
+                              value: (areaLabel ?? '').trim().isEmpty
+                                  ? '—'
+                                  : areaLabel!,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      _SectionCard(
+                        title: 'LAYOUT OVERVIEW',
+                        child: Column(
+                          children: [
+                            _KeyValueRow(
+                              label: 'Approval No',
+                              value: (approvalNumber ?? '').trim().isEmpty
+                                  ? '—'
+                                  : approvalNumber!,
+                            ),
+                            const SizedBox(height: 10),
+                            _KeyValueRow(
+                              label: 'Survey No',
+                              value: (surveyNumber ?? '').trim().isEmpty
+                                  ? '—'
+                                  : surveyNumber!,
+                            ),
+                            const SizedBox(height: 10),
+                            _KeyValueRow(
+                              label: 'Location',
+                              value: location ?? '—',
+                            ),
+                            if (contactNumbers != null) ...[
+                              const SizedBox(height: 10),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Expanded(
+                                    child: Text(
+                                      'Contact',
+                                      style: TextStyle(
+                                        color: Color(0xFF64748B),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Builder(
+                                      builder: (context) {
+                                        final numbers = _splitContactNumbers(
+                                            contactNumbers);
+                                        if (numbers.isEmpty) {
+                                          return const Text(
+                                            '—',
+                                            textAlign: TextAlign.right,
+                                            style: TextStyle(
+                                              color: Color(0xFF0F172A),
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          );
+                                        }
+
+                                        return Align(
+                                          alignment: Alignment.centerRight,
+                                          child: Wrap(
+                                            alignment: WrapAlignment.end,
+                                            spacing: 12,
+                                            runSpacing: 6,
+                                            children: [
+                                              for (final number in numbers)
+                                                GestureDetector(
+                                                  behavior:
+                                                      HitTestBehavior.opaque,
+                                                  onTap: () =>
+                                                      _callPhoneNumber(number),
+                                                  child: Text(
+                                                    number,
+                                                    style: TextStyle(
+                                                      color: Theme.of(context)
+                                                          .colorScheme
+                                                          .primary,
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      decoration: TextDecoration
+                                                          .underline,
+                                                      decorationThickness: 1.5,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      if (additionalInfo != null) ...[
+                        const SizedBox(height: 14),
+                        _SectionCard(
+                          title: 'ADDITIONAL INFO',
+                          child: DelimitedBulletList(
+                            text: additionalInfo,
+                            delimiter: '~~',
+                            textStyle: const TextStyle(
+                              color: Color(0xFF334155),
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              height: 1.35,
+                              height: 1.45,
                             ),
                           ),
                         ),
                       ],
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _StatCard(
-                          label: 'TOTAL PLOTS',
-                          value: plotsCountLabel?.trim().isNotEmpty ?? false
-                              ? plotsCountLabel!.trim()
-                              : '—',
+                      if (_error != null && _detail == null) ...[
+                        const SizedBox(height: 14),
+                        _SectionCard(
+                          title: 'ERROR',
+                          child: Text(
+                            _error!,
+                            style: const TextStyle(
+                              color: Color(0xFFB91C1C),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _StatCard(
-                          label: 'TOTAL AREA',
-                          value: (areaLabel ?? '').trim().isEmpty
-                              ? '—'
-                              : areaLabel!,
-                        ),
-                      ),
+                      ],
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  _SectionCard(
-                    title: 'LAYOUT OVERVIEW',
-                    child: Column(
-                      children: [
-                        _KeyValueRow(
-                          label: 'Approval No',
-                          value: (approvalNumber ?? '').trim().isEmpty
-                              ? '—'
-                              : approvalNumber!,
-                        ),
-                        const SizedBox(height: 10),
-                        _KeyValueRow(
-                          label: 'Survey No',
-                          value: (surveyNumber ?? '').trim().isEmpty
-                              ? '—'
-                              : surveyNumber!,
-                        ),
-                        const SizedBox(height: 10),
-                        _KeyValueRow(
-                          label: 'Location',
-                          value: location ?? '—',
-                        ),
-                        if (contactNumbers != null) ...[
-                          const SizedBox(height: 10),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Expanded(
-                                child: Text(
-                                  'Contact',
-                                  style: TextStyle(
-                                    color: Color(0xFF64748B),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Builder(
-                                  builder: (context) {
-                                    final numbers =
-                                        _splitContactNumbers(contactNumbers);
-                                    if (numbers.isEmpty) {
-                                      return const Text(
-                                        '—',
-                                        textAlign: TextAlign.right,
-                                        style: TextStyle(
-                                          color: Color(0xFF0F172A),
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      );
-                                    }
-
-                                    return Align(
-                                      alignment: Alignment.centerRight,
-                                      child: Wrap(
-                                        alignment: WrapAlignment.end,
-                                        spacing: 12,
-                                        runSpacing: 6,
-                                        children: [
-                                          for (final number in numbers)
-                                            GestureDetector(
-                                              behavior: HitTestBehavior.opaque,
-                                              onTap: () =>
-                                                  _callPhoneNumber(number),
-                                              child: Text(
-                                                number,
-                                                style: TextStyle(
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .primary,
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w800,
-                                                  decoration:
-                                                      TextDecoration.underline,
-                                                  decorationThickness: 1.5,
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (additionalInfo != null) ...[
-                    const SizedBox(height: 14),
-                    _SectionCard(
-                      title: 'ADDITIONAL INFO',
-                      child: DelimitedBulletList(
-                        text: additionalInfo,
-                        delimiter: '~~',
-                        textStyle: const TextStyle(
-                          color: Color(0xFF334155),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          height: 1.45,
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (_error != null && _detail == null) ...[
-                    const SizedBox(height: 14),
-                    _SectionCard(
-                      title: 'ERROR',
-                      child: Text(
-                        _error!,
-                        style: const TextStyle(
-                          color: Color(0xFFB91C1C),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
-      );
+          );
         },
       ),
     );
