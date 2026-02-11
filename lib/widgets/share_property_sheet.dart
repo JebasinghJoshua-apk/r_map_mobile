@@ -66,8 +66,11 @@ String _buildShareUrl(SharePropertyInfo info) {
 
 String _buildShareText(SharePropertyInfo info) {
   final parts = <String>[info.title];
-  if (info.location != null && info.location!.trim().isNotEmpty) {
-    parts.add(info.location!.trim());
+  final location = info.location?.trim() ?? '';
+  // Only add location if it's not already present in the title
+  if (location.isNotEmpty &&
+      !info.title.toLowerCase().contains(location.toLowerCase())) {
+    parts.add(location);
   }
   if (info.priceLabel != null && info.priceLabel!.trim().isNotEmpty) {
     parts.add(info.priceLabel!.trim());
