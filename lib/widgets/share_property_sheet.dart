@@ -76,7 +76,7 @@ String _buildShareText(SharePropertyInfo info) {
 }
 
 String _buildMapImageUrl(SharePropertyInfo info) {
-  final base = ApiConstants.webBaseUrl.replaceAll(RegExp(r'/$'), '');
+  final base = ApiConstants.apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
   final encodedType = Uri.encodeComponent(info.propertyType.trim());
   final fid = info.featureId.trim();
   return '$base/api/share/property/$encodedType/$fid/image';
@@ -118,20 +118,45 @@ class _SharePropertySheetState extends State<_SharePropertySheet> {
 
   late final String _shareUrl;
   late final String _shareText;
-  late final String _heroUrl;
+
+  /// The actual property photo URL (may be null if no photos exist).
+  late final String? _heroImageUrl;
+
+  /// Auto-generated satellite map image from the API.
+  late final String _mapImageUrl;
 
   @override
   void initState() {
     super.initState();
     _shareUrl = _buildShareUrl(info);
     _shareText = _buildShareText(info);
-    _heroUrl = info.heroImageUrl ?? _buildMapImageUrl(info);
+    _heroImageUrl = info.heroImageUrl;
+    _mapImageUrl = _buildMapImageUrl(info);
     _preloadImage();
   }
 
+  /// Loads the preview image: prefer the real hero photo, fall back to the
+  /// API-generated map image.
   Future<void> _preloadImage() async {
+    // Try the hero photo first.
+    if (_heroImageUrl != null) {
+      try {
+        final response = await http.get(Uri.parse(_heroImageUrl!));
+        if (response.statusCode == 200 && mounted) {
+          setState(() {
+            _heroBytes = response.bodyBytes;
+            _imageLoaded = true;
+          });
+          return;
+        }
+      } catch (_) {
+        // Hero image failed – fall through to map image.
+      }
+    }
+
+    // Fallback: satellite map image from the API.
     try {
-      final response = await http.get(Uri.parse(_heroUrl));
+      final response = await http.get(Uri.parse(_mapImageUrl));
       if (response.statusCode == 200 && mounted) {
         setState(() {
           _heroBytes = response.bodyBytes;
@@ -179,7 +204,9 @@ class _SharePropertySheetState extends State<_SharePropertySheet> {
   }
 
   Future<void> _nativeShare() async {
-    final file = await _downloadImage(_heroUrl);
+    // Prefer the actual property photo; fall back to the map image.
+    final imageUrl = _heroImageUrl ?? _mapImageUrl;
+    final file = await _downloadImage(imageUrl);
     if (file != null) {
       await Share.shareXFiles(
         [XFile(file.path)],
