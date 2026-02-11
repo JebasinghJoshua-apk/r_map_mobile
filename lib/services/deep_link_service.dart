@@ -257,7 +257,8 @@ class DeepLinkService {
       if (s['bedroomsLabel'] != null) 'bedrooms': s['bedroomsLabel'] as String?,
       if (s['listingLabel'] != null) 'listing': s['listingLabel'] as String?,
       if (s['subtitle'] != null) 'subtitle': s['subtitle'] as String?,
-      if (s['heroImageUrl'] != null) 'heroImageUrl': s['heroImageUrl'] as String?,
+      if (s['heroImageUrl'] != null)
+        'heroImageUrl': s['heroImageUrl'] as String?,
     };
   }
 
