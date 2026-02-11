@@ -33,6 +33,7 @@ import 'property_detail_screen.dart';
 import '../utils/route_observer.dart';
 import '../utils/anchored_popover_geometry.dart';
 import '../utils/pending_map_focus.dart';
+import '../utils/pending_property_selection.dart';
 
 part 'home_map_screen.helpers.dart';
 part 'home_map/home_map_filters.dart';
@@ -179,6 +180,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   final Set<String> _savingPropertyIds = <String>{};
 
   ModalRoute<void>? _routeSubscription;
+
+  final GlobalKey<SearchOverlayState> _searchOverlayKey =
+      GlobalKey<SearchOverlayState>();
 
   Set<Marker> _viewportMarkers = <Marker>{};
 
@@ -331,6 +335,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     final pendingFocus = PendingMapFocus.take();
     if (pendingFocus != null) {
       unawaited(_focusNewlyCreatedPropertyOnMap(pendingFocus));
+    }
+
+    // Handle property selection from deep link.
+    final pendingSelection = PendingPropertySelection.take();
+    if (pendingSelection != null) {
+      unawaited(_selectPropertyFromDeepLink(pendingSelection));
     }
   }
 
@@ -973,6 +983,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                 _googlePlace == null
                     ? const ApiKeyMissingBanner()
                     : SearchOverlay(
+                        key: _searchOverlayKey,
                         googlePlace: _googlePlace!,
                         onPlaceSelected: _moveCameraTo,
                         onShortlistedPlaceSelected: _moveCameraToFromShortlist,

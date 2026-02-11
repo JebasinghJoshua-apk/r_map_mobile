@@ -7,6 +7,7 @@ import '../models/map_viewport_models.dart';
 import '../services/analytics_service.dart';
 import '../services/mobile_bff_saved_properties_api.dart';
 import '../state/auth_scope.dart';
+import '../utils/pending_property_selection.dart';
 import '../widgets/auth_dialog.dart';
 import '../widgets/delimited_bullet_list.dart';
 import '../widgets/property_details_panel.dart';
@@ -20,12 +21,17 @@ class PropertyDetailScreen extends StatefulWidget {
     this.imageUrls,
     this.isLoadingImages = false,
     this.imagesError,
+    this.fromDeepLink = false,
   });
 
   final MapPropertyFeature feature;
   final List<String>? imageUrls;
   final bool isLoadingImages;
   final String? imagesError;
+
+  /// When true, popping this screen will set a pending property selection
+  /// so HomeMapScreen can select the property and show the bottom panel.
+  final bool fromDeepLink;
 
   @override
   State<PropertyDetailScreen> createState() => _PropertyDetailScreenState();
@@ -352,7 +358,15 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     final canCopyLink = feature.propertyType.trim().isNotEmpty &&
         feature.featureId.trim().isNotEmpty;
 
-    return Scaffold(
+    return PopScope(
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop && widget.fromDeepLink) {
+          // Schedule pending selection so HomeMapScreen can show the property
+          // in its bottom panel when it becomes visible again.
+          PendingPropertySelection.set(widget.feature);
+        }
+      },
+      child: Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -547,6 +561,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 }

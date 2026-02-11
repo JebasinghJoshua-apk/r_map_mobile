@@ -61,7 +61,7 @@ class SearchOverlay extends StatefulWidget {
   final int? favoritesCount;
 
   @override
-  State<SearchOverlay> createState() => _SearchOverlayState();
+  SearchOverlayState createState() => SearchOverlayState();
 }
 
 enum _ProfileMenuAction {
@@ -71,7 +71,7 @@ enum _ProfileMenuAction {
   logout,
 }
 
-class _SearchOverlayState extends State<SearchOverlay> {
+class SearchOverlayState extends State<SearchOverlay> {
   final MobileBffMapApi _mapApi = MobileBffMapApi();
   final MobileBffSavedPropertiesApi _savedPropertiesApi =
       MobileBffSavedPropertiesApi();
@@ -90,6 +90,21 @@ class _SearchOverlayState extends State<SearchOverlay> {
   bool _isCompactMode = false;
   bool _suppressSuggestionAndRecentPanels = false;
   bool? _lastReportedOpen;
+
+  /// Collapse the search bar to compact mode.
+  ///
+  /// Called externally when a property is selected (e.g. from deep link).
+  void contract() {
+    if (!mounted) return;
+    if (_isCompactMode) return;
+    setState(() {
+      _isCompactMode = true;
+      _predictions.clear();
+    });
+    _focusNode.unfocus();
+    _keyboardShowTimer?.cancel();
+    _reportOpenStateIfChanged();
+  }
 
   bool get _shouldShowRecents {
     return !_suppressSuggestionAndRecentPanels &&
@@ -921,12 +936,12 @@ class _CompactProfileButtonState extends State<_CompactProfileButton> {
         break;
       case _ProfileMenuAction.myProperties:
         final overlayState =
-            context.findAncestorStateOfType<_SearchOverlayState>();
+            context.findAncestorStateOfType<SearchOverlayState>();
         overlayState?.showMyPropertiesPopup();
         break;
       case _ProfileMenuAction.favorites:
         final overlayState =
-            context.findAncestorStateOfType<_SearchOverlayState>();
+            context.findAncestorStateOfType<SearchOverlayState>();
         overlayState?.showFavoritesPopup();
         break;
       case _ProfileMenuAction.logout:

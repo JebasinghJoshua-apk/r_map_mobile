@@ -920,4 +920,47 @@ extension _HomeMapSelection on _HomeMapScreenState {
       await _focusPropertyOnMap(target: center, zoom: maxZoom);
     }
   }
+
+  /// Select a property that was opened from a deep link.
+  ///
+  /// This shows the bottom panel with property info. Since deep link properties
+  /// may not have boundary/center coordinates, we only select without focusing.
+  Future<void> _selectPropertyFromDeepLink(MapPropertyFeature feature) async {
+    if (!mounted) return;
+
+    _closePlotPanel();
+
+    // Contract the search overlay to show the property panel clearly.
+    _searchOverlayKey.currentState?.contract();
+
+    _updateState(() {
+      _selectedProperty = feature;
+      _selectedPropertyHighlightPolygons =
+          _buildSelectedPropertyHighlightPolygons(feature);
+
+      // Only IndependentHouse uses the carousel panel.
+      if (feature.propertyType.trim() != 'IndependentHouse') {
+        _independentHousesCarousel = const <MapPropertyFeature>[];
+        _activeIndependentHouseIndex = 0;
+        _independentHouseCarouselDebounce?.cancel();
+        _independentHouseCarouselRequestSeq++;
+        _independentHouseCarouselController?.dispose();
+        _independentHouseCarouselController = null;
+      }
+    });
+
+    unawaited(_refreshMarkerSelectionStyles());
+    _ensurePropertyMediaLoaded(feature);
+
+    // If the feature has center coordinates, focus on them with the same zoom
+    // level used when tapping a marker.
+    final centerGeoJson = feature.centerGeoJson;
+    if (centerGeoJson != null && centerGeoJson.isNotEmpty) {
+      final center = GeoJson.tryParsePoint(centerGeoJson);
+      if (center != null) {
+        final zoom = _priceBadgeFocusZoomTarget(feature.propertyType);
+        await _focusPropertyOnMap(target: center, zoom: zoom);
+      }
+    }
+  }
 }

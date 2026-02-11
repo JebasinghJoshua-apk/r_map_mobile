@@ -185,6 +185,14 @@ class DeepLinkService {
           ),
         );
       } else {
+        // Build center GeoJSON from coordinates if available.
+        String? centerGeoJson;
+        final lat = summary['centerLatitude'];
+        final lng = summary['centerLongitude'];
+        if (lat is num && lng is num) {
+          centerGeoJson = '{"type":"Point","coordinates":[$lng,$lat]}';
+        }
+
         // Build a minimal MapPropertyFeature from the share summary.
         final feature = MapPropertyFeature(
           propertyId: summary['propertyId'] as String? ?? '',
@@ -195,13 +203,16 @@ class DeepLinkService {
           isOwnedByCurrentUser: false,
           listingType: null,
           boundaryGeoJson: null,
-          centerGeoJson: null,
+          centerGeoJson: centerGeoJson,
           metadata: _buildMetadataFromSummary(summary),
         );
 
         nav.push(
           MaterialPageRoute(
-            builder: (_) => PropertyDetailScreen(feature: feature),
+            builder: (_) => PropertyDetailScreen(
+              feature: feature,
+              fromDeepLink: true,
+            ),
           ),
         );
       }
@@ -246,6 +257,7 @@ class DeepLinkService {
       if (s['bedroomsLabel'] != null) 'bedrooms': s['bedroomsLabel'] as String?,
       if (s['listingLabel'] != null) 'listing': s['listingLabel'] as String?,
       if (s['subtitle'] != null) 'subtitle': s['subtitle'] as String?,
+      if (s['heroImageUrl'] != null) 'heroImageUrl': s['heroImageUrl'] as String?,
     };
   }
 
