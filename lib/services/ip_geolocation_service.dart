@@ -27,7 +27,8 @@ class IpGeolocationService {
     try {
       // Using ip-api.com (free, no API key required, 45 requests/minute limit)
       final response = await http
-          .get(Uri.parse('http://ip-api.com/json/?fields=status,lat,lon,city,regionName,country'))
+          .get(Uri.parse(
+              'http://ip-api.com/json/?fields=status,lat,lon,city,regionName,country'))
           .timeout(_timeout);
 
       if (response.statusCode != 200) return null;
