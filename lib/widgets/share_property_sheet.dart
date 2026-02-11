@@ -53,15 +53,10 @@ void showSharePropertySheet(BuildContext context, SharePropertyInfo info) {
 // ───────────────────────────────────────────────────────────────────
 
 String _buildShareUrl(SharePropertyInfo info) {
-  final slug = info.title
-      .toLowerCase()
-      .trim()
-      .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
-      .replaceAll(RegExp(r'(^-|-$)'), '');
   final base = ApiConstants.webBaseUrl.replaceAll(RegExp(r'/$'), '');
   final encodedType = Uri.encodeComponent(info.propertyType.trim());
   final fid = info.featureId.trim();
-  return '$base/property/$encodedType/$fid${slug.isNotEmpty ? '/$slug' : ''}';
+  return '$base/property/$encodedType/$fid';
 }
 
 String _buildShareText(SharePropertyInfo info) {
