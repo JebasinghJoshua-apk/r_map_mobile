@@ -224,6 +224,10 @@ extension _HomeMapViewport on _HomeMapScreenState {
       if (_selectedProperty?.propertyType.trim() == 'IndependentHouse') {
         _scheduleIndependentHouseCarouselRefresh();
       }
+
+      // Auto-select plot from deep link if pending.
+      _tryAutoSelectPlotFromDeepLink(filteredResponse.plots);
+
       _setViewportFetching(false);
       _setViewportLoading(false);
     } catch (e) {

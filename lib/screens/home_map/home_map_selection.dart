@@ -603,6 +603,8 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _selectedPlot = plot;
       _selectedPlotHighlightPolygons =
           _buildSelectedPlotHighlightPolygons(plot);
+      // Clear deep-link focus once user taps (transitions to full selection).
+      _focusedPlotIdFromDeepLink = null;
     });
 
     // Center the plot after selection so users immediately see what's selected.
@@ -1008,5 +1010,107 @@ extension _HomeMapSelection on _HomeMapScreenState {
         await _focusPropertyOnMap(target: center, zoom: zoom);
       }
     }
+  }
+
+  /// Focus a plot from a deep link.
+  ///
+  /// This moves camera to the plot center and sets up auto-selection
+  /// so the plot panel opens when the viewport data loads.
+  Future<void> _focusPlotFromDeepLink(PlotFocusData data) async {
+    if (!mounted) return;
+
+    _safeSetState(() {
+      _hasSelectedPlace = true;
+      _focusedPlotIdFromDeepLink = data.plotId;
+      // Store pending data for auto-selection when viewport loads.
+      _pendingPlotAutoSelect = data;
+    });
+
+    // Contract search overlay to see the map.
+    _searchOverlayKey.currentState?.contract();
+
+    // Get coordinates - fetch if missing.
+    double? lat = data.centerLatitude;
+    double? lng = data.centerLongitude;
+
+    if (lat == null || lng == null) {
+      // Coordinates not available yet - fetch from API.
+      final summary = await _fetchPlotShareSummary(
+        data.layoutFeatureId,
+        data.plotId,
+      );
+      if (summary != null) {
+        lat = summary['centerLatitude'] as double?;
+        lng = summary['centerLongitude'] as double?;
+      }
+    }
+
+    // Move camera to plot center if available.
+    if (lat != null && lng != null) {
+      await _animateCamera(
+        CameraUpdate.newLatLngZoom(LatLng(lat, lng), _selectedPlotMaxFocusZoom),
+      );
+    }
+
+    // Force viewport refresh to load plot data at the new camera position.
+    unawaited(_fetchViewport());
+  }
+
+  /// Fetch plot share summary from the API.
+  Future<Map<String, dynamic>?> _fetchPlotShareSummary(
+    String layoutFeatureId,
+    String plotId,
+  ) async {
+    final baseUrl = ApiConstants.apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final url = '$baseUrl/api/share/plot/$layoutFeatureId/$plotId';
+
+    try {
+      final response =
+          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('[DeepLink] fetch plot error: $e');
+    }
+    return null;
+  }
+
+  /// Auto-select a plot from a deep link when viewport data is available.
+  ///
+  /// This is called after viewport fetch completes. If there's a pending
+  /// auto-select, find the matching plot and open the details panel.
+  void _tryAutoSelectPlotFromDeepLink(List<MapPlotFeature> plots) {
+    final pending = _pendingPlotAutoSelect;
+    if (pending == null) return;
+
+    // Clear pending to avoid re-triggering on subsequent viewport fetches.
+    _pendingPlotAutoSelect = null;
+
+    // Find the plot by ID.
+    MapPlotFeature? match;
+    for (final plot in plots) {
+      if (plot.plotId == pending.plotId) {
+        match = plot;
+        break;
+      }
+    }
+
+    if (match == null) {
+      debugPrint(
+        '[DeepLink] plot ${pending.plotId} not found in viewport response',
+      );
+      return;
+    }
+
+    // Select the plot (opens the bottom panel).
+    _safeSetState(() {
+      _selectedPlot = match;
+      _selectedPlotHighlightPolygons =
+          _buildSelectedPlotHighlightPolygons(match!);
+      // Clear deep-link focus since we're now fully selected.
+      _focusedPlotIdFromDeepLink = null;
+    });
   }
 }

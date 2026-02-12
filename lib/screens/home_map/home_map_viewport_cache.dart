@@ -840,6 +840,15 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
           zIndex = 60;
         }
 
+        // If this plot is focused from a deep link, apply highlight style.
+        final focusedId = _focusedPlotIdFromDeepLink;
+        final isFocused = focusedId != null && focusedId == plot.plotId;
+        if (isFocused) {
+          stroke = Colors.white;
+          strokeWidth = 4;
+          zIndex = 9999;
+        }
+
         for (var i = 0; i < polygons.length; i++) {
           final points = polygons[i];
           if (points.length < 3) continue;

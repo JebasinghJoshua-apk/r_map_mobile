@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -8,8 +9,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_place/google_place.dart';
+import 'package:http/http.dart' as http;
 
 import '../app.dart';
+import '../constants/api_constants.dart';
 import '../constants/search_constants.dart';
 import '../services/mobile_bff_map_api.dart';
 import '../services/mobile_bff_plots_api.dart';
@@ -34,6 +37,7 @@ import 'property_detail_screen.dart';
 import '../utils/route_observer.dart';
 import '../utils/anchored_popover_geometry.dart';
 import '../utils/pending_map_focus.dart';
+import '../utils/pending_plot_selection.dart';
 import '../utils/pending_property_selection.dart';
 
 part 'home_map_screen.helpers.dart';
@@ -214,6 +218,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   MapPlotFeature? _selectedPlot;
   int _plotFocusSeq = 0;
 
+  /// Plot ID focused via deep link (highlight without panel until tapped).
+  String? _focusedPlotIdFromDeepLink;
+
+  /// Pending plot data for auto-selection from deep link.
+  /// When set, the next viewport fetch will auto-select this plot.
+  PlotFocusData? _pendingPlotAutoSelect;
+
   MapPropertyFeature? _selectedProperty;
   List<String>? _selectedPropertyMediaUrls;
   bool _isSelectedPropertyMediaLoading = false;
@@ -247,7 +258,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   int _markerStyleSeq = 0;
 
   List<NearbyPropertyCard>? _nearbyLayouts;
-  bool _isNearbyLayoutsLoading = false;
   String? _nearbyLayoutsError;
 
   bool _isNearbyLayoutsDialogOpen = false;
@@ -334,6 +344,31 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     _fetchIpLocation();
     // Signal that the navigator is ready for deep-link navigation.
     deepLinkService.markHomeReady();
+
+    // Check for pending deep link selections after a short delay.
+    // This handles cold-start deep links where didPopNext() isn't triggered.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (!mounted) return;
+        _checkPendingDeepLinkSelections();
+      });
+    });
+  }
+
+  /// Check for any pending deep link selections (property or plot).
+  /// Called after init to handle cold-start deep links.
+  void _checkPendingDeepLinkSelections() {
+    // Handle property selection from deep link.
+    final pendingSelection = PendingPropertySelection.take();
+    if (pendingSelection != null) {
+      unawaited(_selectPropertyFromDeepLink(pendingSelection));
+    }
+
+    // Handle plot focus from deep link.
+    final pendingPlotFocus = PendingPlotSelection.take();
+    if (pendingPlotFocus != null) {
+      unawaited(_focusPlotFromDeepLink(pendingPlotFocus));
+    }
   }
 
   Future<void> _fetchIpLocation() async {
@@ -374,6 +409,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     final pendingSelection = PendingPropertySelection.take();
     if (pendingSelection != null) {
       unawaited(_selectPropertyFromDeepLink(pendingSelection));
+    }
+
+    // Handle plot focus from deep link.
+    final pendingPlotFocus = PendingPlotSelection.take();
+    if (pendingPlotFocus != null) {
+      unawaited(_focusPlotFromDeepLink(pendingPlotFocus));
     }
   }
 

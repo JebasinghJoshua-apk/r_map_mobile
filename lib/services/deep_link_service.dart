@@ -9,6 +9,7 @@ import '../constants/api_constants.dart';
 import '../models/map_viewport_models.dart';
 import '../screens/property_detail_screen.dart';
 import '../screens/layout_detail_screen.dart';
+import '../utils/pending_plot_selection.dart';
 
 /// Parsed deep-link destination.
 class _DeepLinkTarget {
@@ -16,10 +17,18 @@ class _DeepLinkTarget {
     required this.propertyType,
     required this.featureId,
     required this.isSharePage,
+    this.isPlotLink = false,
+    this.layoutFeatureId,
+    this.plotId,
   });
   final String propertyType;
   final String featureId;
   final bool isSharePage;
+
+  /// True if this is a plot deep link (/plot/{layoutFeatureId}/{plotId}).
+  final bool isPlotLink;
+  final String? layoutFeatureId;
+  final String? plotId;
 }
 
 /// Handles incoming deep links for `/property/...` and `/share/...` URLs and
@@ -122,7 +131,8 @@ class DeepLinkService {
   }
 
   /// Parses `/property/{propertyType}/{featureId}/...` or
-  /// `/share/{propertyType}/{featureId}` into a [_DeepLinkTarget].
+  /// `/share/{propertyType}/{featureId}` or
+  /// `/plot/{layoutFeatureId}/{plotId}` into a [_DeepLinkTarget].
   _DeepLinkTarget? _parseUri(Uri uri) {
     final segments = uri.pathSegments;
     // /property/{type}/{featureId}[/{slug}]
@@ -141,6 +151,17 @@ class DeepLinkService {
         isSharePage: true,
       );
     }
+    // /plot/{layoutFeatureId}/{plotId}[/{slug}]
+    if (segments.length >= 3 && segments[0] == 'plot') {
+      return _DeepLinkTarget(
+        propertyType: 'Plot',
+        featureId: segments[2],
+        isSharePage: false,
+        isPlotLink: true,
+        layoutFeatureId: segments[1],
+        plotId: segments[2],
+      );
+    }
     return null;
   }
 
@@ -151,6 +172,14 @@ class DeepLinkService {
     debugPrint(
       '[DeepLink] navigating → ${target.propertyType}/${target.featureId}',
     );
+
+    // Handle plot deep links - navigate to home map with focused plot.
+    if (target.isPlotLink &&
+        target.layoutFeatureId != null &&
+        target.plotId != null) {
+      await _navigateToPlot(nav, target.layoutFeatureId!, target.plotId!);
+      return;
+    }
 
     // Show a lightweight loading overlay while we fetch property info.
     _showLoadingOverlay(nav.context);
@@ -222,6 +251,28 @@ class DeepLinkService {
       debugPrint('[DeepLink] error: $e');
       _showError(nav.context, 'Could not open property');
     }
+  }
+
+  /// Navigate to home map and focus on a specific plot.
+  Future<void> _navigateToPlot(
+    NavigatorState nav,
+    String layoutFeatureId,
+    String plotId,
+  ) async {
+    debugPrint(
+        '[DeepLink] navigating to plot $plotId in layout $layoutFeatureId');
+
+    // Set pending plot selection. Coordinates will be fetched by the home
+    // screen's _focusPlotFromDeepLink if needed.
+    PendingPlotSelection.set(
+      layoutFeatureId: layoutFeatureId,
+      plotId: plotId,
+      centerLatitude: null,
+      centerLongitude: null,
+    );
+
+    // Pop to root (home map) if not already there.
+    nav.popUntil((route) => route.isFirst);
   }
 
   // ───────────────────────────────────────────────────────────────────

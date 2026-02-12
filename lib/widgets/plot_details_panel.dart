@@ -8,6 +8,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/map_viewport_models.dart';
 import '../utils/geojson.dart';
 import '../utils/route_observer.dart';
+import 'share_plot_sheet.dart';
 
 class PlotDetailsPanel extends StatefulWidget {
   const PlotDetailsPanel({
@@ -49,41 +50,37 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
 
   void _showShareSheet() {
     final plotId = widget.plot.plotId.trim();
+    final layoutId = widget.plot.layoutId?.trim() ?? '';
     final plotNumber = widget.plot.plotNumber.trim();
-    final shareUrl = plotId.isNotEmpty
-        ? 'https://rmap.local/plot/$plotId'
-        : plotNumber.isNotEmpty
-            ? 'https://rmap.local/plot-number/$plotNumber'
-            : 'https://rmap.local/plot';
 
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.copy_all_outlined),
-                title: const Text('Copy link'),
-                subtitle: Text(shareUrl),
-                onTap: () async {
-                  Navigator.of(context).pop();
-                  await Clipboard.setData(ClipboardData(text: shareUrl));
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(this.context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Link copied'),
-                      duration: Duration(milliseconds: 900),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      },
+    if (plotId.isEmpty || layoutId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to share: missing plot info')),
+      );
+      return;
+    }
+
+    // Get area label from widget
+    final areaLabel = widget.areaLabel;
+
+    // Get status from plot metadata
+    String? status;
+    if (widget.isSold) {
+      status = 'Sold';
+    } else {
+      final raw = widget.plot.metadata['status'];
+      if (raw is String && raw.trim().isNotEmpty) {
+        status = raw.trim();
+      }
+    }
+
+    showSharePlotSheetWithFetch(
+      context,
+      plotId: plotId,
+      layoutFeatureId: layoutId,
+      plotNumber: plotNumber,
+      areaLabel: areaLabel,
+      status: status,
     );
   }
 

@@ -45,7 +45,6 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
   }) async {
     final token = AuthScope.of(context).session?.token;
     _updateState(() {
-      _isNearbyLayoutsLoading = true;
       _nearbyLayoutsError = null;
     });
 
@@ -72,12 +71,6 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
         _nearbyLayoutsError = 'Failed to load nearby layouts.';
         _nearbyLayouts = const <NearbyPropertyCard>[];
       });
-    } finally {
-      if (mounted) {
-        _updateState(() {
-          _isNearbyLayoutsLoading = false;
-        });
-      }
     }
   }
 
