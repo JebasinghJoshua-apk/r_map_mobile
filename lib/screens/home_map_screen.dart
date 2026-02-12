@@ -1194,7 +1194,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
             Builder(
               builder: (context) {
                 _emptyStateDismissTimer ??= Timer(
-                  const Duration(seconds: 8),
+                  const Duration(seconds: 6),
                   () {
                     if (mounted) {
                       setState(() => _isEmptyStateDismissed = true);
