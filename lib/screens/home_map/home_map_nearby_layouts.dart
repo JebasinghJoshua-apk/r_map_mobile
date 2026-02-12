@@ -194,6 +194,8 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
                 ),
                 onFocus: (item) async {
                   Navigator.of(dialogContext, rootNavigator: true).pop();
+                  // Fetch boundary preview via API (same as web) and draw preview polygon.
+                  _fetchAndDrawLayoutPreviewPolygon(item.id);
                   final zoom = item.focusZoomLevel ?? _layoutFocusZoomTarget;
                   await _focusPropertyOnMap(
                     target: LatLng(item.latitude, item.longitude),
@@ -234,6 +236,75 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
       _updateState(() {
         _isNearbyLayoutsReopenHintOn = false;
       });
+    });
+  }
+
+  /// Fetch layout boundary from API and draw preview polygon.
+  /// Same approach as web: calls the boundary API instead of using nearby DTO.
+  void _fetchAndDrawLayoutPreviewPolygon(String layoutId) {
+    // Fire-and-forget async call (same pattern as web)
+    () async {
+      try {
+        final preview = await _mapApi.getLayoutBoundaryPreview(
+          layoutId: layoutId,
+        );
+        if (!mounted) return;
+        if (preview == null) return;
+
+        final boundaryGeoJson = preview.boundaryGeoJson;
+        if (boundaryGeoJson == null || boundaryGeoJson.trim().isEmpty) {
+          return;
+        }
+
+        _drawLayoutPreviewPolygonFromGeoJson(layoutId, boundaryGeoJson);
+      } catch (_) {
+        // Silently ignore - preview is optional
+      }
+    }();
+  }
+
+  /// Draw a preview polygon from GeoJSON string.
+  /// The preview is cleared automatically when viewport data arrives.
+  void _drawLayoutPreviewPolygonFromGeoJson(
+    String layoutId,
+    String boundaryGeoJson,
+  ) {
+    final polygons = GeoJson.tryParsePolygons(boundaryGeoJson);
+    if (polygons.isEmpty) {
+      return;
+    }
+
+    final previewSet = <Polygon>{};
+    for (var i = 0; i < polygons.length; i++) {
+      final ring = polygons[i];
+      if (ring.length < 3) continue;
+
+      previewSet.add(
+        Polygon(
+          polygonId: PolygonId('layout_preview_${layoutId}_$i'),
+          points: ring,
+          strokeColor:
+              _layoutPreviewStroke.withOpacity(_layoutPreviewStrokeOpacity),
+          strokeWidth: _layoutPreviewStrokeWidth,
+          fillColor: _layoutPreviewFill.withOpacity(_layoutPreviewFillOpacity),
+          zIndex: _layoutPreviewZIndex,
+          consumeTapEvents: false,
+        ),
+      );
+    }
+
+    if (previewSet.isNotEmpty) {
+      _updateState(() {
+        _layoutPreviewPolygons = previewSet;
+      });
+    }
+  }
+
+  /// Clear the layout preview polygon.
+  void _clearLayoutPreviewPolygon() {
+    if (_layoutPreviewPolygons.isEmpty) return;
+    _updateState(() {
+      _layoutPreviewPolygons = <Polygon>{};
     });
   }
 }

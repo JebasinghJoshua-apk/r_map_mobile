@@ -11,6 +11,15 @@ const double _layoutBoundaryStrokeOpacity = 1.0;
 const double _layoutBoundaryFillOpacity = 0.12;
 const int _layoutBoundaryStrokeWidth = 2;
 
+// Layout preview polygon (shown while full data loads from nearby dialog).
+// Teal colors match web: strokeColor #0d9488 (teal-600), fillColor #99f6e4 (teal-200).
+const Color _layoutPreviewStroke = Color(0xFF0D9488);
+const Color _layoutPreviewFill = Color(0xFF99F6E4);
+const double _layoutPreviewStrokeOpacity = 1.0;
+const double _layoutPreviewFillOpacity = 0.40;
+const int _layoutPreviewStrokeWidth = 3;
+const int _layoutPreviewZIndex = 1000000;
+
 const Color _plotStroke = Color(0xFF0F766E);
 const Color _plotFill = Color(0xFF16A34A);
 // Match web: r-map-ui/src/constants/drawingStyles.ts (plot.fillOpacity=0.3, strokeOpacity=0.95)

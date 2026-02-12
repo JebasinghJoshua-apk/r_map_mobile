@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 
 import '../constants/api_constants.dart';
 import '../models/image_summary.dart';
+import '../models/layout_boundary_preview.dart';
 import '../models/map_viewport_models.dart';
 import '../models/my_property_list_item.dart';
 import '../models/nearby_property_card.dart';
@@ -410,6 +411,54 @@ class MobileBffMapApi {
     throw MapApiException(
       _tryMessage(response.body) ??
           'Nearby layouts fetch failed (${response.statusCode})',
+    );
+  }
+
+  /// Fetch lightweight layout boundary for quick preview rendering.
+  Future<LayoutBoundaryPreview?> getLayoutBoundaryPreview({
+    required String layoutId,
+  }) async {
+    final trimmedId = layoutId.trim();
+    if (trimmedId.isEmpty) {
+      return null;
+    }
+
+    final uri = _uri('/mobile/map/layout/$trimmedId/boundary');
+
+    http.Response response;
+    try {
+      response = await _client.get(uri).timeout(_timeout);
+    } on SocketException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException(
+        'Cannot connect to the server. Please check your network and try again.',
+      );
+    } on HttpException {
+      await _logNetworkDiagnostics(uri);
+      debugPrint(_networkHelpMessage());
+      throw const MapApiException('Network error. Please try again.');
+    } on FormatException {
+      throw const MapApiException('Unexpected response from server');
+    } on TimeoutException {
+      throw const MapApiException('Request timed out. Please try again.');
+    }
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map) {
+        return null;
+      }
+      return LayoutBoundaryPreview.fromJson(decoded.cast<String, dynamic>());
+    }
+
+    if (response.statusCode == 404) {
+      return null;
+    }
+
+    throw MapApiException(
+      _tryMessage(response.body) ??
+          'Layout boundary fetch failed (${response.statusCode})',
     );
   }
 

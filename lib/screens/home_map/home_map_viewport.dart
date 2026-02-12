@@ -144,6 +144,8 @@ extension _HomeMapViewport on _HomeMapScreenState {
         _propertyByFeatureId = cached.propertyByFeatureId;
         _selectedPropertyHighlightPolygons = nextSelectedHighlight;
         _hasViewportResult = true;
+        // Clear layout preview polygon (shown while viewport data was loading).
+        _layoutPreviewPolygons = <Polygon>{};
       });
       return;
     }
@@ -219,6 +221,8 @@ extension _HomeMapViewport on _HomeMapScreenState {
         _propertyByFeatureId = merged.propertyByFeatureId;
         _selectedPropertyHighlightPolygons = nextSelectedHighlight;
         _hasViewportResult = true;
+        // Clear layout preview polygon (shown while viewport data was loading).
+        _layoutPreviewPolygons = <Polygon>{};
       });
 
       if (_selectedProperty?.propertyType.trim() == 'IndependentHouse') {

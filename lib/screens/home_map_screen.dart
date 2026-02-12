@@ -215,6 +215,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   Set<Polygon> _roadPolygons = <Polygon>{};
   Set<Polyline> _roadPolylines = <Polyline>{};
 
+  // Layout preview polygon (shown immediately when opening from nearby dialog
+  // while full viewport data loads).
+  Set<Polygon> _layoutPreviewPolygons = <Polygon>{};
+
   MapPlotFeature? _selectedPlot;
   int _plotFocusSeq = 0;
 
@@ -1040,6 +1044,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
               ..._selectedPlotHighlightPolygons,
               ..._amenityPolygons,
               ..._roadPolygons,
+              ..._layoutPreviewPolygons,
             },
             polylines: _roadPolylines,
             rotateGesturesEnabled: false,
