@@ -269,6 +269,15 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
     String layoutId,
     String boundaryGeoJson,
   ) {
+    // Skip if layout is already rendered on the map (user selected same layout twice)
+    final layoutPrefix = 'layout:$layoutId:';
+    final alreadyRendered = _layoutPolygons.any(
+      (p) => p.polygonId.value.startsWith(layoutPrefix),
+    );
+    if (alreadyRendered) {
+      return;
+    }
+
     final polygons = GeoJson.tryParsePolygons(boundaryGeoJson);
     if (polygons.isEmpty) {
       return;
