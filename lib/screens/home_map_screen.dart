@@ -132,6 +132,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
   bool _isSearchOverlayOpen = true;
 
+  /// When false, a blurred overlay blocks map pan/zoom until the user selects a place.
+  bool _hasSelectedPlace = false;
+
   final LinkedHashMap<String, _ViewportRenderCacheEntry> _viewportCache =
       LinkedHashMap<String, _ViewportRenderCacheEntry>();
 
@@ -1003,7 +1006,23 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
             compassEnabled: false,
             myLocationButtonEnabled: true,
             zoomControlsEnabled: false,
+            // Disable pan/zoom gestures until a place is selected.
+            scrollGesturesEnabled: _hasSelectedPlace,
+            zoomGesturesEnabled: _hasSelectedPlace,
           ),
+          // Blurred overlay until a place is selected (matches web style).
+          if (!_hasSelectedPlace)
+            Positioned.fill(
+              child: AbsorbPointer(
+                absorbing: true,
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 2.0, sigmaY: 2.0),
+                  child: Container(
+                    color: Colors.white.withOpacity(0.2),
+                  ),
+                ),
+              ),
+            ),
           Positioned(
             top: 48,
             left: 16,
@@ -1042,7 +1061,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
               ],
             ),
           ),
-          if (!isBottomPanelOpen)
+          if (!isBottomPanelOpen && _hasSelectedPlace)
             Positioned(
               left: 16,
               bottom: 10 + bottomPanelInset,
@@ -1056,7 +1075,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                 onPressed: _toggleSatelliteMode,
               ),
             ),
-          if (!isBottomPanelOpen)
+          if (!isBottomPanelOpen && _hasSelectedPlace)
             Positioned(
               right: 16,
               bottom: 10 + bottomPanelInset,
@@ -1090,7 +1109,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                 ],
               ),
             ),
-          if (_isViewportLoading && !showEmptyState)
+          if (_isViewportLoading && !showEmptyState && _hasSelectedPlace)
             Positioned.fill(
               child: IgnorePointer(
                 child: Center(

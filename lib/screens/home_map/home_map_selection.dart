@@ -2,6 +2,10 @@ part of '../home_map_screen.dart';
 
 extension _HomeMapSelection on _HomeMapScreenState {
   Future<void> _onShortlistedPropertySelected(SavedProperty saved) async {
+    _safeSetState(() {
+      _hasSelectedPlace = true;
+    });
+
     final p = saved.property;
     final center = p.centerPoint;
     if (center == null) {
@@ -241,6 +245,10 @@ extension _HomeMapSelection on _HomeMapScreenState {
   Future<void> _moveCameraTo(LatLng target, String label, double zoom) async {
     if (_mapController == null) return;
 
+    _safeSetState(() {
+      _hasSelectedPlace = true;
+    });
+
     // Reset viewport result flag so the "No listings here yet" empty-state
     // does not flash while we wait for the viewport response at the new
     // location.
@@ -271,6 +279,10 @@ extension _HomeMapSelection on _HomeMapScreenState {
   ) async {
     if (_mapController == null) return;
 
+    _safeSetState(() {
+      _hasSelectedPlace = true;
+    });
+
     // Reset so the empty-state popup does not flash before the viewport
     // response arrives at the new location.
     _hasViewportResult = false;
@@ -291,6 +303,10 @@ extension _HomeMapSelection on _HomeMapScreenState {
   }
 
   Future<void> _onMyPropertySelected(MyPropertyListItem item) async {
+    _safeSetState(() {
+      _hasSelectedPlace = true;
+    });
+
     final center = item.centerPoint;
     if (center == null) {
       if (!mounted) return;
@@ -953,6 +969,10 @@ extension _HomeMapSelection on _HomeMapScreenState {
   /// may not have boundary/center coordinates, we only select without focusing.
   Future<void> _selectPropertyFromDeepLink(MapPropertyFeature feature) async {
     if (!mounted) return;
+
+    _safeSetState(() {
+      _hasSelectedPlace = true;
+    });
 
     _closePlotPanel();
 

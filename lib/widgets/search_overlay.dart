@@ -763,7 +763,7 @@ class SearchOverlayState extends State<SearchOverlay> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color.fromRGBO(243, 244, 246, 0.9),
+        color: const Color.fromRGBO(243, 244, 246, 1.0),
         borderRadius: BorderRadius.circular(8),
         boxShadow: const [
           BoxShadow(
