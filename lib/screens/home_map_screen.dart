@@ -16,6 +16,7 @@ import '../constants/api_constants.dart';
 import '../constants/search_constants.dart';
 import '../services/mobile_bff_map_api.dart';
 import '../services/mobile_bff_plots_api.dart';
+import '../services/performance_logger.dart';
 import '../state/auth_scope.dart';
 import '../utils/geojson.dart';
 import '../widgets/api_key_missing_banner.dart';
@@ -752,7 +753,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     required double zoom,
     required double pixelRatio,
   }) async {
-    final nextMarkers = <Marker>{};
+    // Phase 1: Collect pending marker data without rendering icons
+    final pendingMarkers = <_PendingPropertyMarker>[];
 
     for (final feature in response.properties) {
       final center = feature.centerPoint;
@@ -823,63 +825,110 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
             )
           : null;
 
-      BitmapDescriptor? icon;
-      Offset? anchor;
-      double zIndex = 80;
-
+      // Determine icon type
+      _PropertyIconType iconType;
       if (shouldShowLayoutBadge) {
-        icon = await _iconFactory.getLayoutBadgeIcon(
-          title: title.isEmpty ? 'Layout' : title,
-          subtitle: layoutLocation,
-          zoom: zoom,
-          pixelRatio: pixelRatio,
-        );
-        anchor = const Offset(0.5, 1.0);
-        zIndex = 999999;
+        iconType = _PropertyIconType.layoutBadge;
       } else if (isLayout) {
-        icon = await _iconFactory.getLayoutMarkerDotIcon(
-          zoom: zoom,
-          pixelRatio: pixelRatio,
-        );
-        // Circular marker: anchor at center.
-        anchor = const Offset(0.5, 0.5);
-        zIndex = 140;
+        iconType = _PropertyIconType.layoutDot;
       } else if (priceBadgeLabel != null) {
-        final colors = _priceBadgeColorsForPropertyType(feature.propertyType);
-        icon = await _iconFactory.getPriceBadgeIcon(
-          label: priceBadgeLabel,
-          zoom: zoom,
-          pixelRatio: pixelRatio,
-          background: colors.background,
-          stroke: colors.stroke,
-          text: colors.text,
-          emphasize: isSelected,
-        );
-        anchor = const Offset(0.5, 1.0);
-        zIndex = 200;
+        iconType = _PropertyIconType.priceBadge;
+      } else {
+        iconType = _PropertyIconType.defaultMarker;
+      }
+
+      pendingMarkers.add(_PendingPropertyMarker(
+        feature: feature,
+        center: center,
+        title: title,
+        isLayout: isLayout,
+        isSelected: isSelected,
+        priceBadgeLabel: priceBadgeLabel,
+        focusCenter: focusCenter,
+        focusZoom: focusZoom,
+        shouldShowLayoutBadge: shouldShowLayoutBadge,
+        layoutLocation: layoutLocation,
+        iconType: iconType,
+      ));
+    }
+
+    // Phase 2: Render all icons in parallel
+    final iconFutures = pendingMarkers.map((p) async {
+      switch (p.iconType) {
+        case _PropertyIconType.layoutBadge:
+          return await _iconFactory.getLayoutBadgeIcon(
+            title: p.title.isEmpty ? 'Layout' : p.title,
+            subtitle: p.layoutLocation,
+            zoom: zoom,
+            pixelRatio: pixelRatio,
+          );
+        case _PropertyIconType.layoutDot:
+          return await _iconFactory.getLayoutMarkerDotIcon(
+            zoom: zoom,
+            pixelRatio: pixelRatio,
+          );
+        case _PropertyIconType.priceBadge:
+          final colors = _priceBadgeColorsForPropertyType(p.feature.propertyType);
+          return await _iconFactory.getPriceBadgeIcon(
+            label: p.priceBadgeLabel!,
+            zoom: zoom,
+            pixelRatio: pixelRatio,
+            background: colors.background,
+            stroke: colors.stroke,
+            text: colors.text,
+            emphasize: p.isSelected,
+          );
+        case _PropertyIconType.defaultMarker:
+          return BitmapDescriptor.defaultMarker;
+      }
+    });
+
+    final icons = await Future.wait(iconFutures);
+
+    // Phase 3: Create markers with rendered icons
+    final nextMarkers = <Marker>{};
+    for (var i = 0; i < pendingMarkers.length; i++) {
+      final p = pendingMarkers[i];
+      final icon = icons[i];
+
+      Offset anchor;
+      double zIndex;
+      switch (p.iconType) {
+        case _PropertyIconType.layoutBadge:
+          anchor = const Offset(0.5, 1.0);
+          zIndex = 999999;
+        case _PropertyIconType.layoutDot:
+          anchor = const Offset(0.5, 0.5);
+          zIndex = 140;
+        case _PropertyIconType.priceBadge:
+          anchor = const Offset(0.5, 1.0);
+          zIndex = 200;
+        case _PropertyIconType.defaultMarker:
+          anchor = const Offset(0.5, 1.0);
+          zIndex = 80;
       }
 
       nextMarkers.add(
         Marker(
-          markerId: MarkerId('property:${feature.propertyId}'),
-          position: center,
-          icon: icon ?? BitmapDescriptor.defaultMarker,
-          anchor: anchor ?? const Offset(0.5, 1.0),
+          markerId: MarkerId('property:${p.feature.propertyId}'),
+          position: p.center,
+          icon: icon,
+          anchor: anchor,
           zIndex: zIndex,
-          onTap: feature.propertyType.trim() == 'IndependentHouse'
+          onTap: p.feature.propertyType.trim() == 'IndependentHouse'
               ? () => _handleIndependentHouseTapped(
-                    feature,
-                    target: focusCenter ?? center,
-                    zoom: focusZoom ?? 20.0,
+                    p.feature,
+                    target: p.focusCenter ?? p.center,
+                    zoom: p.focusZoom ?? 20.0,
                   )
-              : isLayout
-                  ? (shouldShowLayoutBadge
+              : p.isLayout
+                  ? (p.shouldShowLayoutBadge
                       ? () => _focusPropertyOnMap(
-                            target: focusCenter ?? center,
-                            zoom: focusZoom ?? _layoutFocusZoomTarget,
+                            target: p.focusCenter ?? p.center,
+                            zoom: p.focusZoom ?? _layoutFocusZoomTarget,
                           )
                       : () {
-                          final layoutId = feature.featureId.trim();
+                          final layoutId = p.feature.featureId.trim();
                           if (layoutId.isEmpty) {
                             ToastMessage.show(
                               context,
@@ -895,7 +944,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                               MaterialPageRoute<void>(
                                 builder: (_) => LayoutDetailScreen(
                                   layoutId: layoutId,
-                                  fallbackFeature: feature,
+                                  fallbackFeature: p.feature,
                                 ),
                               ),
                             );
@@ -903,12 +952,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                         })
                   : () => unawaited(
                         _handlePropertyTapped(
-                          feature,
-                          target: focusCenter ?? center,
-                          zoom: focusZoom ?? 20.0,
+                          p.feature,
+                          target: p.focusCenter ?? p.center,
+                          zoom: p.focusZoom ?? 20.0,
                         ),
                       ),
-          // Disable default Google Maps tooltip/infowindow (web UX doesn't show it).
           infoWindow: InfoWindow.noText,
         ),
       );
@@ -1382,4 +1430,41 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       ),
     );
   }
+}
+
+/// Icon types for property markers.
+enum _PropertyIconType {
+  layoutBadge,
+  layoutDot,
+  priceBadge,
+  defaultMarker,
+}
+
+/// Helper class for pending property marker data.
+class _PendingPropertyMarker {
+  const _PendingPropertyMarker({
+    required this.feature,
+    required this.center,
+    required this.title,
+    required this.isLayout,
+    required this.isSelected,
+    required this.priceBadgeLabel,
+    required this.focusCenter,
+    required this.focusZoom,
+    required this.shouldShowLayoutBadge,
+    required this.layoutLocation,
+    required this.iconType,
+  });
+
+  final MapPropertyFeature feature;
+  final LatLng center;
+  final String title;
+  final bool isLayout;
+  final bool isSelected;
+  final String? priceBadgeLabel;
+  final LatLng? focusCenter;
+  final double? focusZoom;
+  final bool shouldShowLayoutBadge;
+  final String? layoutLocation;
+  final _PropertyIconType iconType;
 }

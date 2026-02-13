@@ -167,24 +167,34 @@ extension _HomeMapViewport on _HomeMapScreenState {
         return;
       }
 
+      final perf = PerformanceLogger.instance;
       final filteredResponse = _applyClientFilters(response);
 
+      perf.startTimer('renderPolygons');
       final rendered = _renderViewport(
         response: filteredResponse,
         zoom: _lastCameraPosition.zoom,
       );
+      perf.stopTimer('renderPolygons');
 
       final pixelRatio = MediaQuery.of(context).devicePixelRatio;
+      perf.startTimer('buildPropertyMarkers');
       final propertyMarkers = await _buildPropertyMarkers(
         response: filteredResponse,
         zoom: _lastCameraPosition.zoom,
         pixelRatio: pixelRatio,
       );
+      perf.stopTimer('buildPropertyMarkers');
+
+      perf.startTimer('buildLabelMarkers');
       final labels = await _buildLabelMarkers(
         response: filteredResponse,
         zoom: _lastCameraPosition.zoom,
         pixelRatio: pixelRatio,
       );
+      perf.stopTimer('buildLabelMarkers');
+
+      await perf.finishRequest();
 
       if (!mounted || requestId != _viewportRequestSeq) {
         return;

@@ -19,11 +19,6 @@ extension _HomeMapLabels on _HomeMapScreenState {
       );
     }
 
-    final nextPlotLabels = <Marker>{};
-    final nextRoadLabels = <Marker>{};
-    final nextAmenityLabels = <Marker>{};
-    var totalLabels = 0;
-
     const defaultShadows = <Shadow>[
       Shadow(
         color: Color(0xD0000000),
@@ -32,6 +27,13 @@ extension _HomeMapLabels on _HomeMapScreenState {
       ),
     ];
 
+    // Collect all pending labels first, then render icons in parallel
+    final pendingPlotLabels = <_PendingPlotLabel>[];
+    final pendingRoadLabels = <_PendingRoadLabel>[];
+    final pendingAmenityLabels = <_PendingAmenityLabel>[];
+    var totalLabels = 0;
+
+    // Phase 1: Collect plot labels
     if (shouldShowPlotLabels) {
       final plotFontSize = _plotLabelFontSize(zoom);
       for (final plot in response.plots) {
@@ -43,36 +45,17 @@ extension _HomeMapLabels on _HomeMapScreenState {
         final pos = plot.centerPoint;
         if (pos == null) continue;
 
-        final icon = await _iconFactory.getTextLabelIcon(
-          text: label,
-          pixelRatio: pixelRatio,
+        pendingPlotLabels.add(_PendingPlotLabel(
+          plot: plot,
+          label: label,
+          position: pos,
           fontSize: plotFontSize,
-          textColor: Colors.white,
-          shadows: defaultShadows,
-          backgroundColor: null,
-          padding: EdgeInsets.zero,
-          borderRadius: 0,
-        );
-
-        nextPlotLabels.add(
-          Marker(
-            markerId: MarkerId('plot-label:${plot.plotId}'),
-            position: pos,
-            icon: icon,
-            anchor: const Offset(0.5, 0.5),
-            zIndex: 120,
-            // Plot labels sit above polygons. If we let taps fall through, the
-            // map's `onTap` handler can fire and immediately close the panel.
-            // Make the label itself open the same plot details panel.
-            onTap: () => _handlePlotTapped(plot),
-            consumeTapEvents: true,
-            infoWindow: InfoWindow.noText,
-          ),
-        );
+        ));
         totalLabels++;
       }
     }
 
+    // Phase 1: Collect road labels
     if (shouldShowRoadLabels) {
       final roadFontSize = _roadLabelFontSize(zoom);
       for (final road in response.roads) {
@@ -95,33 +78,17 @@ extension _HomeMapLabels on _HomeMapScreenState {
 
         if (placement == null) continue;
 
-        final icon = await _iconFactory.getTextLabelIcon(
-          text: name,
-          pixelRatio: pixelRatio,
+        pendingRoadLabels.add(_PendingRoadLabel(
+          road: road,
+          name: name,
+          placement: placement,
           fontSize: roadFontSize,
-          textColor: Colors.white,
-          shadows: defaultShadows,
-          backgroundColor: null,
-          padding: EdgeInsets.zero,
-          borderRadius: 0,
-        );
-
-        nextRoadLabels.add(
-          Marker(
-            markerId: MarkerId('road-label:${road.roadId}'),
-            position: placement.position,
-            icon: icon,
-            anchor: const Offset(0.5, 0.5),
-            zIndex: 110,
-            rotation: placement.rotationDegrees,
-            flat: true,
-            consumeTapEvents: false,
-          ),
-        );
+        ));
         totalLabels++;
       }
     }
 
+    // Phase 1: Collect amenity labels
     if (shouldShowAmenityLabels) {
       for (final amenity in response.amenities) {
         if (totalLabels >= _maxLabelMarkers) break;
@@ -137,29 +104,106 @@ extension _HomeMapLabels on _HomeMapScreenState {
         final pos = _centroid(polygons.first);
         if (pos == null) continue;
 
-        final icon = await _iconFactory.getTextLabelIcon(
-          text: label,
-          pixelRatio: pixelRatio,
+        pendingAmenityLabels.add(_PendingAmenityLabel(
+          amenity: amenity,
+          label: label,
+          position: pos,
           fontSize: amenityFontSize,
+        ));
+        totalLabels++;
+      }
+    }
+
+    // Phase 2: Render all icons in parallel
+    final plotIconFutures = pendingPlotLabels.map((p) =>
+        _iconFactory.getTextLabelIcon(
+          text: p.label,
+          pixelRatio: pixelRatio,
+          fontSize: p.fontSize,
           textColor: Colors.white,
           shadows: defaultShadows,
           backgroundColor: null,
           padding: EdgeInsets.zero,
           borderRadius: 0,
-        );
+        ));
 
-        nextAmenityLabels.add(
-          Marker(
-            markerId: MarkerId('amenity-label:${amenity.amenityId}'),
-            position: pos,
-            icon: icon,
-            anchor: const Offset(0.5, 0.5),
-            zIndex: 105,
-            consumeTapEvents: false,
-          ),
-        );
-        totalLabels++;
-      }
+    final roadIconFutures = pendingRoadLabels.map((r) =>
+        _iconFactory.getTextLabelIcon(
+          text: r.name,
+          pixelRatio: pixelRatio,
+          fontSize: r.fontSize,
+          textColor: Colors.white,
+          shadows: defaultShadows,
+          backgroundColor: null,
+          padding: EdgeInsets.zero,
+          borderRadius: 0,
+        ));
+
+    final amenityIconFutures = pendingAmenityLabels.map((a) =>
+        _iconFactory.getTextLabelIcon(
+          text: a.label,
+          pixelRatio: pixelRatio,
+          fontSize: a.fontSize,
+          textColor: Colors.white,
+          shadows: defaultShadows,
+          backgroundColor: null,
+          padding: EdgeInsets.zero,
+          borderRadius: 0,
+        ));
+
+    // Wait for all icons in parallel
+    final plotIcons = await Future.wait(plotIconFutures);
+    final roadIcons = await Future.wait(roadIconFutures);
+    final amenityIcons = await Future.wait(amenityIconFutures);
+
+    // Phase 3: Create markers with rendered icons
+    final nextPlotLabels = <Marker>{};
+    for (var i = 0; i < pendingPlotLabels.length; i++) {
+      final p = pendingPlotLabels[i];
+      nextPlotLabels.add(
+        Marker(
+          markerId: MarkerId('plot-label:${p.plot.plotId}'),
+          position: p.position,
+          icon: plotIcons[i],
+          anchor: const Offset(0.5, 0.5),
+          zIndex: 120,
+          onTap: () => _handlePlotTapped(p.plot),
+          consumeTapEvents: true,
+          infoWindow: InfoWindow.noText,
+        ),
+      );
+    }
+
+    final nextRoadLabels = <Marker>{};
+    for (var i = 0; i < pendingRoadLabels.length; i++) {
+      final r = pendingRoadLabels[i];
+      nextRoadLabels.add(
+        Marker(
+          markerId: MarkerId('road-label:${r.road.roadId}'),
+          position: r.placement.position,
+          icon: roadIcons[i],
+          anchor: const Offset(0.5, 0.5),
+          zIndex: 110,
+          rotation: r.placement.rotationDegrees,
+          flat: true,
+          consumeTapEvents: false,
+        ),
+      );
+    }
+
+    final nextAmenityLabels = <Marker>{};
+    for (var i = 0; i < pendingAmenityLabels.length; i++) {
+      final a = pendingAmenityLabels[i];
+      nextAmenityLabels.add(
+        Marker(
+          markerId: MarkerId('amenity-label:${a.amenity.amenityId}'),
+          position: a.position,
+          icon: amenityIcons[i],
+          anchor: const Offset(0.5, 0.5),
+          zIndex: 105,
+          consumeTapEvents: false,
+        ),
+      );
     }
 
     return _LabelMarkerResult(
@@ -409,4 +453,49 @@ extension _HomeMapLabels on _HomeMapScreenState {
 
   double _degToRad(double deg) => deg * math.pi / 180.0;
   double _radToDeg(double rad) => rad * 180.0 / math.pi;
+}
+
+/// Helper class for pending plot label data.
+class _PendingPlotLabel {
+  const _PendingPlotLabel({
+    required this.plot,
+    required this.label,
+    required this.position,
+    required this.fontSize,
+  });
+
+  final MapPlotFeature plot;
+  final String label;
+  final LatLng position;
+  final double fontSize;
+}
+
+/// Helper class for pending road label data.
+class _PendingRoadLabel {
+  const _PendingRoadLabel({
+    required this.road,
+    required this.name,
+    required this.placement,
+    required this.fontSize,
+  });
+
+  final MapRoadFeature road;
+  final String name;
+  final _LineLabelPlacement placement;
+  final double fontSize;
+}
+
+/// Helper class for pending amenity label data.
+class _PendingAmenityLabel {
+  const _PendingAmenityLabel({
+    required this.amenity,
+    required this.label,
+    required this.position,
+    required this.fontSize,
+  });
+
+  final MapAmenityFeature amenity;
+  final String label;
+  final LatLng position;
+  final double fontSize;
 }

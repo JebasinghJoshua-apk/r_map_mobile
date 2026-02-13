@@ -13,6 +13,7 @@ import '../models/map_viewport_models.dart';
 import '../models/my_property_list_item.dart';
 import '../models/nearby_property_card.dart';
 import '../models/property_detail.dart';
+import 'performance_logger.dart';
 
 class MobileBffMapApi {
   MobileBffMapApi({http.Client? client}) : _client = client ?? http.Client();
@@ -69,6 +70,10 @@ class MobileBffMapApi {
     List<String>? propertyTypes,
     String? bearerToken,
   }) async {
+    final perf = PerformanceLogger.instance;
+    perf.startRequest();
+    perf.startTimer('total');
+    perf.startTimer('network');
     final minLat = bounds.southwest.latitude < bounds.northeast.latitude
         ? bounds.southwest.latitude
         : bounds.northeast.latitude;
@@ -113,6 +118,8 @@ class MobileBffMapApi {
       response = await _client
           .get(uri, headers: headers.isEmpty ? null : headers)
           .timeout(_timeout);
+      perf.stopTimer('network');
+      perf.logData('responseSize', '${response.bodyBytes.length} bytes');
     } on SocketException {
       await _logNetworkDiagnostics(uri);
       debugPrint(_networkHelpMessage());
@@ -132,11 +139,22 @@ class MobileBffMapApi {
     }
 
     if (response.statusCode == 200) {
+      perf.startTimer('jsonDecode');
       final decoded = jsonDecode(response.body);
+      perf.stopTimer('jsonDecode');
       if (decoded is! Map) {
         throw const MapApiException('Unexpected response from server');
       }
-      return MapViewportResponse.fromJson(decoded.cast<String, dynamic>());
+      perf.startTimer('fromJson');
+      final result =
+          MapViewportResponse.fromJson(decoded.cast<String, dynamic>());
+      perf.stopTimer('fromJson');
+      perf.logData('properties', result.properties.length);
+      perf.logData('plots', result.plots.length);
+      perf.logData('amenities', result.amenities.length);
+      perf.logData('roads', result.roads.length);
+      // Note: finishRequest() called in home_map_viewport.dart after rendering
+      return result;
     }
 
     throw MapApiException(
