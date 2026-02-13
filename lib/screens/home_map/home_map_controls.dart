@@ -4,6 +4,8 @@ extension _HomeMapControls on _HomeMapScreenState {
   void _toggleSatelliteMode() {
     _updateState(() {
       _mapType = _mapType == MapType.hybrid ? MapType.normal : MapType.hybrid;
+      // Lock to user selection for this session (prevents zoom-based auto-switch).
+      _userSelectedMapType = true;
     });
   }
 

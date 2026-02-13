@@ -122,6 +122,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
   String? _lightMapStyle;
   MapType _mapType = MapType.normal;
+  /// True when user manually toggles map type; prevents zoom-based auto-switching.
+  bool _userSelectedMapType = false;
   final ValueNotifier<double> _zoomNotifier =
       ValueNotifier(_initialCameraPosition.zoom);
 
@@ -1075,6 +1077,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                 _effectiveZoom = position.zoom;
               }
               _zoomNotifier.value = position.zoom;
+
+              // Skip auto-switch if user manually selected map type this session.
+              if (_userSelectedMapType) return;
 
               final shouldBeHybrid = _mapType == MapType.hybrid
                   ? position.zoom >= _hybridZoomExit
