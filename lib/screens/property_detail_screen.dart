@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../models/map_viewport_models.dart';
 import '../services/analytics_service.dart';
+import '../services/mobile_bff_map_api.dart';
 import '../services/mobile_bff_saved_properties_api.dart';
 import '../state/auth_scope.dart';
 import '../utils/pending_property_selection.dart';
@@ -42,9 +43,15 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   final PageController _pageController = PageController();
 
   late final MobileBffSavedPropertiesApi _savedPropertiesApi;
+  late final MobileBffMapApi _mapApi;
   bool _isSaved = false;
   bool _isSaving = false;
   String? _lastAuthKey;
+
+  /// Local image state – initialized from widget props, then fetched if needed.
+  List<String>? _imageUrls;
+  bool _isLoadingImages = false;
+  String? _imagesError;
 
   String get _propertyId => widget.feature.propertyId.trim();
 
@@ -52,6 +59,19 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   void initState() {
     super.initState();
     _savedPropertiesApi = MobileBffSavedPropertiesApi();
+    _mapApi = MobileBffMapApi();
+
+    // Initialize image state from widget props.
+    _imageUrls = widget.imageUrls;
+    _isLoadingImages = widget.isLoadingImages;
+    _imagesError = widget.imagesError;
+
+    // If no images provided and not already loading, fetch them.
+    final hasImages = widget.imageUrls != null && widget.imageUrls!.isNotEmpty;
+    if (!hasImages && !widget.isLoadingImages) {
+      unawaited(_fetchImages());
+    }
+
     AnalyticsService.instance.logScreenView('PropertyDetail');
     AnalyticsService.instance.logPropertyViewed(
       propertyId: widget.feature.propertyId,
@@ -97,6 +117,49 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  /// Fetch images from MobileBff if not already provided by parent.
+  Future<void> _fetchImages() async {
+    final propertyType = widget.feature.propertyType.trim();
+    final entityId = widget.feature.featureId.trim();
+    if (propertyType.isEmpty || entityId.isEmpty) return;
+
+    if (!mounted) return;
+    setState(() {
+      _isLoadingImages = true;
+      _imagesError = null;
+    });
+
+    try {
+      final token = AuthScope.of(context).session?.token;
+      final images = await _mapApi.getPropertyMedia(
+        propertyType: propertyType,
+        entityId: entityId,
+        bearerToken: token,
+      );
+
+      if (!mounted) return;
+
+      final urls = <String>[];
+      for (final img in images) {
+        final u = img.fileUrl.trim();
+        if (u.isNotEmpty && !urls.contains(u)) urls.add(u);
+      }
+
+      setState(() {
+        _imageUrls = urls;
+        _isLoadingImages = false;
+        _imagesError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _imageUrls = const <String>[];
+        _isLoadingImages = false;
+        _imagesError = e.toString();
+      });
+    }
   }
 
   Future<void> _refreshSavedStateFromIds() async {
@@ -298,7 +361,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
 
     final listingType = _trimOrEmpty(feature.listingType);
 
-    final resolvedOverride = (widget.imageUrls ?? const <String>[])
+    final resolvedOverride = (_imageUrls ?? const <String>[])
         .map((v) => v.trim())
         .where((v) => v.isNotEmpty)
         .map(PropertyDetailsPanel.resolveMediaUrl)
@@ -413,8 +476,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                     _HeroCarousel(
                       height: 360,
                       images: images,
-                      loading: widget.isLoadingImages,
-                      error: widget.imagesError,
+                      loading: _isLoadingImages,
+                      error: _imagesError,
                       onIndexChanged: (idx) =>
                           setState(() => _activeIndex = idx),
                       controller: _pageController,
