@@ -868,7 +868,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
             pixelRatio: pixelRatio,
           );
         case _PropertyIconType.priceBadge:
-          final colors = _priceBadgeColorsForPropertyType(p.feature.propertyType);
+          final colors =
+              _priceBadgeColorsForPropertyType(p.feature.propertyType);
           return await _iconFactory.getPriceBadgeIcon(
             label: p.priceBadgeLabel!,
             zoom: zoom,

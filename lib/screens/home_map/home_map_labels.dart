@@ -115,41 +115,41 @@ extension _HomeMapLabels on _HomeMapScreenState {
     }
 
     // Phase 2: Render all icons in parallel
-    final plotIconFutures = pendingPlotLabels.map((p) =>
-        _iconFactory.getTextLabelIcon(
-          text: p.label,
-          pixelRatio: pixelRatio,
-          fontSize: p.fontSize,
-          textColor: Colors.white,
-          shadows: defaultShadows,
-          backgroundColor: null,
-          padding: EdgeInsets.zero,
-          borderRadius: 0,
-        ));
+    final plotIconFutures =
+        pendingPlotLabels.map((p) => _iconFactory.getTextLabelIcon(
+              text: p.label,
+              pixelRatio: pixelRatio,
+              fontSize: p.fontSize,
+              textColor: Colors.white,
+              shadows: defaultShadows,
+              backgroundColor: null,
+              padding: EdgeInsets.zero,
+              borderRadius: 0,
+            ));
 
-    final roadIconFutures = pendingRoadLabels.map((r) =>
-        _iconFactory.getTextLabelIcon(
-          text: r.name,
-          pixelRatio: pixelRatio,
-          fontSize: r.fontSize,
-          textColor: Colors.white,
-          shadows: defaultShadows,
-          backgroundColor: null,
-          padding: EdgeInsets.zero,
-          borderRadius: 0,
-        ));
+    final roadIconFutures =
+        pendingRoadLabels.map((r) => _iconFactory.getTextLabelIcon(
+              text: r.name,
+              pixelRatio: pixelRatio,
+              fontSize: r.fontSize,
+              textColor: Colors.white,
+              shadows: defaultShadows,
+              backgroundColor: null,
+              padding: EdgeInsets.zero,
+              borderRadius: 0,
+            ));
 
-    final amenityIconFutures = pendingAmenityLabels.map((a) =>
-        _iconFactory.getTextLabelIcon(
-          text: a.label,
-          pixelRatio: pixelRatio,
-          fontSize: a.fontSize,
-          textColor: Colors.white,
-          shadows: defaultShadows,
-          backgroundColor: null,
-          padding: EdgeInsets.zero,
-          borderRadius: 0,
-        ));
+    final amenityIconFutures =
+        pendingAmenityLabels.map((a) => _iconFactory.getTextLabelIcon(
+              text: a.label,
+              pixelRatio: pixelRatio,
+              fontSize: a.fontSize,
+              textColor: Colors.white,
+              shadows: defaultShadows,
+              backgroundColor: null,
+              padding: EdgeInsets.zero,
+              borderRadius: 0,
+            ));
 
     // Wait for all icons in parallel
     final plotIcons = await Future.wait(plotIconFutures);
