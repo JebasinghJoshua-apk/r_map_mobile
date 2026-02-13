@@ -37,6 +37,7 @@ import 'layout_detail_screen.dart';
 import 'property_detail_screen.dart';
 import '../utils/route_observer.dart';
 import '../utils/anchored_popover_geometry.dart';
+import '../utils/pending_layout_focus.dart';
 import '../utils/pending_map_focus.dart';
 import '../utils/pending_plot_selection.dart';
 import '../utils/pending_property_selection.dart';
@@ -420,6 +421,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     final pendingPlotFocus = PendingPlotSelection.take();
     if (pendingPlotFocus != null) {
       unawaited(_focusPlotFromDeepLink(pendingPlotFocus));
+    }
+
+    // Handle layout focus from deep link.
+    final pendingLayoutFocus = PendingLayoutFocus.take();
+    debugPrint('[DidPopNext] pendingLayoutFocus=$pendingLayoutFocus');
+    if (pendingLayoutFocus != null) {
+      unawaited(_focusLayoutFromDeepLink(pendingLayoutFocus));
     }
   }
 

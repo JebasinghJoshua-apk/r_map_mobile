@@ -1113,4 +1113,68 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _focusedPlotIdFromDeepLink = null;
     });
   }
+
+  /// Focus a layout from a deep link.
+  ///
+  /// This fetches the layout boundary from the share API and animates
+  /// the camera to focus on the layout.
+  Future<void> _focusLayoutFromDeepLink(String layoutId) async {
+    debugPrint('[DeepLink] _focusLayoutFromDeepLink called with layoutId=$layoutId');
+    if (!mounted) return;
+
+    _safeSetState(() {
+      _hasSelectedPlace = true;
+    });
+
+    // Contract search overlay to see the map.
+    _searchOverlayKey.currentState?.contract();
+
+    // Fetch the layout share summary to get coordinates and boundary.
+    debugPrint('[DeepLink] Fetching layout share summary...');
+    final summary = await _fetchLayoutShareSummary(layoutId);
+    debugPrint('[DeepLink] summary=$summary');
+    if (summary == null) {
+      debugPrint('[DeepLink] layout $layoutId not found');
+      return;
+    }
+
+    // Draw preview boundary if available.
+    final boundaryGeoJson = summary['boundaryGeoJson'] as String?;
+    if (boundaryGeoJson != null && boundaryGeoJson.isNotEmpty) {
+      _drawLayoutPreviewPolygonIfAvailable(layoutId, boundaryGeoJson);
+    }
+
+    // Focus camera on the layout center.
+    final lat = summary['centerLatitude'] as double?;
+    final lng = summary['centerLongitude'] as double?;
+    if (lat != null && lng != null) {
+      await _focusPropertyOnMap(
+        target: LatLng(lat, lng),
+        zoom: _layoutFocusZoomTarget,
+      );
+    }
+
+    // Trigger viewport refresh to load layout data.
+    unawaited(_fetchViewport());
+  }
+
+  /// Fetch layout share summary from the API.
+  Future<Map<String, dynamic>?> _fetchLayoutShareSummary(
+    String layoutId,
+  ) async {
+    final baseUrl = ApiConstants.apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final url = '$baseUrl/api/share/property/Layout/$layoutId';
+
+    try {
+      final response =
+          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('[DeepLink] layout fetch error: $e');
+    }
+    return null;
+  }
 }

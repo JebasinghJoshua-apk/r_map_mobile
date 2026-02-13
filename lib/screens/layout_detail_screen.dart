@@ -7,6 +7,7 @@ import '../models/map_viewport_models.dart';
 import '../services/analytics_service.dart';
 import '../services/mobile_bff_layouts_api.dart';
 import '../state/auth_scope.dart';
+import '../utils/pending_layout_focus.dart';
 import '../widgets/delimited_bullet_list.dart';
 import '../widgets/share_property_sheet.dart';
 import '../widgets/toast_message.dart';
@@ -16,10 +17,15 @@ class LayoutDetailScreen extends StatefulWidget {
     super.key,
     required this.layoutId,
     this.fallbackFeature,
+    this.fromDeepLink = false,
   });
 
   final String layoutId;
   final MapPropertyFeature? fallbackFeature;
+
+  /// If true, popping this screen schedules a [PendingLayoutFocus] so the home
+  /// map can focus on this layout.
+  final bool fromDeepLink;
 
   @override
   State<LayoutDetailScreen> createState() => _LayoutDetailScreenState();
@@ -289,9 +295,17 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
         .where((img) => img.fileUrl.trim().isNotEmpty)
         .toList(growable: false);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
+    return PopScope(
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop && widget.fromDeepLink) {
+          // Schedule pending focus so HomeMapScreen can focus this layout
+          // when it becomes visible again.
+          PendingLayoutFocus.set(widget.layoutId);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         elevation: 0,
@@ -545,6 +559,7 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
           );
         },
       ),
+    ),
     );
   }
 }

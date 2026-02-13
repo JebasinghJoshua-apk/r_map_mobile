@@ -210,6 +210,7 @@ class DeepLinkService {
           MaterialPageRoute(
             builder: (_) => LayoutDetailScreen(
               layoutId: target.featureId,
+              fromDeepLink: true,
             ),
           ),
         );
