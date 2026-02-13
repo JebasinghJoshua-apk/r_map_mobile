@@ -790,6 +790,7 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
     if (shouldShowPolygons) {
       for (final plot in response.plots) {
         final polygons = GeoJson.tryParsePolygons(plot.boundaryGeoJson);
+        if (polygons.isEmpty) continue;
         final kind = _plotElementKind(plot);
         final isSold = plot.layoutId != null && _isSoldPlot(plot);
         final isBooked =

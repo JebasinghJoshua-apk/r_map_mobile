@@ -122,6 +122,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
   String? _lightMapStyle;
   MapType _mapType = MapType.normal;
+
   /// True when user manually toggles map type; prevents zoom-based auto-switching.
   bool _userSelectedMapType = false;
   final ValueNotifier<double> _zoomNotifier =
@@ -427,7 +428,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
     // Handle layout focus from deep link.
     final pendingLayoutFocus = PendingLayoutFocus.take();
-    debugPrint('[DidPopNext] pendingLayoutFocus=$pendingLayoutFocus');
     if (pendingLayoutFocus != null) {
       unawaited(_focusLayoutFromDeepLink(pendingLayoutFocus));
     }

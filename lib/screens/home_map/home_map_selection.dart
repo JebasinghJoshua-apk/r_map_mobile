@@ -1119,8 +1119,6 @@ extension _HomeMapSelection on _HomeMapScreenState {
   /// This fetches the layout boundary from the share API and animates
   /// the camera to focus on the layout.
   Future<void> _focusLayoutFromDeepLink(String layoutId) async {
-    debugPrint(
-        '[DeepLink] _focusLayoutFromDeepLink called with layoutId=$layoutId');
     if (!mounted) return;
 
     _safeSetState(() {
@@ -1131,11 +1129,8 @@ extension _HomeMapSelection on _HomeMapScreenState {
     _searchOverlayKey.currentState?.contract();
 
     // Fetch the layout share summary to get coordinates and boundary.
-    debugPrint('[DeepLink] Fetching layout share summary...');
     final summary = await _fetchLayoutShareSummary(layoutId);
-    debugPrint('[DeepLink] summary=$summary');
     if (summary == null) {
-      debugPrint('[DeepLink] layout $layoutId not found');
       return;
     }
 

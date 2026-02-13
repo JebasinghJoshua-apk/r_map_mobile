@@ -173,7 +173,7 @@ extension _HomeMapViewport on _HomeMapScreenState {
       perf.startTimer('renderPolygons');
       final rendered = _renderViewport(
         response: filteredResponse,
-        zoom: _lastCameraPosition.zoom,
+        zoom: zoom,
       );
       perf.stopTimer('renderPolygons');
 
@@ -181,7 +181,7 @@ extension _HomeMapViewport on _HomeMapScreenState {
       perf.startTimer('buildPropertyMarkers');
       final propertyMarkers = await _buildPropertyMarkers(
         response: filteredResponse,
-        zoom: _lastCameraPosition.zoom,
+        zoom: zoom,
         pixelRatio: pixelRatio,
       );
       perf.stopTimer('buildPropertyMarkers');
@@ -189,7 +189,7 @@ extension _HomeMapViewport on _HomeMapScreenState {
       perf.startTimer('buildLabelMarkers');
       final labels = await _buildLabelMarkers(
         response: filteredResponse,
-        zoom: _lastCameraPosition.zoom,
+        zoom: zoom,
         pixelRatio: pixelRatio,
       );
       perf.stopTimer('buildLabelMarkers');

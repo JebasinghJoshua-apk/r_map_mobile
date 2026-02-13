@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -131,7 +130,6 @@ class _SharePropertySheet extends StatefulWidget {
 
 class _SharePropertySheetState extends State<_SharePropertySheet> {
   bool _copied = false;
-  bool _imageLoaded = false;
   bool _imageError = false;
   Uint8List? _heroBytes;
 
@@ -160,14 +158,11 @@ class _SharePropertySheetState extends State<_SharePropertySheet> {
   /// API-generated map image.
   Future<void> _preloadImage() async {
     // Try the hero photo first.
-    if (_heroImageUrl != null) {
+    if (_heroImageUrl case final heroUrl?) {
       try {
-        final response = await http.get(Uri.parse(_heroImageUrl!));
+        final response = await http.get(Uri.parse(heroUrl));
         if (response.statusCode == 200 && mounted) {
-          setState(() {
-            _heroBytes = response.bodyBytes;
-            _imageLoaded = true;
-          });
+          setState(() => _heroBytes = response.bodyBytes);
           return;
         }
       } catch (_) {
@@ -179,10 +174,7 @@ class _SharePropertySheetState extends State<_SharePropertySheet> {
     try {
       final response = await http.get(Uri.parse(_mapImageUrl));
       if (response.statusCode == 200 && mounted) {
-        setState(() {
-          _heroBytes = response.bodyBytes;
-          _imageLoaded = true;
-        });
+        setState(() => _heroBytes = response.bodyBytes);
       } else if (mounted) {
         setState(() => _imageError = true);
       }

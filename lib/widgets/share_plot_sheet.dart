@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -204,7 +203,6 @@ class _SharePlotSheet extends StatefulWidget {
 
 class _SharePlotSheetState extends State<_SharePlotSheet> {
   bool _copied = false;
-  bool _imageLoaded = false;
   bool _imageError = false;
   Uint8List? _heroBytes;
 
@@ -227,18 +225,16 @@ class _SharePlotSheetState extends State<_SharePlotSheet> {
 
   /// Loads the preview image from the layout's hero photo.
   Future<void> _preloadImage() async {
-    if (_heroImageUrl == null || _heroImageUrl!.isEmpty) {
+    final heroUrl = _heroImageUrl;
+    if (heroUrl == null || heroUrl.isEmpty) {
       setState(() => _imageError = true);
       return;
     }
 
     try {
-      final response = await http.get(Uri.parse(_heroImageUrl!));
+      final response = await http.get(Uri.parse(heroUrl));
       if (response.statusCode == 200 && mounted) {
-        setState(() {
-          _heroBytes = response.bodyBytes;
-          _imageLoaded = true;
-        });
+        setState(() => _heroBytes = response.bodyBytes);
       } else if (mounted) {
         setState(() => _imageError = true);
       }
@@ -281,8 +277,9 @@ class _SharePlotSheetState extends State<_SharePlotSheet> {
 
   Future<void> _nativeShare() async {
     final fullText = '$_shareText\n\nView details:\n$_shareUrl';
-    if (_heroImageUrl != null && _heroImageUrl!.isNotEmpty) {
-      final file = await _downloadImage(_heroImageUrl!);
+    final heroUrl = _heroImageUrl;
+    if (heroUrl != null && heroUrl.isNotEmpty) {
+      final file = await _downloadImage(heroUrl);
       if (file != null) {
         await Share.shareXFiles(
           [XFile(file.path)],
@@ -362,7 +359,7 @@ class _SharePlotSheetState extends State<_SharePlotSheet> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Image
-                  if (_heroImageUrl != null && _heroImageUrl!.isNotEmpty)
+                  if (_heroImageUrl case final heroUrl? when heroUrl.isNotEmpty)
                     SizedBox(
                       width: double.infinity,
                       height: 160,
