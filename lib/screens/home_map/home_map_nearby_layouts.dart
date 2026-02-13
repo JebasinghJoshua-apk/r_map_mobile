@@ -194,8 +194,11 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
                 ),
                 onFocus: (item) async {
                   Navigator.of(dialogContext, rootNavigator: true).pop();
-                  // Fetch boundary preview via API (same as web) and draw preview polygon.
-                  _fetchAndDrawLayoutPreviewPolygon(item.id);
+                  // Use boundary from nearby response if available (no extra API call)
+                  _drawLayoutPreviewPolygonIfAvailable(
+                    item.id,
+                    item.boundaryGeoJson,
+                  );
                   final zoom = item.focusZoomLevel ?? _layoutFocusZoomTarget;
                   await _focusPropertyOnMap(
                     target: LatLng(item.latitude, item.longitude),
@@ -237,6 +240,20 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
         _isNearbyLayoutsReopenHintOn = false;
       });
     });
+  }
+
+  /// Draw layout preview polygon using boundary from nearby response.
+  /// If boundaryGeoJson is null/empty, falls back to API call.
+  void _drawLayoutPreviewPolygonIfAvailable(
+    String layoutId,
+    String? boundaryGeoJson,
+  ) {
+    if (boundaryGeoJson != null && boundaryGeoJson.trim().isNotEmpty) {
+      _drawLayoutPreviewPolygonFromGeoJson(layoutId, boundaryGeoJson);
+    } else {
+      // Fallback: fetch boundary from API if not provided
+      _fetchAndDrawLayoutPreviewPolygon(layoutId);
+    }
   }
 
   /// Fetch layout boundary from API and draw preview polygon.
