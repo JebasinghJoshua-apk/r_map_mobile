@@ -198,7 +198,9 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
                   // Clear property type filter if it would exclude the
                   // selected layout from viewport results.
                   final currentFilter = _selectedPropertyType?.trim();
-                  if (currentFilter != null && currentFilter.isNotEmpty && currentFilter != 'Layout') {
+                  if (currentFilter != null &&
+                      currentFilter.isNotEmpty &&
+                      currentFilter != 'Layout') {
                     _updateState(() {
                       _selectedPropertyType = null;
                     });
