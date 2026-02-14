@@ -194,6 +194,18 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
                 ),
                 onFocus: (item) async {
                   Navigator.of(dialogContext, rootNavigator: true).pop();
+
+                  // Clear property type filter if it would exclude the
+                  // selected layout from viewport results.
+                  final currentFilter = _selectedPropertyType?.trim();
+                  if (currentFilter != null && currentFilter.isNotEmpty && currentFilter != 'Layout') {
+                    _updateState(() {
+                      _selectedPropertyType = null;
+                    });
+                    // Force a fresh viewport fetch.
+                    _lastViewportSignature = null;
+                  }
+
                   // Use boundary from nearby response if available (no extra API call)
                   _drawLayoutPreviewPolygonIfAvailable(
                     item.id,
