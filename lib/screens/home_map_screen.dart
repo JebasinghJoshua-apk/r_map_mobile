@@ -921,7 +921,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
       nextMarkers.add(
         Marker(
-          markerId: MarkerId('property:${p.feature.propertyId}'),
+          markerId: MarkerId(
+              'property:${p.feature.propertyType}:${p.feature.featureId}'),
           position: p.center,
           icon: icon,
           anchor: anchor,

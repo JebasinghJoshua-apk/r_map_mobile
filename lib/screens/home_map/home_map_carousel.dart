@@ -224,6 +224,11 @@ extension _HomeMapCarousel on _HomeMapScreenState {
     // Save the pre-tap camera so closing the panel can restore it.
     await _captureCameraBeforePropertyFocus();
 
+    // Suppress carousel refresh during zoom animation to prevent re-sorting
+    // from viewport updates which could show wrong property in panel.
+    _independentHouseCarouselRefreshSuppressedUntil =
+        DateTime.now().add(const Duration(milliseconds: 2500));
+
     _updateState(() {
       _selectedProperty = feature;
       _selectedPropertyHighlightPolygons =
@@ -330,6 +335,21 @@ extension _HomeMapCarousel on _HomeMapScreenState {
 
           final itemIndex = _itemIndexFromCarouselPage(index, items.length);
           final next = items[itemIndex];
+
+          // Skip update if this property is already selected (e.g., initial page
+          // change when PageController is created after marker tap).
+          final current = _selectedProperty;
+          if (current != null &&
+              current.featureId.trim() == next.featureId.trim()) {
+            // Update index but don't overwrite the selection or focus the map.
+            if (_activeIndependentHouseIndex != itemIndex) {
+              _updateState(() {
+                _activeIndependentHouseIndex = itemIndex;
+              });
+            }
+            return;
+          }
+
           _updateState(() {
             _activeIndependentHouseIndex = itemIndex;
             _selectedProperty = next;
