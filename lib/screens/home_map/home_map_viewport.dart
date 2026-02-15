@@ -171,33 +171,58 @@ extension _HomeMapViewport on _HomeMapScreenState {
       }
 
       final perf = PerformanceLogger.instance;
-      final filteredResponse = _applyClientFilters(response);
-
-      perf.startTimer('renderPolygons');
-      final rendered = _renderViewport(
-        response: filteredResponse,
-        zoom: zoom,
+      final renderTrace = await FirebasePerfService.startTrace(
+        'viewport_render_pipeline',
+        attributes: {
+          'source': 'network',
+        },
       );
-      perf.stopTimer('renderPolygons');
 
-      final pixelRatio = MediaQuery.of(context).devicePixelRatio;
-      perf.startTimer('buildPropertyMarkers');
-      final propertyMarkers = await _buildPropertyMarkers(
-        response: filteredResponse,
-        zoom: zoom,
-        pixelRatio: pixelRatio,
-      );
-      perf.stopTimer('buildPropertyMarkers');
+      if (!mounted || requestId != _viewportRequestSeq) {
+        await renderTrace?.stop();
+        return;
+      }
 
-      perf.startTimer('buildLabelMarkers');
-      final labels = await _buildLabelMarkers(
-        response: filteredResponse,
-        zoom: zoom,
-        pixelRatio: pixelRatio,
-      );
-      perf.stopTimer('buildLabelMarkers');
+      _ViewportRenderCacheEntry rendered;
+      Set<Marker> propertyMarkers;
+      _LabelMarkerResult labels;
+      MapViewportResponse filteredResponse;
 
-      await perf.finishRequest();
+      try {
+        filteredResponse = _applyClientFilters(response);
+
+        perf.startTimer('renderPolygons');
+        rendered = _renderViewport(
+          response: filteredResponse,
+          zoom: zoom,
+        );
+        perf.stopTimer('renderPolygons');
+
+        final pixelRatio = MediaQuery.of(context).devicePixelRatio;
+        perf.startTimer('buildPropertyMarkers');
+        propertyMarkers = await _buildPropertyMarkers(
+          response: filteredResponse,
+          zoom: zoom,
+          pixelRatio: pixelRatio,
+        );
+        perf.stopTimer('buildPropertyMarkers');
+
+        perf.startTimer('buildLabelMarkers');
+        labels = await _buildLabelMarkers(
+          response: filteredResponse,
+          zoom: zoom,
+          pixelRatio: pixelRatio,
+        );
+        perf.stopTimer('buildLabelMarkers');
+
+        await perf.finishRequest();
+        renderTrace?.putMetric('properties_count', filteredResponse.properties.length);
+        renderTrace?.putMetric('plots_count', filteredResponse.plots.length);
+        renderTrace?.putMetric('markers_count', propertyMarkers.length);
+        renderTrace?.putMetric('plot_labels_count', labels.plotLabelMarkers.length);
+      } finally {
+        await renderTrace?.stop();
+      }
 
       if (!mounted || requestId != _viewportRequestSeq) {
         return;

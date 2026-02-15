@@ -13,6 +13,7 @@ import '../models/map_viewport_models.dart';
 import '../models/my_property_list_item.dart';
 import '../models/nearby_property_card.dart';
 import '../models/property_detail.dart';
+import 'firebase_perf_service.dart';
 import 'performance_logger.dart';
 
 class MobileBffMapApi {
@@ -93,6 +94,16 @@ class MobileBffMapApi {
         .where((t) => t.isNotEmpty)
         .toList(growable: false);
 
+    final viewportTrace = await FirebasePerfService.startTrace(
+      'viewport_api_get',
+      attributes: {
+        'has_filters': filters.isNotEmpty ? '1' : '0',
+        'is_auth': (bearerToken != null && bearerToken.trim().isNotEmpty)
+            ? '1'
+            : '0',
+      },
+    );
+
     final uri = _uri(
       '/mobile/map/viewport',
       {
@@ -138,29 +149,39 @@ class MobileBffMapApi {
       );
     }
 
-    if (response.statusCode == 200) {
-      perf.startTimer('jsonDecode');
-      final decoded = jsonDecode(response.body);
-      perf.stopTimer('jsonDecode');
-      if (decoded is! Map) {
-        throw const MapApiException('Unexpected response from server');
-      }
-      perf.startTimer('fromJson');
-      final result =
-          MapViewportResponse.fromJson(decoded.cast<String, dynamic>());
-      perf.stopTimer('fromJson');
-      perf.logData('properties', result.properties.length);
-      perf.logData('plots', result.plots.length);
-      perf.logData('amenities', result.amenities.length);
-      perf.logData('roads', result.roads.length);
-      // Note: finishRequest() called in home_map_viewport.dart after rendering
-      return result;
-    }
+    try {
+      viewportTrace?.putMetric('response_bytes', response.bodyBytes.length);
+      viewportTrace?.putMetric('http_status', response.statusCode);
 
-    throw MapApiException(
-      _tryMessage(response.body) ??
-          'Viewport fetch failed (${response.statusCode})',
-    );
+      if (response.statusCode == 200) {
+        perf.startTimer('jsonDecode');
+        final decoded = jsonDecode(response.body);
+        perf.stopTimer('jsonDecode');
+        if (decoded is! Map) {
+          throw const MapApiException('Unexpected response from server');
+        }
+        perf.startTimer('fromJson');
+        final result =
+            MapViewportResponse.fromJson(decoded.cast<String, dynamic>());
+        perf.stopTimer('fromJson');
+        perf.logData('properties', result.properties.length);
+        perf.logData('plots', result.plots.length);
+        perf.logData('amenities', result.amenities.length);
+        perf.logData('roads', result.roads.length);
+        viewportTrace?.putMetric('properties_count', result.properties.length);
+        viewportTrace?.putMetric('plots_count', result.plots.length);
+        viewportTrace?.putMetric('roads_count', result.roads.length);
+        // Note: finishRequest() called in home_map_viewport.dart after rendering
+        return result;
+      }
+
+      throw MapApiException(
+        _tryMessage(response.body) ??
+            'Viewport fetch failed (${response.statusCode})',
+      );
+    } finally {
+      await viewportTrace?.stop();
+    }
   }
 
   Future<List<ImageSummary>> getPropertyMedia({

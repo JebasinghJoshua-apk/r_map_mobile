@@ -14,6 +14,7 @@ import 'package:http/http.dart' as http;
 import '../app.dart';
 import '../constants/api_constants.dart';
 import '../constants/search_constants.dart';
+import '../services/firebase_perf_service.dart';
 import '../services/mobile_bff_map_api.dart';
 import '../services/mobile_bff_plots_api.dart';
 import '../services/performance_logger.dart';

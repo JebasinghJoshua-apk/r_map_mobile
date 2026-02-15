@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5,6 +7,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 import 'app.dart';
+import 'services/firebase_perf_service.dart';
 import 'services/performance_logger.dart';
 
 Future<void> main() async {
@@ -12,6 +15,10 @@ Future<void> main() async {
 
   // Initialize Firebase (analytics is auto-enabled, zero UI-thread cost).
   await Firebase.initializeApp();
+
+  final startupTrace = await FirebasePerfService.startTrace(
+    'app_startup_init_to_first_frame',
+  );
 
   // Crashlytics: collect reports only in profile/release builds.
   await FirebaseCrashlytics.instance
@@ -60,4 +67,8 @@ Future<void> main() async {
         isDarkMode ? Brightness.light : Brightness.dark,
   ));
   runApp(const RMapApp());
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(startupTrace?.stop());
+  });
 }
