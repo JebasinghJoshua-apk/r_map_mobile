@@ -1024,6 +1024,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _focusedPlotIdFromDeepLink = data.plotId;
       // Store pending data for auto-selection when viewport loads.
       _pendingPlotAutoSelect = data;
+      _pendingPlotAutoSelectAt = DateTime.now();
     });
 
     // Contract search overlay to see the map.
@@ -1085,8 +1086,16 @@ extension _HomeMapSelection on _HomeMapScreenState {
     final pending = _pendingPlotAutoSelect;
     if (pending == null) return;
 
-    // Clear pending to avoid re-triggering on subsequent viewport fetches.
-    _pendingPlotAutoSelect = null;
+    // Expire after 10 seconds to avoid retrying indefinitely.
+    final setAt = _pendingPlotAutoSelectAt;
+    if (setAt != null && DateTime.now().difference(setAt).inSeconds > 10) {
+      debugPrint(
+        '[DeepLink] plot auto-select expired for ${pending.plotId}',
+      );
+      _pendingPlotAutoSelect = null;
+      _pendingPlotAutoSelectAt = null;
+      return;
+    }
 
     // Find the plot by ID.
     MapPlotFeature? match;
@@ -1098,11 +1107,18 @@ extension _HomeMapSelection on _HomeMapScreenState {
     }
 
     if (match == null) {
+      // Don't clear pending — the camera animation may still be in progress
+      // and a subsequent viewport fetch (triggered by onCameraIdle) will
+      // include the target plot once the camera settles.
       debugPrint(
-        '[DeepLink] plot ${pending.plotId} not found in viewport response',
+        '[DeepLink] plot ${pending.plotId} not found in viewport response, will retry',
       );
       return;
     }
+
+    // Clear pending now that we've found the plot.
+    _pendingPlotAutoSelect = null;
+    _pendingPlotAutoSelectAt = null;
 
     // Select the plot (opens the bottom panel).
     _safeSetState(() {

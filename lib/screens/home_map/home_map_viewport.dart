@@ -147,6 +147,9 @@ extension _HomeMapViewport on _HomeMapScreenState {
         // Clear layout preview polygon (shown while viewport data was loading).
         _layoutPreviewPolygons = <Polygon>{};
       });
+
+      // Also try auto-selecting a plot from a deep link when serving from cache.
+      _tryAutoSelectPlotFromDeepLink(cached.plots);
       return;
     }
 
@@ -206,7 +209,25 @@ extension _HomeMapViewport on _HomeMapScreenState {
         roadLabelMarkers: labels.roadLabelMarkers,
         amenityLabelMarkers: labels.amenityLabelMarkers,
       );
-      _putCachedViewport(signature, merged);
+      // Store raw plots so cached viewport paths can auto-select deep-linked
+      // plots without a network round-trip.
+      final mergedWithPlots = _ViewportRenderCacheEntry(
+        markers: merged.markers,
+        plotLabelMarkers: merged.plotLabelMarkers,
+        roadLabelMarkers: merged.roadLabelMarkers,
+        amenityLabelMarkers: merged.amenityLabelMarkers,
+        layoutPolygons: merged.layoutPolygons,
+        propertyPolygons: merged.propertyPolygons,
+        plotPolygons: merged.plotPolygons,
+        amenityPolygons: merged.amenityPolygons,
+        roadPolygons: merged.roadPolygons,
+        roadPolylines: merged.roadPolylines,
+        ownedLayoutIds: merged.ownedLayoutIds,
+        propertyByFeatureId: merged.propertyByFeatureId,
+        plots: filteredResponse.plots,
+        createdAt: merged.createdAt,
+      );
+      _putCachedViewport(signature, mergedWithPlots);
 
       final selected = _selectedProperty;
       final nextSelectedHighlight = selected == null

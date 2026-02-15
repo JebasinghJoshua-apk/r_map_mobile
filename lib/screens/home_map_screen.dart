@@ -234,6 +234,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   /// When set, the next viewport fetch will auto-select this plot.
   PlotFocusData? _pendingPlotAutoSelect;
 
+  /// Timestamp when _pendingPlotAutoSelect was set.  Used to expire the
+  /// pending after a reasonable window so we don't retry forever.
+  DateTime? _pendingPlotAutoSelectAt;
+
   MapPropertyFeature? _selectedProperty;
   List<String>? _selectedPropertyMediaUrls;
   bool _isSelectedPropertyMediaLoading = false;
