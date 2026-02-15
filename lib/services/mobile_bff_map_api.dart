@@ -98,9 +98,8 @@ class MobileBffMapApi {
       'viewport_api_get',
       attributes: {
         'has_filters': filters.isNotEmpty ? '1' : '0',
-        'is_auth': (bearerToken != null && bearerToken.trim().isNotEmpty)
-            ? '1'
-            : '0',
+        'is_auth':
+            (bearerToken != null && bearerToken.trim().isNotEmpty) ? '1' : '0',
       },
     );
 

@@ -216,10 +216,12 @@ extension _HomeMapViewport on _HomeMapScreenState {
         perf.stopTimer('buildLabelMarkers');
 
         await perf.finishRequest();
-        renderTrace?.putMetric('properties_count', filteredResponse.properties.length);
+        renderTrace?.putMetric(
+            'properties_count', filteredResponse.properties.length);
         renderTrace?.putMetric('plots_count', filteredResponse.plots.length);
         renderTrace?.putMetric('markers_count', propertyMarkers.length);
-        renderTrace?.putMetric('plot_labels_count', labels.plotLabelMarkers.length);
+        renderTrace?.putMetric(
+            'plot_labels_count', labels.plotLabelMarkers.length);
       } finally {
         await renderTrace?.stop();
       }
