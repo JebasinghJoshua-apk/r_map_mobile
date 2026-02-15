@@ -30,6 +30,7 @@ class _ViewportRenderCacheEntry {
   final Set<Polyline> roadPolylines;
   final Set<String> ownedLayoutIds;
   final Map<String, MapPropertyFeature> propertyByFeatureId;
+
   /// Raw plot features for deep-link auto-selection from cached viewport.
   final List<MapPlotFeature> plots;
   final DateTime createdAt;
