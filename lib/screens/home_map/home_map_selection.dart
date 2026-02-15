@@ -940,10 +940,8 @@ extension _HomeMapSelection on _HomeMapScreenState {
 
       if (allPoints.length >= 3) {
         final bounds = _boundsFromPoints(allPoints);
-        final latSpan =
-            bounds.northeast.latitude - bounds.southwest.latitude;
-        final lngSpan =
-            bounds.northeast.longitude - bounds.southwest.longitude;
+        final latSpan = bounds.northeast.latitude - bounds.southwest.latitude;
+        final lngSpan = bounds.northeast.longitude - bounds.southwest.longitude;
 
         // Only use bounds-based camera for polygons large enough to
         // potentially overflow the screen at the requested zoom.
