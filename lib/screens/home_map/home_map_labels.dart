@@ -39,7 +39,7 @@ extension _HomeMapLabels on _HomeMapScreenState {
       for (final plot in response.plots) {
         if (totalLabels >= _maxLabelMarkers) break;
 
-        final label = plot.plotNumber.trim();
+        final label = _simplifyPlotNumberLabel(plot.plotNumber);
         if (label.isEmpty) continue;
 
         final pos = plot.centerPoint;
@@ -483,6 +483,23 @@ class _PendingRoadLabel {
   final String name;
   final _LineLabelPlacement placement;
   final double fontSize;
+}
+
+/// Strips common prefixes ("plot", "property", "site") and extracts the
+/// numeric/alpha-numeric core.  Matches the web logic in
+/// `r-map-ui/.../tooltipContent.ts → simplifyPlotNumberLabel`.
+String _simplifyPlotNumberLabel(String? value) {
+  if (value == null) return '';
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return '';
+  final withoutPrefix = trimmed.replaceFirst(
+    RegExp(r'^(plot|property|site)\s*(no\.?|#)?\s*', caseSensitive: false),
+    '',
+  );
+  final numericMatch =
+      RegExp(r'[0-9]+[A-Za-z0-9/-]*').firstMatch(withoutPrefix);
+  if (numericMatch != null) return numericMatch.group(0)!;
+  return withoutPrefix;
 }
 
 /// Helper class for pending amenity label data.
