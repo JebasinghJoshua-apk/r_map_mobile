@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 import 'app.dart';
 import 'services/performance_logger.dart';
@@ -11,6 +12,26 @@ Future<void> main() async {
 
   // Initialize Firebase (analytics is auto-enabled, zero UI-thread cost).
   await Firebase.initializeApp();
+
+  // Crashlytics: collect reports only in profile/release builds.
+  await FirebaseCrashlytics.instance
+      .setCrashlyticsCollectionEnabled(!kDebugMode);
+
+  // Forward Flutter framework errors to Crashlytics.
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+  };
+
+  // Forward uncaught async/platform errors to Crashlytics.
+  PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+    FirebaseCrashlytics.instance.recordError(
+      error,
+      stack,
+      fatal: true,
+    );
+    return true;
+  };
 
   // Initialize performance logger (debug mode only).
   if (kDebugMode) {
