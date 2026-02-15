@@ -209,6 +209,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
         await _focusPropertyOnMap(
           target: target,
           zoom: zoom,
+          boundaryGeoJson: effectiveFeature.boundaryGeoJson,
         );
       } else {
         await _handlePropertyTapped(
@@ -501,6 +502,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
         await _focusPropertyOnMap(
           target: target,
           zoom: zoom,
+          boundaryGeoJson: effectiveFeature.boundaryGeoJson,
         );
       } else {
         await _handlePropertyTapped(
@@ -703,7 +705,11 @@ extension _HomeMapSelection on _HomeMapScreenState {
 
     unawaited(_refreshMarkerSelectionStyles());
     _ensurePropertyMediaLoaded(feature);
-    await _focusPropertyOnMap(target: target, zoom: zoom);
+    await _focusPropertyOnMap(
+      target: target,
+      zoom: zoom,
+      boundaryGeoJson: feature.boundaryGeoJson,
+    );
   }
 
   Set<Polygon> _buildSelectedPlotHighlightPolygons(MapPlotFeature plot) {
@@ -920,9 +926,52 @@ extension _HomeMapSelection on _HomeMapScreenState {
   Future<void> _focusPropertyOnMap({
     required LatLng target,
     required double zoom,
+    String? boundaryGeoJson,
   }) async {
     final controller = _mapController;
     if (controller == null) return;
+
+    if (boundaryGeoJson != null && boundaryGeoJson.isNotEmpty) {
+      final allPoints = <LatLng>[];
+      final polygons = GeoJson.tryParsePolygons(boundaryGeoJson);
+      for (final poly in polygons) {
+        allPoints.addAll(poly);
+      }
+
+      if (allPoints.length >= 3) {
+        final bounds = _boundsFromPoints(allPoints);
+        final latSpan =
+            bounds.northeast.latitude - bounds.southwest.latitude;
+        final lngSpan =
+            bounds.northeast.longitude - bounds.southwest.longitude;
+
+        // Only use bounds-based camera for polygons large enough to
+        // potentially overflow the screen at the requested zoom.
+        // ~0.0005° ≈ 55 m — well below the visible area at any default
+        // property zoom (18.5–20), so anything above this threshold
+        // genuinely risks overflowing.  Small polygons skip straight to
+        // the normal center+zoom animation (no double-animation).
+        if (latSpan > 0.0005 || lngSpan > 0.0005) {
+          // Expand bounds to account for the property details panel at
+          // the bottom (~35 % of screen) and search bar at top (~12 %).
+          final adjustedBounds = LatLngBounds(
+            southwest: LatLng(
+              bounds.southwest.latitude - latSpan * 0.55,
+              bounds.southwest.longitude,
+            ),
+            northeast: LatLng(
+              bounds.northeast.latitude + latSpan * 0.15,
+              bounds.northeast.longitude,
+            ),
+          );
+
+          await _animateCamera(
+            CameraUpdate.newLatLngBounds(adjustedBounds, 30),
+          );
+          return;
+        }
+      }
+    }
 
     await _animateCamera(
       CameraUpdate.newCameraPosition(
@@ -1007,7 +1056,11 @@ extension _HomeMapSelection on _HomeMapScreenState {
       final center = GeoJson.tryParsePoint(centerGeoJson);
       if (center != null) {
         final zoom = _priceBadgeFocusZoomTarget(feature.propertyType);
-        await _focusPropertyOnMap(target: center, zoom: zoom);
+        await _focusPropertyOnMap(
+          target: center,
+          zoom: zoom,
+          boundaryGeoJson: feature.boundaryGeoJson,
+        );
       }
     }
   }

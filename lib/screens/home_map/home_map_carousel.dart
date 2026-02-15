@@ -255,7 +255,11 @@ extension _HomeMapCarousel on _HomeMapScreenState {
     );
 
     _ensurePropertyMediaLoaded(feature);
-    await _focusPropertyOnMap(target: target, zoom: zoom);
+    await _focusPropertyOnMap(
+      target: target,
+      zoom: zoom,
+      boundaryGeoJson: feature.boundaryGeoJson,
+    );
   }
 
   double _propertyCarouselHeight(BuildContext context) {

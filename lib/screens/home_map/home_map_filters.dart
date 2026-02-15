@@ -402,7 +402,7 @@ extension _HomeMapFiltersFixed on _HomeMapScreenState {
                                                   String id,
                                                   String label
                                                 })>[
-                                                  (id: 'Sell', label: 'Sell'),
+                                                  (id: 'Sell', label: 'Buy'),
                                                   (id: 'Rent', label: 'Rent'),
                                                   (id: 'Lease', label: 'Lease'),
                                                 ])

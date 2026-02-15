@@ -227,10 +227,13 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
     if (type == null || type.isEmpty) {
       if (!didFilter) return response;
 
-      final allowedIds = filteredProperties
-          .map((p) => p.propertyId.trim())
-          .where((p) => p.isNotEmpty)
-          .toSet();
+      final allowedIds = <String>{};
+      for (final p in filteredProperties) {
+        final pid = p.propertyId.trim();
+        final fid = p.featureId.trim();
+        if (pid.isNotEmpty) allowedIds.add(pid);
+        if (fid.isNotEmpty) allowedIds.add(fid);
+      }
 
       final filteredPlots = response.plots.where((plot) {
         final id = plot.individualPlotsId?.trim();
@@ -660,10 +663,13 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
       return response;
     }
 
-    final allowedIds = filteredProperties
-        .map((p) => p.propertyId.trim())
-        .where((p) => p.isNotEmpty)
-        .toSet();
+    final allowedIds = <String>{};
+    for (final p in filteredProperties) {
+      final pid = p.propertyId.trim();
+      final fid = p.featureId.trim();
+      if (pid.isNotEmpty) allowedIds.add(pid);
+      if (fid.isNotEmpty) allowedIds.add(fid);
+    }
 
     final filteredPlots = response.plots.where((plot) {
       final id = plot.individualPlotsId?.trim();
@@ -752,18 +758,20 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
         if (polygons.isEmpty) continue;
 
         final style = _propertyStyleForType(feature.propertyType);
-        final isDetailedPlotGroup =
+
+        // When an IndividualPlots property has child plot polygons at
+        // detailed zoom, make the parent boundary transparent so sub-plots
+        // remain clearly visible while keeping the outline.
+        final hasChildPlots =
             feature.propertyType.trim() == 'IndividualPlots' &&
                 response.detailLevel == MapDetailLevel.detailed;
 
-        final strokeOpacity =
-            isDetailedPlotGroup ? 0.92 : _propertyStrokeOpacity;
-        final fillOpacity = isDetailedPlotGroup
+        const strokeOpacity = _propertyStrokeOpacity;
+        final fillOpacity = hasChildPlots
             ? 0.0
             : _adjustFillOpacityForZoom(styleZoom, _propertyBaseFillOpacity);
-        final strokeWidth = isDetailedPlotGroup
-            ? _propertyBaseStrokeWidth
-            : _adjustStrokeWidthForZoom(styleZoom, _propertyBaseStrokeWidth);
+        final strokeWidth =
+            _adjustStrokeWidthForZoom(styleZoom, _propertyBaseStrokeWidth);
 
         for (var i = 0; i < polygons.length; i++) {
           final points = polygons[i];
