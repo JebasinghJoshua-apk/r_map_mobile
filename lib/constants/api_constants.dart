@@ -39,6 +39,15 @@ class ApiConstants {
     defaultValue: apiBaseUrl,
   );
 
+  /// Toggle custom Firebase Performance traces.
+  ///
+  /// Enabled by default. Override via:
+  ///   --dart-define=ENABLE_FIREBASE_PERF_TRACES=false
+  static const bool enableFirebasePerfTraces = bool.fromEnvironment(
+    'ENABLE_FIREBASE_PERF_TRACES',
+    defaultValue: false,
+  );
+
   /// Resolved base URL used for `/uploads/*` media.
   ///
   /// Why this exists:

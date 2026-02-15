@@ -1,6 +1,8 @@
 import 'package:firebase_performance/firebase_performance.dart';
 import 'package:flutter/foundation.dart';
 
+import '../constants/api_constants.dart';
+
 class FirebasePerfTraceHandle {
   FirebasePerfTraceHandle._(this._trace);
 
@@ -40,7 +42,8 @@ class FirebasePerfTraceHandle {
 class FirebasePerfService {
   FirebasePerfService._();
 
-  static bool get _enabled => !kDebugMode;
+  static bool get _enabled =>
+      !kDebugMode && ApiConstants.enableFirebasePerfTraces;
 
   static Future<FirebasePerfTraceHandle?> startTrace(
     String name, {
