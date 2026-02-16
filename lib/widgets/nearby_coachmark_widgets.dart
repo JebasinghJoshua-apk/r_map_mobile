@@ -31,7 +31,8 @@ class _NearbyCoachmarkTooltipState extends State<NearbyCoachmarkTooltip>
       vsync: this,
       duration: const Duration(milliseconds: 350),
     );
-    _fadeScale = CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
+    _fadeScale =
+        CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
     _controller.forward();
   }
 
@@ -274,7 +275,8 @@ class _PulseRingPainter extends CustomPainter {
       size.width + spread * 2,
       size.height + spread * 2,
     );
-    final rr = RRect.fromRectAndRadius(rect, Radius.circular(borderRadius + spread));
+    final rr =
+        RRect.fromRectAndRadius(rect, Radius.circular(borderRadius + spread));
     canvas.drawRRect(rr, paint);
   }
 
