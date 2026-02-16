@@ -151,6 +151,162 @@ class _ArrowPainter extends CustomPainter {
   bool shouldRepaint(covariant _ArrowPainter old) => old.color != color;
 }
 
+/// Arrow that points upward (for the filter coachmark below the button).
+class _UpArrowPainter extends CustomPainter {
+  const _UpArrowPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final path = Path()
+      ..moveTo(0, size.height)
+      ..lineTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _UpArrowPainter old) => old.color != color;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Filter coachmark tooltip (appears below the filter button, arrow pointing up)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A tooltip-style coachmark that points at the filter button in the compact
+/// search bar. Positioned as an overlay below the search area, with an
+/// upward-pointing arrow aligned to the right (toward the filter icon).
+class FilterCoachmarkTooltip extends StatefulWidget {
+  const FilterCoachmarkTooltip({
+    super.key,
+    required this.onDismiss,
+  });
+
+  /// Called when the user dismisses the coachmark (X button).
+  final VoidCallback onDismiss;
+
+  @override
+  State<FilterCoachmarkTooltip> createState() => _FilterCoachmarkTooltipState();
+}
+
+class _FilterCoachmarkTooltipState extends State<FilterCoachmarkTooltip>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _fadeScale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    _fadeScale =
+        CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const arrowSize = 10.0;
+    const bgColor = Color(0xFF374151);
+
+    return FadeTransition(
+      opacity: _fadeScale,
+      child: ScaleTransition(
+        scale: _fadeScale,
+        alignment: Alignment.topRight,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            // Arrow pointing up (toward filter button)
+            const Padding(
+              padding: EdgeInsets.only(right: 14),
+              child: CustomPaint(
+                size: Size(arrowSize * 2, arrowSize),
+                painter: _UpArrowPainter(color: bgColor),
+              ),
+            ),
+            // Card body
+            Container(
+              constraints: const BoxConstraints(maxWidth: 220),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.tune,
+                        size: 16,
+                        color: Color(0xFF5EEAD4),
+                      ),
+                      const SizedBox(width: 6),
+                      const Expanded(
+                        child: Text(
+                          'Filter Properties',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: widget.onDismiss,
+                        behavior: HitTestBehavior.opaque,
+                        child: const Padding(
+                          padding: EdgeInsets.all(2),
+                          child: Icon(
+                            Icons.close,
+                            size: 14,
+                            color: Colors.white54,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Use filters to narrow down properties by type, price, and more.',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Wraps a child widget with a pulsating ring animation.
 ///
 /// The ring expands outward and fades, repeating [repeatCount] times per

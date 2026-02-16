@@ -280,10 +280,15 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   bool _isNearbyLayoutsReopenHintOn = false;
   Timer? _nearbyLayoutsReopenHintTimer;
 
-  // Nearby coachmark / pulse state
+  // Feature coachmark / pulse state
+  bool _showFilterCoachmark = false;
+  bool _showFilterPulse = false;
+  bool _filterCoachmarkPending = false;
+
   bool _showNearbyCoachmark = false;
   bool _showNearbyPulse = false;
   bool _nearbyCoachmarkPending = false;
+  bool _nearbyPulsePending = false;
 
   static const Duration _nearbyNewThreshold = Duration(days: 7);
 
@@ -363,8 +368,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     }
     // Fetch IP-based location in parallel (no blocking)
     _fetchIpLocation();
-    // Initialise nearby coachmark/pulse state.
-    _initNearbyCoachmark();
+    // Initialise feature coachmarks (filter + nearby) pulse state.
+    _initFeatureCoachmarks();
     // Signal that the navigator is ready for deep-link navigation.
     deepLinkService.markHomeReady();
 
@@ -637,34 +642,100 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     }
   }
 
-  Future<void> _initNearbyCoachmark() async {
-    await NearbyCoachmarkService.instance.initialize();
+  Future<void> _initFeatureCoachmarks() async {
+    await Future.wait([
+      FeatureCoachmarkService.filter.initialize(),
+      FeatureCoachmarkService.nearby.initialize(),
+    ]);
     if (!mounted) return;
     _updateState(() {
-      // Coachmark is deferred: it appears after the nearby panel closes
+      // Coachmarks are deferred: they appear after the nearby panel closes
       // (or immediately when no records are found).
+      // Sequence: filter coachmark first, then nearby coachmark.
+      _filterCoachmarkPending =
+          FeatureCoachmarkService.filter.shouldShowCoachmark;
+      _showFilterPulse = FeatureCoachmarkService.filter.shouldShowPulse;
+
       _nearbyCoachmarkPending =
-          NearbyCoachmarkService.instance.shouldShowCoachmark;
-      // Pulse shows on session start (sessions 2-3 after dismissal).
-      _showNearbyPulse = NearbyCoachmarkService.instance.shouldShowPulse;
+          FeatureCoachmarkService.nearby.shouldShowCoachmark;
+      // Nearby pulse is also deferred until after the nearby panel flow.
+      _nearbyPulsePending = FeatureCoachmarkService.nearby.shouldShowPulse;
     });
   }
 
-  /// Activate the coachmark if it was pending.
+  /// Activate the pending coachmarks in sequence.
   /// Called after the nearby panel closes or when empty (no panel shown).
-  void _activatePendingCoachmark() {
-    if (!_nearbyCoachmarkPending) return;
-    _updateState(() {
-      _nearbyCoachmarkPending = false;
-      _showNearbyCoachmark = true;
-    });
+  ///
+  /// If filter coachmark is pending it shows first; after it is dismissed
+  /// the nearby coachmark will appear (see [_dismissFilterCoachmark]).
+  void _activatePendingCoachmarks() {
+    if (_filterCoachmarkPending) {
+      _updateState(() {
+        _filterCoachmarkPending = false;
+        _showFilterCoachmark = true;
+      });
+      return; // nearby will be activated when filter is dismissed.
+    }
+    if (_nearbyCoachmarkPending) {
+      _updateState(() {
+        _nearbyCoachmarkPending = false;
+        _showNearbyCoachmark = true;
+      });
+    }
   }
+
+  // ── Filter coachmark ────────────────────────────────────────────────────
+
+  void _dismissFilterCoachmark() {
+    _updateState(() {
+      _showFilterCoachmark = false;
+    });
+    unawaited(FeatureCoachmarkService.filter.onCoachmarkDismissed());
+    // Show the nearby coachmark next (if pending).
+    if (_nearbyCoachmarkPending) {
+      _updateState(() {
+        _nearbyCoachmarkPending = false;
+        _showNearbyCoachmark = true;
+      });
+    } else if (_nearbyPulsePending) {
+      _updateState(() {
+        _nearbyPulsePending = false;
+        _showNearbyPulse = true;
+      });
+    }
+  }
+
+  void _onFilterButtonTapped(Rect panelRect, Rect arrowRect) {
+    // Permanently disable filter coachmark + pulse on first click.
+    if (_showFilterCoachmark || _showFilterPulse) {
+      _updateState(() {
+        _showFilterCoachmark = false;
+        _showFilterPulse = false;
+      });
+      unawaited(FeatureCoachmarkService.filter.onClicked());
+      // Also activate nearby coachmark if it was queued behind filter.
+      if (_nearbyCoachmarkPending) {
+        _updateState(() {
+          _nearbyCoachmarkPending = false;
+          _showNearbyCoachmark = true;
+        });
+      } else if (_nearbyPulsePending) {
+        _updateState(() {
+          _nearbyPulsePending = false;
+          _showNearbyPulse = true;
+        });
+      }
+    }
+    unawaited(_openFilters(panelRect, arrowRect));
+  }
+
+  // ── Nearby coachmark ────────────────────────────────────────────────────
 
   void _dismissNearbyCoachmark() {
     _updateState(() {
       _showNearbyCoachmark = false;
     });
-    unawaited(NearbyCoachmarkService.instance.onCoachmarkDismissed());
+    unawaited(FeatureCoachmarkService.nearby.onCoachmarkDismissed());
   }
 
   Future<void> _onNearbyButtonTapped() async {
@@ -674,7 +745,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         _showNearbyCoachmark = false;
         _showNearbyPulse = false;
       });
-      unawaited(NearbyCoachmarkService.instance.onNearbyClicked());
+      unawaited(FeatureCoachmarkService.nearby.onClicked());
     }
 
     _nearbyLayoutsReopenHintTimer?.cancel();
@@ -1232,14 +1303,23 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                             _isSearchOverlayOpen = isOpen;
                           });
                         },
-                        onFilterTap: (panelRect, arrowRect) =>
-                            unawaited(_openFilters(panelRect, arrowRect)),
+                        onFilterTap: _onFilterButtonTapped,
                         hasActiveFilters: _hasAppliedNonDefaultFilters,
+                        showFilterPulse: _showFilterPulse,
                         favoritesCount: _savedPropertyIds.length,
                       ),
               ],
             ),
           ),
+          // Filter coachmark overlay (below the search bar, right-aligned to filter icon).
+          if (_showFilterCoachmark)
+            Positioned(
+              top: 100,
+              right: 71, // 16 (margin) + 48 (profile button) + 7 (gap)
+              child: FilterCoachmarkTooltip(
+                onDismiss: _dismissFilterCoachmark,
+              ),
+            ),
           if (!isBottomPanelOpen && _hasSelectedPlace)
             Positioned(
               left: 16,

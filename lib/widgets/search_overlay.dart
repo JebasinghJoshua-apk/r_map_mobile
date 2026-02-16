@@ -19,6 +19,7 @@ import '../utils/anchored_popover_geometry.dart';
 import 'auth_dialog.dart';
 import 'dialogs/favorites_dialog.dart';
 import 'dialogs/my_properties_dialog.dart';
+import 'nearby_coachmark_widgets.dart';
 import 'toast_message.dart';
 
 class SearchOverlay extends StatefulWidget {
@@ -37,6 +38,7 @@ class SearchOverlay extends StatefulWidget {
     this.onFilterTap,
     this.onOpenChanged,
     this.hasActiveFilters = false,
+    this.showFilterPulse = false,
     this.favoritesCount,
   });
 
@@ -60,6 +62,7 @@ class SearchOverlay extends StatefulWidget {
   final void Function(Rect panelAnchorRect, Rect arrowAnchorRect)? onFilterTap;
   final ValueChanged<bool>? onOpenChanged;
   final bool hasActiveFilters;
+  final bool showFilterPulse;
   final int? favoritesCount;
 
   @override
@@ -529,32 +532,36 @@ class SearchOverlayState extends State<SearchOverlay> {
                   ),
                 IconButton(
                   key: _filterButtonKey,
-                  icon: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      const Icon(Icons.tune, color: Color(0xFF0FAD97)),
-                      if (widget.hasActiveFilters)
-                        const Positioned(
-                          top: -1,
-                          right: -1,
-                          child: SizedBox(
-                            width: 9,
-                            height: 9,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: Color(0xFF0FAD97),
-                                shape: BoxShape.circle,
-                                border: Border.fromBorderSide(
-                                  BorderSide(
-                                    color: Colors.white,
-                                    width: 1.5,
+                  icon: NearbyPulseWrapper(
+                    active: widget.showFilterPulse,
+                    borderRadius: 20,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        const Icon(Icons.tune, color: Color(0xFF0FAD97)),
+                        if (widget.hasActiveFilters)
+                          const Positioned(
+                            top: -1,
+                            right: -1,
+                            child: SizedBox(
+                              width: 9,
+                              height: 9,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: Color(0xFF0FAD97),
+                                  shape: BoxShape.circle,
+                                  border: Border.fromBorderSide(
+                                    BorderSide(
+                                      color: Colors.white,
+                                      width: 1.5,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints.tightFor(

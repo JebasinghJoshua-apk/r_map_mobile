@@ -1,21 +1,39 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Manages the lifecycle of the "Nearby layouts" button coachmark & pulse.
+/// Manages the lifecycle of feature-discovery coachmarks & pulses.
 ///
-/// Flow:
-///   1. First app open after update → show coachmark tooltip.
+/// Shared logic for both the **Filter** button and the **Nearby layouts**
+/// button.  Each feature has its own set of SharedPreferences keys so they
+/// progress through the three phases independently:
+///
+///   1. First app open after update → mark coachmark pending.
 ///   2. If dismissed (not clicked) → show soft pulse on next 2 sessions.
 ///   3. After first click → remove all highlights forever (for this version).
-class NearbyCoachmarkService {
-  NearbyCoachmarkService._();
-  static final NearbyCoachmarkService instance = NearbyCoachmarkService._();
+class FeatureCoachmarkService {
+  FeatureCoachmarkService._({
+    required String keyPrefix,
+  })  : _keyVersion = '${keyPrefix}_version',
+        _keyClicked = '${keyPrefix}_clicked',
+        _keyPulseRemaining = '${keyPrefix}_pulse_remaining';
 
-  static const String _keyVersion = 'rmap_nearby_coachmark_version';
-  static const String _keyClicked = 'rmap_nearby_coachmark_clicked';
-  static const String _keyPulseRemaining = 'rmap_nearby_pulse_remaining';
+  // ── Singleton instances ──────────────────────────────────────────────────
+
+  static final FeatureCoachmarkService nearby = FeatureCoachmarkService._(
+    keyPrefix: 'rmap_nearby_coachmark',
+  );
+
+  static final FeatureCoachmarkService filter = FeatureCoachmarkService._(
+    keyPrefix: 'rmap_filter_coachmark',
+  );
+
+  // ── Per-feature keys ─────────────────────────────────────────────────────
+
+  final String _keyVersion;
+  final String _keyClicked;
+  final String _keyPulseRemaining;
 
   /// Bump this string whenever you want the coachmark to re-appear after an
-  /// app update that adds meaningful nearby-list changes.
+  /// app update that adds meaningful changes to the feature.
   static const String _currentCoachmarkVersion = '1';
 
   SharedPreferences? _prefs;
@@ -77,9 +95,9 @@ class NearbyCoachmarkService {
     await prefs.setInt(_keyPulseRemaining, 2);
   }
 
-  /// Called when the user taps the Nearby layouts button.
+  /// Called when the user taps the feature button.
   /// Permanently disables all highlights for the current coachmark version.
-  Future<void> onNearbyClicked() async {
+  Future<void> onClicked() async {
     _shouldShowCoachmark = false;
     _shouldShowPulse = false;
     final prefs = _prefs ?? await SharedPreferences.getInstance();
@@ -87,3 +105,6 @@ class NearbyCoachmarkService {
     await prefs.setInt(_keyPulseRemaining, 0);
   }
 }
+
+/// Legacy alias kept so existing call-sites continue to compile.
+typedef NearbyCoachmarkService = FeatureCoachmarkService;

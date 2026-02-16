@@ -119,8 +119,8 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
 
     final initialItems = _nearbyLayouts ?? const <NearbyPropertyCard>[];
     if (initialItems.isEmpty && !effectiveShowWhenEmpty) {
-      // No records → panel won't open. Show pending coachmark immediately.
-      _activatePendingCoachmark();
+      // No records → panel won't open. Show pending coachmarks immediately.
+      _activatePendingCoachmarks();
       return;
     }
 
@@ -241,8 +241,8 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
       _triggerNearbyLayoutsReopenHint();
     }
 
-    // Panel was shown and closed → show coachmark if pending.
-    _activatePendingCoachmark();
+    // Panel was shown and closed → show coachmarks if pending.
+    _activatePendingCoachmarks();
   }
 
   void _triggerNearbyLayoutsReopenHint() {
