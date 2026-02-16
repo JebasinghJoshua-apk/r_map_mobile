@@ -1361,9 +1361,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
             ),
           // Nearby coachmark — separate Positioned so it doesn't
           // shift the button and can receive taps outside the column.
-          if (!isBottomPanelOpen &&
-              _hasSelectedPlace &&
-              _showNearbyCoachmark)
+          if (!isBottomPanelOpen && _hasSelectedPlace && _showNearbyCoachmark)
             Positioned(
               // Vertically centre on the nearby-list button:
               // zoom (73) + gap (10) + half-button (18) = 101
