@@ -29,6 +29,8 @@ import '../widgets/search_overlay.dart';
 import '../widgets/toast_message.dart';
 import '../services/mobile_bff_saved_properties_api.dart';
 import '../services/ip_geolocation_service.dart';
+import '../services/nearby_coachmark_service.dart';
+import '../widgets/nearby_coachmark_widgets.dart';
 import '../models/map_viewport_models.dart';
 import '../models/my_property_list_item.dart';
 import '../models/nearby_property_card.dart';
@@ -278,6 +280,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   bool _isNearbyLayoutsReopenHintOn = false;
   Timer? _nearbyLayoutsReopenHintTimer;
 
+  // Nearby coachmark / pulse state
+  bool _showNearbyCoachmark = false;
+  bool _showNearbyPulse = false;
+  bool _nearbyCoachmarkPending = false;
+
   static const Duration _nearbyNewThreshold = Duration(days: 7);
 
   Future<void> _refreshMarkerSelectionStyles() async {
@@ -356,6 +363,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     }
     // Fetch IP-based location in parallel (no blocking)
     _fetchIpLocation();
+    // Initialise nearby coachmark/pulse state.
+    _initNearbyCoachmark();
     // Signal that the navigator is ready for deep-link navigation.
     deepLinkService.markHomeReady();
 
@@ -626,6 +635,62 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     } catch (e) {
       debugPrint('Failed to load map style: $e');
     }
+  }
+
+  Future<void> _initNearbyCoachmark() async {
+    await NearbyCoachmarkService.instance.initialize();
+    if (!mounted) return;
+    _updateState(() {
+      // Coachmark is deferred: it appears after the nearby panel closes
+      // (or immediately when no records are found).
+      _nearbyCoachmarkPending =
+          NearbyCoachmarkService.instance.shouldShowCoachmark;
+      // Pulse shows on session start (sessions 2-3 after dismissal).
+      _showNearbyPulse = NearbyCoachmarkService.instance.shouldShowPulse;
+    });
+  }
+
+  /// Activate the coachmark if it was pending.
+  /// Called after the nearby panel closes or when empty (no panel shown).
+  void _activatePendingCoachmark() {
+    if (!_nearbyCoachmarkPending) return;
+    _updateState(() {
+      _nearbyCoachmarkPending = false;
+      _showNearbyCoachmark = true;
+    });
+  }
+
+  void _dismissNearbyCoachmark() {
+    _updateState(() {
+      _showNearbyCoachmark = false;
+    });
+    unawaited(NearbyCoachmarkService.instance.onCoachmarkDismissed());
+  }
+
+  Future<void> _onNearbyButtonTapped() async {
+    // Permanently disable coachmark + pulse on first real click.
+    if (_showNearbyCoachmark || _showNearbyPulse) {
+      _updateState(() {
+        _showNearbyCoachmark = false;
+        _showNearbyPulse = false;
+      });
+      unawaited(NearbyCoachmarkService.instance.onNearbyClicked());
+    }
+
+    _nearbyLayoutsReopenHintTimer?.cancel();
+    _nearbyLayoutsReopenHintTimer = null;
+    _updateState(() {
+      _isNearbyLayoutsReopenHintOn = false;
+    });
+
+    final anchor = _lastCameraPosition.target;
+    unawaited(
+      _openNearbyLayoutsPopup(
+        anchor: anchor,
+        showWhenEmpty: true,
+        isManualOpen: true,
+      ),
+    );
   }
 
   @override
@@ -1197,26 +1262,24 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  _mapControlButton(
-                    icon: Icons.list_alt_outlined,
-                    tooltip: 'Nearby layouts',
-                    highlight: _isNearbyLayoutsReopenHintOn,
-                    onPressed: () {
-                      _nearbyLayoutsReopenHintTimer?.cancel();
-                      _nearbyLayoutsReopenHintTimer = null;
-                      _updateState(() {
-                        _isNearbyLayoutsReopenHintOn = false;
-                      });
-
-                      final anchor = _lastCameraPosition.target;
-                      unawaited(
-                        _openNearbyLayoutsPopup(
-                          anchor: anchor,
-                          showWhenEmpty: true,
-                          isManualOpen: true,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      if (_showNearbyCoachmark)
+                        NearbyCoachmarkTooltip(
+                          onDismiss: _dismissNearbyCoachmark,
                         ),
-                      );
-                    },
+                      NearbyPulseWrapper(
+                        active: _showNearbyPulse,
+                        child: _mapControlButton(
+                          icon: Icons.list_alt_outlined,
+                          tooltip: 'Nearby layouts',
+                          highlight: _isNearbyLayoutsReopenHintOn,
+                          onPressed: _onNearbyButtonTapped,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 10),
                   _mapZoomControl(),
