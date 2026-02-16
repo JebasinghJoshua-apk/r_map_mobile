@@ -1345,28 +1345,32 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      if (_showNearbyCoachmark)
-                        NearbyCoachmarkTooltip(
-                          onDismiss: _dismissNearbyCoachmark,
-                        ),
-                      NearbyPulseWrapper(
-                        active: _showNearbyPulse,
-                        child: _mapControlButton(
-                          icon: Icons.list_alt_outlined,
-                          tooltip: 'Nearby layouts',
-                          highlight: _isNearbyLayoutsReopenHintOn,
-                          onPressed: _onNearbyButtonTapped,
-                        ),
-                      ),
-                    ],
+                  NearbyPulseWrapper(
+                    active: _showNearbyPulse,
+                    child: _mapControlButton(
+                      icon: Icons.list_alt_outlined,
+                      tooltip: 'Nearby layouts',
+                      highlight: _isNearbyLayoutsReopenHintOn,
+                      onPressed: _onNearbyButtonTapped,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   _mapZoomControl(),
                 ],
+              ),
+            ),
+          // Nearby coachmark — separate Positioned so it doesn't
+          // shift the button and can receive taps outside the column.
+          if (!isBottomPanelOpen &&
+              _hasSelectedPlace &&
+              _showNearbyCoachmark)
+            Positioned(
+              // Vertically centre on the nearby-list button:
+              // zoom (73) + gap (10) + half-button (18) = 101
+              bottom: 10 + bottomPanelInset + 101 - 36,
+              right: 16 + 40, // 16 (column right) + 36 (button) + 4 (gap)
+              child: NearbyCoachmarkTooltip(
+                onDismiss: _dismissNearbyCoachmark,
               ),
             ),
           if (_isViewportLoading && !showEmptyState && _hasSelectedPlace)
