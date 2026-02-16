@@ -240,72 +240,61 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     }
   }
 
+  Widget _circleIconButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.35),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            size: 22,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _favoriteButton() {
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
         onTap: _isSaving ? null : _toggleSaved,
         borderRadius: BorderRadius.circular(999),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: _isSaving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(Colors.white),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.35),
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: _isSaving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(Colors.white),
+                    ),
+                  )
+                : Icon(
+                    _isSaved ? Icons.favorite : Icons.favorite_border,
+                    size: 22,
+                    color: _isSaved ? const Color(0xFFE11D48) : Colors.white,
                   ),
-                )
-              : (_isSaved
-                  ? const Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Icon(
-                          Icons.favorite,
-                          size: 36,
-                          color: Colors.white54,
-                          shadows: [
-                            Shadow(
-                              color: Colors.white54,
-                              blurRadius: 7,
-                            ),
-                          ],
-                        ),
-                        Icon(
-                          Icons.favorite,
-                          size: 32,
-                          color: Color(0xFFE11D48),
-                          shadows: [
-                            Shadow(
-                              color: Color(0x80000000),
-                              blurRadius: 6,
-                            ),
-                          ],
-                        ),
-                      ],
-                    )
-                  : Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Icon(
-                          Icons.favorite,
-                          size: 32,
-                          color: const Color(0xFF0F172A).withOpacity(0.18),
-                        ),
-                        const Icon(
-                          Icons.favorite_border,
-                          size: 31,
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(
-                              color: Color(0x80000000),
-                              blurRadius: 6,
-                            ),
-                          ],
-                        ),
-                      ],
-                    )),
+          ),
         ),
       ),
     );
@@ -431,50 +420,17 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
-          elevation: 0,
-          title: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          actions: [
-            if (canCopyLink)
-              IconButton(
-                tooltip: 'Share',
-                onPressed: () {
-                  final heroUrl = effectiveImageUrls.isNotEmpty
-                      ? effectiveImageUrls.first
-                      : null;
-                  showSharePropertySheet(
-                    context,
-                    SharePropertyInfo(
-                      title: title,
-                      propertyType: feature.propertyType.trim(),
-                      featureId: feature.featureId.trim(),
-                      location: location,
-                      priceLabel: price,
-                      listingType: listingType.isNotEmpty ? listingType : null,
-                      heroImageUrl: heroUrl,
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.share_outlined),
-              ),
-          ],
-        ),
         body: Builder(
           builder: (context) {
             final bottomInset = MediaQuery.of(context).padding.bottom;
+            final topInset = MediaQuery.of(context).padding.top;
             return ListView(
-              padding: EdgeInsets.only(bottom: 24 + bottomInset),
+              padding: EdgeInsets.only(top: topInset, bottom: 24 + bottomInset),
               children: [
                 Stack(
                   children: [
                     _HeroCarousel(
-                      height: 360,
+                      aspectRatio: 1.3,
                       images: images,
                       loading: _isLoadingImages,
                       error: _imagesError,
@@ -483,10 +439,48 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                       controller: _pageController,
                       activeIndex: _activeIndex,
                     ),
+                    // Overlay icons on top of the image
                     Positioned(
-                      top: 14,
-                      right: 6,
-                      child: _favoriteButton(),
+                      top: 16,
+                      left: 12,
+                      child: _circleIconButton(
+                        icon: Icons.arrow_back,
+                        onTap: () => Navigator.of(context).pop(),
+                      ),
+                    ),
+                    Positioned(
+                      top: 16,
+                      right: 12,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (canCopyLink)
+                            _circleIconButton(
+                              icon: Icons.share_outlined,
+                              onTap: () {
+                                final heroUrl = effectiveImageUrls.isNotEmpty
+                                    ? effectiveImageUrls.first
+                                    : null;
+                                showSharePropertySheet(
+                                  context,
+                                  SharePropertyInfo(
+                                    title: title,
+                                    propertyType: feature.propertyType.trim(),
+                                    featureId: feature.featureId.trim(),
+                                    location: location,
+                                    priceLabel: price,
+                                    listingType: listingType.isNotEmpty
+                                        ? listingType
+                                        : null,
+                                    heroImageUrl: heroUrl,
+                                  ),
+                                );
+                              },
+                            ),
+                          const SizedBox(width: 8),
+                          _favoriteButton(),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -646,7 +640,7 @@ class _HeroImage {
 
 class _HeroCarousel extends StatelessWidget {
   const _HeroCarousel({
-    required this.height,
+    required this.aspectRatio,
     required this.images,
     required this.loading,
     required this.error,
@@ -655,7 +649,7 @@ class _HeroCarousel extends StatelessWidget {
     required this.activeIndex,
   });
 
-  final double height;
+  final double aspectRatio;
   final List<_HeroImage> images;
   final bool loading;
   final String? error;
@@ -667,8 +661,8 @@ class _HeroCarousel extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasImages = images.isNotEmpty;
 
-    return SizedBox(
-      height: height,
+    return AspectRatio(
+      aspectRatio: aspectRatio,
       child: Stack(
         children: [
           Positioned.fill(
@@ -710,38 +704,36 @@ class _HeroCarousel extends StatelessWidget {
                               },
                               child: Hero(
                                 tag: 'property_image_${img.url}',
-                                child: InteractiveViewer(
-                                  minScale: 1,
-                                  maxScale: 3,
-                                  child: Image.network(
-                                    img.url,
-                                    fit: BoxFit.contain,
-                                    loadingBuilder: (context, child, progress) {
-                                      if (progress == null) return child;
-                                      final expected =
-                                          progress.expectedTotalBytes;
-                                      final loaded =
-                                          progress.cumulativeBytesLoaded;
-                                      final value =
-                                          expected != null && expected > 0
-                                              ? loaded / expected
-                                              : null;
-                                      return Center(
-                                        child: CircularProgressIndicator(
-                                          value: value,
-                                        ),
-                                      );
-                                    },
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return const Center(
-                                        child: Icon(
-                                          Icons.broken_image_outlined,
-                                          color: Color(0xFF94A3B8),
-                                          size: 36,
-                                        ),
-                                      );
-                                    },
-                                  ),
+                                child: Image.network(
+                                  img.url,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  loadingBuilder: (context, child, progress) {
+                                    if (progress == null) return child;
+                                    final expected =
+                                        progress.expectedTotalBytes;
+                                    final loaded =
+                                        progress.cumulativeBytesLoaded;
+                                    final value =
+                                        expected != null && expected > 0
+                                            ? loaded / expected
+                                            : null;
+                                    return Center(
+                                      child: CircularProgressIndicator(
+                                        value: value,
+                                      ),
+                                    );
+                                  },
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return const Center(
+                                      child: Icon(
+                                        Icons.broken_image_outlined,
+                                        color: Color(0xFF94A3B8),
+                                        size: 36,
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
                             );
@@ -751,59 +743,32 @@ class _HeroCarousel extends StatelessWidget {
           ),
           if (hasImages && images.length > 1) ...[
             Positioned(
-              left: 12,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: _RoundIconButton(
-                  icon: Icons.chevron_left,
-                  onPressed: () {
-                    final prev =
-                        (activeIndex - 1 + images.length) % images.length;
-                    controller.animateToPage(
-                      prev,
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOut,
-                    );
-                  },
-                ),
-              ),
-            ),
-            Positioned(
-              right: 12,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: _RoundIconButton(
-                  icon: Icons.chevron_right,
-                  onPressed: () {
-                    final next = (activeIndex + 1) % images.length;
-                    controller.animateToPage(
-                      next,
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOut,
-                    );
-                  },
-                ),
-              ),
-            ),
-            Positioned(
               left: 0,
               right: 0,
               bottom: 12,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  images.length,
-                  (index) => Container(
-                    width: 7,
-                    height: 7,
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: index == activeIndex
-                          ? const Color(0xFF0F172A)
-                          : const Color(0xFFCBD5E1),
+              child: Center(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.35),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(
+                      images.length,
+                      (index) => Container(
+                        width: 7,
+                        height: 7,
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: index == activeIndex
+                              ? Colors.white
+                              : Colors.white.withOpacity(0.4),
+                        ),
+                      ),
                     ),
                   ),
                 ),
