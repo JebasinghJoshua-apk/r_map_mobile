@@ -282,7 +282,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
   // Feature coachmark / pulse state
   bool _showFilterCoachmark = false;
-  bool _showFilterPulse = false;
   bool _filterCoachmarkPending = false;
 
   bool _showNearbyCoachmark = false;
@@ -654,7 +653,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       // Sequence: filter coachmark first, then nearby coachmark.
       _filterCoachmarkPending =
           FeatureCoachmarkService.filter.shouldShowCoachmark;
-      _showFilterPulse = FeatureCoachmarkService.filter.shouldShowPulse;
 
       _nearbyCoachmarkPending =
           FeatureCoachmarkService.nearby.shouldShowCoachmark;
@@ -707,10 +705,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
   void _onFilterButtonTapped(Rect panelRect, Rect arrowRect) {
     // Permanently disable filter coachmark + pulse on first click.
-    if (_showFilterCoachmark || _showFilterPulse) {
+    if (_showFilterCoachmark) {
       _updateState(() {
         _showFilterCoachmark = false;
-        _showFilterPulse = false;
       });
       unawaited(FeatureCoachmarkService.filter.onClicked());
       // Also activate nearby coachmark if it was queued behind filter.
@@ -1305,7 +1302,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                         },
                         onFilterTap: _onFilterButtonTapped,
                         hasActiveFilters: _hasAppliedNonDefaultFilters,
-                        showFilterPulse: _showFilterPulse,
                         favoritesCount: _savedPropertyIds.length,
                       ),
               ],
