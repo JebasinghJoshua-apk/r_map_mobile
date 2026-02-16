@@ -277,6 +277,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   String? _nearbyLayoutsError;
 
   bool _isNearbyLayoutsDialogOpen = false;
+  bool _isNearbyLoading = false;
   bool _isNearbyLayoutsReopenHintOn = false;
   Timer? _nearbyLayoutsReopenHintTimer;
 
@@ -736,6 +737,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   }
 
   Future<void> _onNearbyButtonTapped() async {
+    // Guard against multiple rapid taps while loading / dialog is open.
+    if (_isNearbyLoading || _isNearbyLayoutsDialogOpen) return;
+
     // Permanently disable coachmark + pulse on first real click.
     if (_showNearbyCoachmark || _showNearbyPulse) {
       _updateState(() {
@@ -751,14 +755,17 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       _isNearbyLayoutsReopenHintOn = false;
     });
 
-    final anchor = _lastCameraPosition.target;
-    unawaited(
-      _openNearbyLayoutsPopup(
+    _isNearbyLoading = true;
+    try {
+      final anchor = _lastCameraPosition.target;
+      await _openNearbyLayoutsPopup(
         anchor: anchor,
         showWhenEmpty: true,
         isManualOpen: true,
-      ),
-    );
+      );
+    } finally {
+      _isNearbyLoading = false;
+    }
   }
 
   @override
