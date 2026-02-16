@@ -567,8 +567,8 @@ class _SharePlotSheetState extends State<_SharePlotSheet> {
 
   Color _statusColor(String status) {
     final lower = status.toLowerCase();
-    if (lower == 'sold') return const Color(0xFFDC2626);
-    if (lower == 'booked') return const Color(0xFFF97316);
+    if (lower == 'sold') return const Color(0xFFC0392B);
+    if (lower == 'booked') return const Color(0xFFF4B400);
     return const Color(0xFF0D9488); // Available / default
   }
 

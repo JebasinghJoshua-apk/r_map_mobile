@@ -32,13 +32,13 @@ const double _extraThickPlotStrokeZoomThreshold = 19.0;
 const int _extraThickPlotStrokeBump = 2;
 
 const Color _soldPlotStroke = Color(0xFF4B5563);
-const Color _soldPlotFill = Color(0xFFDC2626);
+const Color _soldPlotFill = Color(0xFFC0392B);
 const double _soldPlotStrokeOpacity = 0.70;
 const double _soldPlotFillOpacity = 0.55;
 
-// Booked plots: match web palette (orange fill) and requested opacity.
+// Booked plots: amber fill per design spec.
 const Color _bookedPlotStroke = Color(0xFF4B5563);
-const Color _bookedPlotFill = Color(0xFFFF9800);
+const Color _bookedPlotFill = Color(0xFFF4B400);
 const double _bookedPlotStrokeOpacity = 0.75;
 const double _bookedPlotFillOpacity = 0.42;
 
