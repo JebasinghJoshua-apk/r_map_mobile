@@ -902,7 +902,7 @@ class _FullScreenImageGalleryState extends State<_FullScreenImageGallery> {
             ),
             if (total > 1) ...[
               Positioned(
-                left: 12,
+                left: 16,
                 top: 0,
                 bottom: 0,
                 child: Center(
@@ -920,7 +920,7 @@ class _FullScreenImageGalleryState extends State<_FullScreenImageGallery> {
                 ),
               ),
               Positioned(
-                right: 12,
+                right: 16,
                 top: 0,
                 bottom: 0,
                 child: Center(
