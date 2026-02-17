@@ -253,7 +253,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.35),
+            color: Colors.black.withOpacity(0.50),
             shape: BoxShape.circle,
           ),
           child: Icon(
@@ -276,7 +276,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.35),
+            color: Colors.black.withOpacity(0.50),
             shape: BoxShape.circle,
           ),
           child: Center(
@@ -301,6 +301,12 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   }
 
   String _trimOrEmpty(String? value) => (value ?? '').trim();
+
+  String _formatListingType(String? value) {
+    final trimmed = (value ?? '').trim();
+    if (trimmed.toLowerCase() == 'sell') return 'Sale';
+    return trimmed;
+  }
 
   String? _meta(Map<String, String?> metadata, List<String> keys) {
     for (final k in keys) {
@@ -348,7 +354,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
       ],
     );
 
-    final listingType = _trimOrEmpty(feature.listingType);
+    final listingType = _formatListingType(feature.listingType);
 
     final resolvedOverride = (_imageUrls ?? const <String>[])
         .map((v) => v.trim())
@@ -410,221 +416,220 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     final canCopyLink = feature.propertyType.trim().isNotEmpty &&
         feature.featureId.trim().isNotEmpty;
 
-    return PopScope(
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop && widget.fromDeepLink) {
-          // Schedule pending selection so HomeMapScreen can show the property
-          // in its bottom panel when it becomes visible again.
-          PendingPropertySelection.set(widget.feature);
-        }
-      },
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
-        body: Builder(
-          builder: (context) {
-            final bottomInset = MediaQuery.of(context).padding.bottom;
-            final topInset = MediaQuery.of(context).padding.top;
-            return ListView(
-              padding: EdgeInsets.only(top: topInset, bottom: 24 + bottomInset),
-              children: [
-                Stack(
-                  children: [
-                    _HeroCarousel(
-                      aspectRatio: 1.3,
-                      images: images,
-                      loading: _isLoadingImages,
-                      error: _imagesError,
-                      onIndexChanged: (idx) =>
-                          setState(() => _activeIndex = idx),
-                      controller: _pageController,
-                      activeIndex: _activeIndex,
-                    ),
-                    // Overlay icons on top of the image
-                    Positioned(
-                      top: 16,
-                      left: 12,
-                      child: _circleIconButton(
-                        icon: Icons.arrow_back,
-                        onTap: () => Navigator.of(context).pop(),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+      ),
+      child: PopScope(
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop && widget.fromDeepLink) {
+            // Schedule pending selection so HomeMapScreen can show the property
+            // in its bottom panel when it becomes visible again.
+            PendingPropertySelection.set(widget.feature);
+          }
+        },
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF8FAFC),
+          body: Builder(
+            builder: (context) {
+              final bottomInset = MediaQuery.of(context).padding.bottom;
+              final topInset = MediaQuery.of(context).padding.top;
+              return ListView(
+                padding:
+                    EdgeInsets.only(top: topInset, bottom: 24 + bottomInset),
+                children: [
+                  Stack(
+                    children: [
+                      _HeroCarousel(
+                        aspectRatio: 1.3,
+                        images: images,
+                        loading: _isLoadingImages,
+                        error: _imagesError,
+                        onIndexChanged: (idx) =>
+                            setState(() => _activeIndex = idx),
+                        controller: _pageController,
+                        activeIndex: _activeIndex,
                       ),
-                    ),
-                    Positioned(
-                      top: 16,
-                      right: 12,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (canCopyLink)
-                            _circleIconButton(
-                              icon: Icons.share_outlined,
-                              onTap: () {
-                                final heroUrl = effectiveImageUrls.isNotEmpty
-                                    ? effectiveImageUrls.first
-                                    : null;
-                                showSharePropertySheet(
-                                  context,
-                                  SharePropertyInfo(
-                                    title: title,
-                                    propertyType: feature.propertyType.trim(),
-                                    featureId: feature.featureId.trim(),
-                                    location: location,
-                                    priceLabel: price,
-                                    listingType: listingType.isNotEmpty
-                                        ? listingType
-                                        : null,
-                                    heroImageUrl: heroUrl,
+                      // Overlay icons on top of the image
+                      Positioned(
+                        top: 16,
+                        left: 12,
+                        child: _circleIconButton(
+                          icon: Icons.arrow_back,
+                          onTap: () => Navigator.of(context).pop(),
+                        ),
+                      ),
+                      Positioned(
+                        top: 16,
+                        right: 12,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (canCopyLink)
+                              _circleIconButton(
+                                icon: Icons.share_outlined,
+                                onTap: () {
+                                  final heroUrl = effectiveImageUrls.isNotEmpty
+                                      ? effectiveImageUrls.first
+                                      : null;
+                                  showSharePropertySheet(
+                                    context,
+                                    SharePropertyInfo(
+                                      title: title,
+                                      propertyType: feature.propertyType.trim(),
+                                      featureId: feature.featureId.trim(),
+                                      location: location,
+                                      priceLabel: price,
+                                      listingType: listingType.isNotEmpty
+                                          ? listingType
+                                          : null,
+                                      heroImageUrl: heroUrl,
+                                    ),
+                                  );
+                                },
+                              ),
+                            const SizedBox(width: 8),
+                            _favoriteButton(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 680),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            if (location != null) ...[
+                              const SizedBox(height: 10),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Padding(
+                                    padding: EdgeInsets.only(top: 2),
+                                    child: Icon(
+                                      Icons.location_on_outlined,
+                                      size: 18,
+                                      color: Color(0xFF94A3B8),
+                                    ),
                                   ),
-                                );
-                              },
-                            ),
-                          const SizedBox(width: 8),
-                          _favoriteButton(),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 680),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF0F172A),
-                            ),
-                          ),
-                          if (location != null) ...[
-                            const SizedBox(height: 10),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      location,
+                                      style: const TextStyle(
+                                        color: Color(0xFF64748B),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                            const SizedBox(height: 16),
                             Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Padding(
-                                  padding: EdgeInsets.only(top: 2),
-                                  child: Icon(
-                                    Icons.location_on_outlined,
-                                    size: 18,
-                                    color: Color(0xFF94A3B8),
+                                Expanded(
+                                  child: _StatCard(
+                                    label: 'PRICE',
+                                    value: labelOrDash(price),
                                   ),
                                 ),
-                                const SizedBox(width: 6),
+                                const SizedBox(width: 12),
                                 Expanded(
-                                  child: Text(
-                                    location,
-                                    style: const TextStyle(
-                                      color: Color(0xFF64748B),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      height: 1.35,
-                                    ),
+                                  child: _StatCard(
+                                    label: 'LISTING',
+                                    value: labelOrDash(listingType),
                                   ),
                                 ),
                               ],
                             ),
-                          ],
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _StatCard(
-                                  label: 'PRICE',
-                                  value: labelOrDash(price),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _StatCard(
-                                  label: 'LISTING',
-                                  value: labelOrDash(listingType),
+                            if (additionalInfo != null) ...[
+                              const SizedBox(height: 14),
+                              _SectionCard(
+                                title: 'ADDITIONAL INFO',
+                                child: DelimitedBulletList(
+                                  text: additionalInfo,
+                                  delimiter: '~~',
+                                  textStyle: const TextStyle(
+                                    color: Color(0xFF334155),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.45,
+                                  ),
                                 ),
                               ),
                             ],
-                          ),
-                          if (additionalInfo != null) ...[
                             const SizedBox(height: 14),
                             _SectionCard(
-                              title: 'ADDITIONAL INFO',
-                              child: DelimitedBulletList(
-                                text: additionalInfo,
-                                delimiter: '~~',
-                                textStyle: const TextStyle(
-                                  color: Color(0xFF334155),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.45,
-                                ),
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 14),
-                          _SectionCard(
-                            title: 'PROPERTY OVERVIEW',
-                            child: Column(
-                              children: [
-                                _KeyValueRow(
-                                  label: 'Type',
-                                  value: labelOrDash(propertyTypeLabel),
-                                ),
-                                const SizedBox(height: 10),
-                                _KeyValueRow(
-                                  label: 'Price',
-                                  value: labelOrDash(price),
-                                ),
-                                const SizedBox(height: 10),
-                                _KeyValueRow(
-                                  label: 'Facing',
-                                  value: labelOrDash(facing),
-                                ),
-                                if (location != null) ...[
-                                  const SizedBox(height: 10),
-                                  _KeyValueRow(
-                                    label: 'Location',
-                                    value: location,
-                                  ),
-                                ],
-                                if (listingType.isNotEmpty) ...[
-                                  const SizedBox(height: 10),
-                                  _KeyValueRow(
-                                    label: 'Listing',
-                                    value: listingType,
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          if (remaining.isNotEmpty) ...[
-                            const SizedBox(height: 14),
-                            _SectionCard(
-                              title: 'MORE DETAILS',
+                              title: 'PROPERTY OVERVIEW',
                               child: Column(
                                 children: [
-                                  for (var i = 0;
-                                      i < remaining.length;
-                                      i++) ...[
-                                    if (i > 0) const SizedBox(height: 10),
+                                  _KeyValueRow(
+                                    label: 'Type',
+                                    value: labelOrDash(propertyTypeLabel),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _KeyValueRow(
+                                    label: 'Price',
+                                    value: labelOrDash(price),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _KeyValueRow(
+                                    label: 'Facing',
+                                    value: labelOrDash(facing),
+                                  ),
+                                  if (location != null) ...[
+                                    const SizedBox(height: 10),
                                     _KeyValueRow(
-                                      label: remaining[i].key,
-                                      value: remaining[i].value,
+                                      label: 'Location',
+                                      value: location,
                                     ),
                                   ],
                                 ],
                               ),
                             ),
+                            if (remaining.isNotEmpty) ...[
+                              const SizedBox(height: 14),
+                              _SectionCard(
+                                title: 'MORE DETAILS',
+                                child: Column(
+                                  children: [
+                                    for (var i = 0;
+                                        i < remaining.length;
+                                        i++) ...[
+                                      if (i > 0) const SizedBox(height: 10),
+                                      _KeyValueRow(
+                                        label: remaining[i].key,
+                                        value: remaining[i].value,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            );
-          },
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -751,7 +756,7 @@ class _HeroCarousel extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.35),
+                    color: Colors.black.withOpacity(0.50),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -790,16 +795,18 @@ class _RoundIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withOpacity(0.92),
-      shape: const CircleBorder(),
-      elevation: 2,
+      type: MaterialType.transparency,
       child: InkWell(
-        customBorder: const CircleBorder(),
         onTap: onPressed,
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Icon(icon, color: const Color(0xFF0F172A)),
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.50),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 22, color: Colors.white),
         ),
       ),
     );
