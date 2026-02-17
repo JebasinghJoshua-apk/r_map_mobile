@@ -308,6 +308,14 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     return trimmed;
   }
 
+  /// Convert "INR 45,00,000" → "₹45,00,000"
+  String? _formatPrice(String? value) {
+    if (value == null) return null;
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+    return trimmed.replaceFirst(RegExp(r'^INR\s*', caseSensitive: false), '₹');
+  }
+
   String? _meta(Map<String, String?> metadata, List<String> keys) {
     for (final k in keys) {
       final v = metadata[k];
@@ -331,10 +339,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
         ? 'Property'
         : feature.propertyType.trim();
 
-    final price = _meta(
+    final price = _formatPrice(_meta(
       metadata,
       const <String>['price', 'listingPrice', 'salePrice', 'amount'],
-    );
+    ));
     final location = _meta(
       metadata,
       const <String>['location', 'locality', 'city', 'area'],
@@ -355,6 +363,18 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     );
 
     final listingType = _formatListingType(feature.listingType);
+    final plotsCount = _meta(
+      metadata,
+      const <String>['plotsCount', 'plotCount', 'numberOfPlots', 'plots'],
+    );
+    final contactName = _meta(
+      metadata,
+      const <String>['contactName'],
+    );
+    final phoneNumber = _meta(
+      metadata,
+      const <String>['contactNumbers'],
+    );
 
     final resolvedOverride = (_imageUrls ?? const <String>[])
         .map((v) => v.trim())
@@ -400,6 +420,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
       'description',
       'notes',
       'details',
+      'plotsCount',
+      'plotCount',
+      'numberOfPlots',
+      'plots',
     };
 
     final remaining = metadata.entries
@@ -582,16 +606,13 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                                     label: 'Type',
                                     value: labelOrDash(propertyTypeLabel),
                                   ),
-                                  const SizedBox(height: 10),
-                                  _KeyValueRow(
-                                    label: 'Price',
-                                    value: labelOrDash(price),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _KeyValueRow(
-                                    label: 'Facing',
-                                    value: labelOrDash(facing),
-                                  ),
+                                  if (plotsCount != null) ...[
+                                    const SizedBox(height: 10),
+                                    _KeyValueRow(
+                                      label: 'Plots',
+                                      value: plotsCount,
+                                    ),
+                                  ],
                                   if (location != null) ...[
                                     const SizedBox(height: 10),
                                     _KeyValueRow(
@@ -602,21 +623,25 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                                 ],
                               ),
                             ),
-                            if (remaining.isNotEmpty) ...[
+                            if (contactName != null || phoneNumber != null) ...[
                               const SizedBox(height: 14),
                               _SectionCard(
-                                title: 'MORE DETAILS',
+                                title: 'CONTACT DETAILS',
                                 child: Column(
                                   children: [
-                                    for (var i = 0;
-                                        i < remaining.length;
-                                        i++) ...[
-                                      if (i > 0) const SizedBox(height: 10),
+                                    if (contactName != null)
                                       _KeyValueRow(
-                                        label: remaining[i].key,
-                                        value: remaining[i].value,
+                                        label: 'Name',
+                                        value: contactName,
                                       ),
-                                    ],
+                                    if (contactName != null &&
+                                        phoneNumber != null)
+                                      const SizedBox(height: 10),
+                                    if (phoneNumber != null)
+                                      _KeyValueRow(
+                                        label: 'Phone',
+                                        value: phoneNumber,
+                                      ),
                                   ],
                                 ),
                               ),
