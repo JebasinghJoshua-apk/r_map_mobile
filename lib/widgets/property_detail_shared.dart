@@ -321,7 +321,8 @@ abstract class BasePropertyDetailScreenState<T extends BasePropertyDetailScreen>
       'price': formatPrice(
           meta(metadata, ['price', 'listingPrice', 'salePrice', 'amount'])),
       'location': meta(metadata, ['location', 'locality', 'city']),
-      'area': meta(metadata, ['area', 'areaLabel', 'areaSqFt', 'totalArea']),
+      'area': meta(metadata,
+          ['area', 'areaLabel', 'areaSqFt', 'totalArea', 'builtUpSqFt']),
       'facing': meta(metadata, ['facing', 'direction', 'plotFacing']),
       'additionalInfo': meta(metadata, [
         'additionalInformation',
