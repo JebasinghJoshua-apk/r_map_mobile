@@ -14,6 +14,7 @@ class DelimitedBulletList extends StatelessWidget {
 
   final String text;
   final String delimiter;
+
   /// Optional regex pattern for splitting. If provided, takes precedence over delimiter.
   final RegExp? delimiterPattern;
   final TextStyle? textStyle;
