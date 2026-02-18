@@ -130,31 +130,42 @@ class _ApartmentDetailScreenState
                             ),
                           ],
                         ),
-                        if (bedrooms != null || bathrooms != null) ...[
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              if (bedrooms != null)
-                                Expanded(
-                                  child: StatCard(
-                                    label: 'BEDROOMS',
-                                    value: bedrooms,
-                                  ),
-                                ),
-                              if (bedrooms != null && bathrooms != null)
-                                const SizedBox(width: 12),
-                              if (bathrooms != null)
-                                Expanded(
-                                  child: StatCard(
-                                    label: 'BATHROOMS',
-                                    value: bathrooms,
-                                  ),
-                                ),
-                              if (bedrooms == null || bathrooms == null)
-                                const Expanded(child: SizedBox.shrink()),
-                            ],
-                          ),
-                        ],
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: StatCard(
+                                label: 'BEDROOMS',
+                                value: labelOrDash(bedrooms),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: StatCard(
+                                label: 'BATHROOMS',
+                                value: labelOrDash(bathrooms),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: StatCard(
+                                label: 'PROPERTY FLOOR',
+                                value: labelOrDash(floor),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: StatCard(
+                                label: 'FLOORS IN BUILDING',
+                                value: labelOrDash(totalFloors),
+                              ),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 14),
                         SectionCard(
                           title: 'PROPERTY OVERVIEW',
@@ -243,28 +254,23 @@ class _ApartmentDetailScreenState
                             ),
                           ),
                         ],
-                        if (contactName != null || phoneNumber != null) ...[
-                          const SizedBox(height: 14),
-                          SectionCard(
-                            title: 'CONTACT DETAILS',
-                            child: Column(
-                              children: [
-                                if (contactName != null)
-                                  KeyValueRow(
-                                    label: 'Name',
-                                    value: contactName,
-                                  ),
-                                if (contactName != null && phoneNumber != null)
-                                  const SizedBox(height: 10),
-                                if (phoneNumber != null)
-                                  KeyValueRow(
-                                    label: 'Phone',
-                                    value: phoneNumber,
-                                  ),
-                              ],
-                            ),
+                        const SizedBox(height: 14),
+                        SectionCard(
+                          title: 'CONTACT DETAILS',
+                          child: Column(
+                            children: [
+                              KeyValueRow(
+                                label: 'Name',
+                                value: labelOrDash(contactName),
+                              ),
+                              const SizedBox(height: 10),
+                              KeyValueRow(
+                                label: 'Phone',
+                                value: labelOrDash(phoneNumber),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ],
                     ),
                   ),
