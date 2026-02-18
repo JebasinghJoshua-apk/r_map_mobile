@@ -136,22 +136,6 @@ class _PlotDetailScreenState
                             ],
                           ),
                         ],
-                        if (additionalInfo != null) ...[
-                          const SizedBox(height: 14),
-                          SectionCard(
-                            title: 'ADDITIONAL INFO',
-                            child: DelimitedBulletList(
-                              text: additionalInfo,
-                              delimiter: '~~',
-                              textStyle: const TextStyle(
-                                color: Color(0xFF334155),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                height: 1.45,
-                              ),
-                            ),
-                          ),
-                        ],
                         const SizedBox(height: 14),
                         SectionCard(
                           title: 'PROPERTY OVERVIEW',
@@ -178,6 +162,22 @@ class _PlotDetailScreenState
                             ],
                           ),
                         ),
+                        if (additionalInfo != null) ...[
+                          const SizedBox(height: 14),
+                          SectionCard(
+                            title: 'DESCRIPTION',
+                            child: DelimitedBulletList(
+                              text: additionalInfo,
+                              delimiterPattern: RegExp(r'\n+'),
+                              textStyle: const TextStyle(
+                                color: Color(0xFF334155),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                height: 1.45,
+                              ),
+                            ),
+                          ),
+                        ],
                         if (contactName != null || phoneNumber != null) ...[
                           const SizedBox(height: 14),
                           SectionCard(

@@ -185,7 +185,7 @@ class _IndividualPlotsDetailScreenState
                             title: 'DESCRIPTION',
                             child: DelimitedBulletList(
                               text: additionalInfo,
-                              delimiterPattern: RegExp(r'[\n,]+'),
+                              delimiterPattern: RegExp(r'\n+'),
                               textStyle: const TextStyle(
                                 color: Color(0xFF334155),
                                 fontSize: 14,
