@@ -728,15 +728,15 @@ List<Widget> buildLandFormFields({
     ),
     const SizedBox(height: 12),
     PropertyTextField(
-      label: 'Area (sq.ft)',
+      label: 'Area',
       value: state.area,
       onChanged: (v) {
         state.area = v;
         state.errArea = null;
         onAreaChanged();
       },
-      hint: 'e.g., 2400 sq.ft',
-      keyboard: TextInputType.number,
+      hint: 'e.g., 2400 sq.ft or 2 Acres',
+      keyboard: TextInputType.text,
       errorText: state.errArea,
       prefillRevision: prefillRevision,
       propertyType: 'Land',

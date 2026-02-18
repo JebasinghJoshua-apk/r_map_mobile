@@ -402,7 +402,6 @@ ValidationResult validateLandForm({
   final landType = state.landType.trim();
   final landTypeValue = kLandTypeValueMap[landType];
   final areaRaw = state.area.trim();
-  final area = parseDouble(areaRaw);
   final priceRaw = state.price.trim();
   final price = parseDouble(priceRaw);
   final location = state.location.trim();
@@ -424,9 +423,6 @@ ValidationResult validateLandForm({
   if (areaRaw.isEmpty) {
     hasError = true;
     state.errArea = 'Area is required.';
-  } else if (area == null || area <= 0) {
-    hasError = true;
-    state.errArea = 'Area must be greater than zero.';
   }
 
   if (priceRaw.isEmpty) {

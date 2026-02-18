@@ -35,7 +35,7 @@ class _LandDetailScreenState
     final price = commonMeta['price'];
     final location = commonMeta['location'];
     final areaLabel = commonMeta['area'];
-    final areaDisplay = formatAreaDisplay(areaLabel);
+    final areaDisplay = areaLabel; // Don't append sq ft for Land
     final facing = commonMeta['facing'];
     final additionalInfo = commonMeta['additionalInfo'];
     final contactName = commonMeta['contactName'];
