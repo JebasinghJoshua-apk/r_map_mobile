@@ -345,8 +345,19 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     ));
     final location = _meta(
       metadata,
-      const <String>['location', 'locality', 'city', 'area'],
+      const <String>['location', 'locality', 'city'],
     );
+    final areaLabel = _meta(
+      metadata,
+      const <String>['area', 'areaLabel', 'areaSqFt', 'totalArea'],
+    );
+    // Format area with sq ft suffix if not already present
+    final areaDisplay = areaLabel != null
+        ? (RegExp(r'sq\s*\.?\s*ft|sqft', caseSensitive: false)
+                .hasMatch(areaLabel)
+            ? areaLabel
+            : '$areaLabel sq ft')
+        : null;
     final facing = _meta(
       metadata,
       const <String>['facing', 'direction', 'plotFacing'],
@@ -354,6 +365,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     final additionalInfo = _meta(
       metadata,
       const <String>[
+        'additionalInformation',
         'additionalDetails',
         'additionalInfo',
         'description',
@@ -366,6 +378,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     final plotsCount = _meta(
       metadata,
       const <String>['plotsCount', 'plotCount', 'numberOfPlots', 'plots'],
+    );
+    final plotNumbers = _meta(
+      metadata,
+      const <String>['plotNumbers'],
     );
     final contactName = _meta(
       metadata,
@@ -412,9 +428,13 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
       'locality',
       'city',
       'area',
+      'areaLabel',
+      'areaSqFt',
+      'totalArea',
       'facing',
       'direction',
       'plotFacing',
+      'additionalInformation',
       'additionalDetails',
       'additionalInfo',
       'description',
@@ -424,6 +444,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
       'plotCount',
       'numberOfPlots',
       'plots',
+      'plotNumbers',
     };
 
     final remaining = metadata.entries
@@ -575,13 +596,15 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: _StatCard(
-                                    label: 'LISTING',
-                                    value: labelOrDash(listingType),
+                                    label: 'AREA',
+                                    value: labelOrDash(areaDisplay),
                                   ),
                                 ),
                               ],
                             ),
-                            if (additionalInfo != null) ...[
+                            if (additionalInfo != null &&
+                                feature.propertyType.trim() !=
+                                    'IndividualPlots') ...[
                               const SizedBox(height: 14),
                               _SectionCard(
                                 title: 'ADDITIONAL INFO',
@@ -604,13 +627,26 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                                 children: [
                                   _KeyValueRow(
                                     label: 'Type',
-                                    value: labelOrDash(propertyTypeLabel),
+                                    value: feature.propertyType.trim() ==
+                                            'IndividualPlots'
+                                        ? (plotsCount == '1' ? 'Plot' : 'Plots')
+                                        : labelOrDash(propertyTypeLabel),
                                   ),
-                                  if (plotsCount != null) ...[
+                                  if (listingType.isNotEmpty) ...[
                                     const SizedBox(height: 10),
                                     _KeyValueRow(
-                                      label: 'Plots',
-                                      value: plotsCount,
+                                      label: 'Listing',
+                                      value: listingType,
+                                    ),
+                                  ],
+                                  if (plotsCount != null ||
+                                      plotNumbers != null) ...[
+                                    const SizedBox(height: 10),
+                                    _KeyValueRow(
+                                      label: plotsCount == '1'
+                                          ? 'Plot Number'
+                                          : 'Plot Numbers',
+                                      value: plotNumbers ?? plotsCount ?? '',
                                     ),
                                   ],
                                   if (location != null) ...[
@@ -623,6 +659,25 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                                 ],
                               ),
                             ),
+                            // Description section for IndividualPlots (below Property Overview)
+                            if (feature.propertyType.trim() ==
+                                    'IndividualPlots' &&
+                                additionalInfo != null) ...[
+                              const SizedBox(height: 14),
+                              _SectionCard(
+                                title: 'DESCRIPTION',
+                                child: DelimitedBulletList(
+                                  text: additionalInfo,
+                                  delimiter: '~~',
+                                  textStyle: const TextStyle(
+                                    color: Color(0xFF334155),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.45,
+                                  ),
+                                ),
+                              ),
+                            ],
                             if (contactName != null || phoneNumber != null) ...[
                               const SizedBox(height: 14),
                               _SectionCard(
