@@ -5,6 +5,7 @@ class DelimitedBulletList extends StatelessWidget {
     super.key,
     required this.text,
     this.delimiter = '~~',
+    this.delimiterPattern,
     this.textStyle,
     this.bulletColor,
     this.bulletGap = 6,
@@ -13,14 +14,17 @@ class DelimitedBulletList extends StatelessWidget {
 
   final String text;
   final String delimiter;
+  /// Optional regex pattern for splitting. If provided, takes precedence over delimiter.
+  final RegExp? delimiterPattern;
   final TextStyle? textStyle;
   final Color? bulletColor;
   final double bulletGap;
   final double itemSpacing;
 
   List<String> _splitItems() {
+    final pattern = delimiterPattern ?? RegExp(RegExp.escape(delimiter));
     return text
-        .split(delimiter)
+        .split(pattern)
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toList(growable: false);
@@ -46,7 +50,7 @@ class DelimitedBulletList extends StatelessWidget {
       children: [
         for (var i = 0; i < items.length; i++) ...[
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text('•', style: bulletStyle),
               SizedBox(width: bulletGap),

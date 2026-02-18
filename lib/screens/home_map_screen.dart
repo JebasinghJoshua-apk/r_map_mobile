@@ -1277,6 +1277,43 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                 ),
               ),
             ),
+          // Viewport loading indicator (panning/zooming data fetch).
+          if (_isViewportFetching && !showEmptyState && _hasSelectedPlace)
+            Positioned.fill(
+              child: Center(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Loading',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           Positioned(
             top: 48,
             left: 16,
@@ -1369,46 +1406,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
               right: 16 + 40, // 16 (column right) + 36 (button) + 4 (gap)
               child: NearbyCoachmarkTooltip(
                 onDismiss: _dismissNearbyCoachmark,
-              ),
-            ),
-          if (_isViewportLoading && !showEmptyState && _hasSelectedPlace)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: Center(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          ),
-                          SizedBox(width: 10),
-                          Text(
-                            'Loading…',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
               ),
             ),
           if (showEmptyState)

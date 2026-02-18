@@ -668,7 +668,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                                 title: 'DESCRIPTION',
                                 child: DelimitedBulletList(
                                   text: additionalInfo,
-                                  delimiter: '~~',
+                                  delimiterPattern: RegExp(r'[\n,]+'),
                                   textStyle: const TextStyle(
                                     color: Color(0xFF334155),
                                     fontSize: 14,
