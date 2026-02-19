@@ -242,28 +242,23 @@ class _CommercialSpaceDetailScreenState
                             ),
                           ),
                         ],
-                        if (contactName != null || phoneNumber != null) ...[
-                          const SizedBox(height: 14),
-                          SectionCard(
-                            title: 'CONTACT DETAILS',
-                            child: Column(
-                              children: [
-                                if (contactName != null)
-                                  KeyValueRow(
-                                    label: 'Name',
-                                    value: contactName,
-                                  ),
-                                if (contactName != null && phoneNumber != null)
-                                  const SizedBox(height: 10),
-                                if (phoneNumber != null)
-                                  KeyValueRow(
-                                    label: 'Phone',
-                                    value: phoneNumber,
-                                  ),
-                              ],
-                            ),
+                        const SizedBox(height: 14),
+                        SectionCard(
+                          title: 'CONTACT DETAILS',
+                          child: Column(
+                            children: [
+                              KeyValueRow(
+                                label: 'Name',
+                                value: contactName ?? '-',
+                              ),
+                              const SizedBox(height: 10),
+                              KeyValueRow(
+                                label: 'Phone',
+                                value: phoneNumber ?? '-',
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ],
                     ),
                   ),
