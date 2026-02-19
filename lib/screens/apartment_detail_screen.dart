@@ -124,28 +124,10 @@ class _ApartmentDetailScreenState
                             const SizedBox(width: 12),
                             Expanded(
                               child: StatCard(
-                                label: 'AREA',
-                                value: labelOrDash(areaDisplay),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: StatCard(
                                 label: 'BEDROOMS',
                                 value: labelOrDash(bedrooms),
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: StatCard(
-                                label: 'BATHROOMS',
-                                value: labelOrDash(bathrooms),
-                              ),
-                            ),
                           ],
                         ),
                         const SizedBox(height: 12),
@@ -153,15 +135,15 @@ class _ApartmentDetailScreenState
                           children: [
                             Expanded(
                               child: StatCard(
-                                label: 'PROPERTY FLOOR',
-                                value: labelOrDash(floor),
+                                label: 'AREA',
+                                value: labelOrDash(areaDisplay),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: StatCard(
-                                label: 'FLOORS IN BUILDING',
-                                value: labelOrDash(totalFloors),
+                                label: 'CAR PARKING',
+                                value: labelOrDash(parking),
                               ),
                             ),
                           ],
