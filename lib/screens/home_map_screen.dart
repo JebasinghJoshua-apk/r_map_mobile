@@ -1285,8 +1285,19 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.black54,
+                    color: Colors.white.withOpacity(0.85),
                     borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFFE2E8F0),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1297,7 +1308,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
                           valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
+                              AlwaysStoppedAnimation<Color>(Color(0xFF6B7280)),
                         ),
                       ),
                       SizedBox(width: 8),
@@ -1306,7 +1317,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
-                          color: Colors.white,
+                          color: Color(0xFF4B5563),
                         ),
                       ),
                     ],
