@@ -23,6 +23,32 @@ class _ApartmentDetailScreenState
   @override
   String get screenName => 'ApartmentDetail';
 
+  String _formatFloorDisplay(String floor, String? totalFloors) {
+    final floorNum = int.tryParse(floor);
+    final floorLabel =
+        floorNum == 0 ? 'Ground Floor' : '${_ordinal(floorNum ?? 0)} Floor';
+    if (totalFloors != null) {
+      return '$floorLabel of $totalFloors Floors';
+    }
+    return floorLabel;
+  }
+
+  String _ordinal(int n) {
+    if (n <= 0) return n.toString();
+    final mod100 = n % 100;
+    if (mod100 >= 11 && mod100 <= 13) return '${n}th';
+    switch (n % 10) {
+      case 1:
+        return '${n}st';
+      case 2:
+        return '${n}nd';
+      case 3:
+        return '${n}rd';
+      default:
+        return '${n}th';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final feature = widget.feature;
@@ -47,7 +73,8 @@ class _ApartmentDetailScreenState
     final floor = meta(metadata, ['floor', 'floorNumber']);
     final totalFloors = meta(metadata, ['totalFloors', 'floors']);
     final furnishing = meta(metadata, ['furnishing', 'furnished']);
-    final parking = meta(metadata, ['parking', 'carParking']);
+    final parking =
+        meta(metadata, ['carParkingCount', 'parking', 'carParking']);
     final amenities = meta(metadata, ['amenities', 'facilities']);
 
     final listingType = formatListingType(feature.listingType);
@@ -168,9 +195,8 @@ class _ApartmentDetailScreenState
                                 const SizedBox(height: 10),
                                 KeyValueRow(
                                   label: 'Floor',
-                                  value: totalFloors != null
-                                      ? '$floor of $totalFloors'
-                                      : floor,
+                                  value:
+                                      _formatFloorDisplay(floor, totalFloors),
                                 ),
                               ],
                               if (furnishing != null) ...[
