@@ -53,6 +53,7 @@ class PropertyDetailScreen extends StatelessWidget {
         );
 
       case 'apartment':
+      case 'apartmentflat':
         return ApartmentDetailScreen(
           feature: feature,
           imageUrls: imageUrls,
