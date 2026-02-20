@@ -151,28 +151,14 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
               width: double.infinity,
               height: double.infinity,
               padding: const pw.EdgeInsets.all(6),
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(
-                  color: PdfColors.black,
-                  width: 1.5,
-                ),
-                borderRadius: pw.BorderRadius.circular(4),
-              ),
               child: pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
-                  // QR Code - square with border, matching preview
+                  // QR Code - square, matching preview
                   pw.Container(
-                    width: 52,
-                    height: 52,
+                    width: 62,
+                    height: 62,
                     padding: const pw.EdgeInsets.all(3),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border.all(
-                        color: PdfColors.black,
-                        width: 1,
-                      ),
-                      borderRadius: pw.BorderRadius.circular(2),
-                    ),
                     child: pw.Image(
                       pw.MemoryImage(qrBytes),
                       fit: pw.BoxFit.contain,
@@ -188,7 +174,7 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
                         pw.Text(
                           widget.layoutName,
                           style: pw.TextStyle(
-                            fontSize: 9,
+                            fontSize: 13,
                             fontWeight: pw.FontWeight.bold,
                             color: PdfColors.black,
                           ),
@@ -200,7 +186,7 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
                         pw.Text(
                           'rmap.in',
                           style: pw.TextStyle(
-                            fontSize: 9,
+                            fontSize: 13,
                             fontWeight: pw.FontWeight.bold,
                             color: PdfColors.black,
                           ),
@@ -299,7 +285,6 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
               height: 140,
               decoration: BoxDecoration(
                 color: Colors.white,
-                border: Border.all(color: const Color(0xFFE5E7EB), width: 2),
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: const [
                   BoxShadow(
@@ -314,18 +299,14 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
                 children: [
                   // QR Code
                   Container(
-                    width: 110,
-                    height: 110,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
+                    width: 150,
+                    height: 150,
                     child: QrImageView(
                       data: widget.shareUrl,
                       version: QrVersions.auto,
                       errorCorrectionLevel: QrErrorCorrectLevel
                           .L, // Low error correction for simpler QR
-                      size: 110,
+                      size: 150,
                       gapless: true,
                       backgroundColor: Colors.white,
                     ),
@@ -341,7 +322,7 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
                           widget.layoutName,
                           textAlign: TextAlign.center,
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 22,
                             fontWeight: FontWeight.w700,
                             color: Color(0xFF111827),
                           ),
@@ -353,7 +334,7 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
                           'rmap.in',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 22,
                             fontWeight: FontWeight.w700,
                             color: Color(0xFF374151),
                           ),
