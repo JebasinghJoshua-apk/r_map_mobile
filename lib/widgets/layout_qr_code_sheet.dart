@@ -129,6 +129,7 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
       final qrImage = await QrPainter(
         data: widget.shareUrl,
         version: QrVersions.auto,
+        errorCorrectionLevel: QrErrorCorrectLevel.L, // Low error correction for simpler QR
         gapless: true,
         color: const Color(0xFF000000),
         emptyColor: const Color(0xFFFFFFFF),
@@ -151,7 +152,7 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
               padding: const pw.EdgeInsets.all(6),
               decoration: pw.BoxDecoration(
                 border: pw.Border.all(
-                  color: PdfColors.grey300,
+                  color: PdfColors.black,
                   width: 1.5,
                 ),
                 borderRadius: pw.BorderRadius.circular(4),
@@ -166,7 +167,7 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
                     padding: const pw.EdgeInsets.all(3),
                     decoration: pw.BoxDecoration(
                       border: pw.Border.all(
-                        color: PdfColors.grey300,
+                        color: PdfColors.black,
                         width: 1,
                       ),
                       borderRadius: pw.BorderRadius.circular(2),
@@ -186,38 +187,21 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
                         pw.Text(
                           widget.layoutName,
                           style: pw.TextStyle(
-                            fontSize: 7,
+                            fontSize: 9,
                             fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.black,
                           ),
                           maxLines: 2,
                           overflow: pw.TextOverflow.clip,
                           textAlign: pw.TextAlign.center,
                         ),
-                        pw.SizedBox(height: 3),
-                        pw.Text(
-                          'Scan to view layout',
-                          style: const pw.TextStyle(
-                            fontSize: 5.5,
-                            color: PdfColors.grey700,
-                          ),
-                          textAlign: pw.TextAlign.center,
-                        ),
-                        pw.SizedBox(height: 12),
+                        pw.SizedBox(height: 8),
                         pw.Text(
                           'rmap.in',
                           style: pw.TextStyle(
-                            fontSize: 7,
+                            fontSize: 9,
                             fontWeight: pw.FontWeight.bold,
-                            color: PdfColors.grey800,
-                          ),
-                          textAlign: pw.TextAlign.center,
-                        ),
-                        pw.SizedBox(height: 2),
-                        pw.Text(
-                          'Real Estate Map',
-                          style: const pw.TextStyle(
-                            fontSize: 4,
-                            color: PdfColors.grey600,
+                            color: PdfColors.black,
                           ),
                           textAlign: pw.TextAlign.center,
                         ),
@@ -338,6 +322,7 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
                     child: QrImageView(
                       data: widget.shareUrl,
                       version: QrVersions.auto,
+                      errorCorrectionLevel: QrErrorCorrectLevel.L, // Low error correction for simpler QR
                       size: 110,
                       gapless: true,
                       backgroundColor: Colors.white,
@@ -354,39 +339,21 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
                           widget.layoutName,
                           textAlign: TextAlign.center,
                           style: const TextStyle(
-                            fontSize: 14,
+                            fontSize: 16,
                             fontWeight: FontWeight.w700,
                             color: Color(0xFF111827),
                           ),
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'Scan to view layout',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF6B7280),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
                         const Text(
                           'rmap.in',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 16,
                             fontWeight: FontWeight.w700,
                             color: Color(0xFF374151),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Real Estate Map',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Color(0xFF9CA3AF),
                           ),
                         ),
                       ],
