@@ -268,9 +268,8 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
           .toList(growable: false);
 
       final plotsCountText = _plotsCountController.text.trim();
-      final plotsCount = plotsCountText.isNotEmpty
-          ? int.tryParse(plotsCountText)
-          : null;
+      final plotsCount =
+          plotsCountText.isNotEmpty ? int.tryParse(plotsCountText) : null;
 
       final response = await _layoutsApi.createLayoutDraft(
         name: name,

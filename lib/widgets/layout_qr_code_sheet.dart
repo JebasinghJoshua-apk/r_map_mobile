@@ -141,7 +141,8 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
       // Print the PDF
       await Printing.layoutPdf(
         onLayout: (_) async => pdf.save(),
-        name: 'Layout_${widget.layoutName.replaceAll(RegExp(r'[^\w\s]'), '_')}.pdf',
+        name:
+            'Layout_${widget.layoutName.replaceAll(RegExp(r'[^\w\s]'), '_')}.pdf',
       );
 
       if (mounted) {
