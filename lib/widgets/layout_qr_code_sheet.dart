@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/rendering.dart';
+import 'dart:ui' as ui;
 import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 
 import 'toast_message.dart';
 
@@ -31,6 +35,7 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
   final GlobalKey _qrKey = GlobalKey();
   bool _isPrinting = false;
   bool _isCopied = false;
+  bool _isSharing = false;
 
   Future<void> _copyUrl() async {
     await Clipboard.setData(ClipboardData(text: widget.shareUrl));
@@ -52,6 +57,58 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
   Future<void> _shareUrl() async {
     final text = '${widget.layoutName}\n\nView layout:\n${widget.shareUrl}';
     await Share.share(text, subject: widget.layoutName);
+  }
+
+  /// Share QR label image to printer app (Thermer, etc.)
+  Future<void> _shareImageToPrint() async {
+    setState(() {
+      _isSharing = true;
+    });
+
+    try {
+      // Capture the QR code preview as an image
+      final boundary =
+          _qrKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) {
+        throw Exception('Could not capture QR code');
+      }
+
+      // Capture at higher resolution for better print quality
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+
+      if (byteData == null) {
+        throw Exception('Failed to generate image');
+      }
+
+      // Save to temp file
+      final tempDir = await getTemporaryDirectory();
+      final fileName =
+          'qr_label_${widget.layoutId}_${DateTime.now().millisecondsSinceEpoch}.png';
+      final file = File('${tempDir.path}/$fileName');
+      await file.writeAsBytes(byteData.buffer.asUint8List());
+
+      // Share the image file (this will show share menu including Thermer)
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'QR Label: ${widget.layoutName}',
+        subject: 'Print QR Label',
+      );
+
+      if (mounted) {
+        ToastMessage.show(context, 'Select Thermer or printer app to print');
+      }
+    } catch (e) {
+      if (mounted) {
+        ToastMessage.show(context, 'Failed to share image: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSharing = false;
+        });
+      }
+    }
   }
 
   Future<void> _printQrCode() async {
@@ -86,47 +143,83 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
       pdf.addPage(
         pw.Page(
           pageFormat: const PdfPageFormat(labelWidth, labelHeight),
-          margin: pw.EdgeInsets.zero,
+          margin: const pw.EdgeInsets.all(3),
           build: (context) {
             return pw.Container(
-              width: labelWidth,
-              height: labelHeight,
-              padding: const pw.EdgeInsets.all(4),
+              width: double.infinity,
+              height: double.infinity,
+              padding: const pw.EdgeInsets.all(6),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(
+                  color: PdfColors.grey300,
+                  width: 1.5,
+                ),
+                borderRadius: pw.BorderRadius.circular(4),
+              ),
               child: pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
-                  // QR Code - square, fitting the height
+                  // QR Code - square with border, matching preview
                   pw.Container(
-                    width: 64,
-                    height: 64,
+                    width: 52,
+                    height: 52,
+                    padding: const pw.EdgeInsets.all(3),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(
+                        color: PdfColors.grey300,
+                        width: 1,
+                      ),
+                      borderRadius: pw.BorderRadius.circular(2),
+                    ),
                     child: pw.Image(
                       pw.MemoryImage(qrBytes),
                       fit: pw.BoxFit.contain,
                     ),
                   ),
-                  pw.SizedBox(width: 8),
+                  pw.SizedBox(width: 6),
                   // Text content
                   pw.Expanded(
                     child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      crossAxisAlignment: pw.CrossAxisAlignment.center,
                       mainAxisAlignment: pw.MainAxisAlignment.center,
                       children: [
                         pw.Text(
                           widget.layoutName,
                           style: pw.TextStyle(
-                            fontSize: 10,
+                            fontSize: 7,
                             fontWeight: pw.FontWeight.bold,
                           ),
                           maxLines: 2,
                           overflow: pw.TextOverflow.clip,
+                          textAlign: pw.TextAlign.center,
+                        ),
+                        pw.SizedBox(height: 3),
+                        pw.Text(
+                          'Scan to view layout',
+                          style: const pw.TextStyle(
+                            fontSize: 5.5,
+                            color: PdfColors.grey700,
+                          ),
+                          textAlign: pw.TextAlign.center,
+                        ),
+                        pw.SizedBox(height: 12),
+                        pw.Text(
+                          'rmap.in',
+                          style: pw.TextStyle(
+                            fontSize: 7,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.grey800,
+                          ),
+                          textAlign: pw.TextAlign.center,
                         ),
                         pw.SizedBox(height: 2),
                         pw.Text(
-                          'Scan to view',
+                          'Real Estate Map',
                           style: const pw.TextStyle(
-                            fontSize: 7,
-                            color: PdfColors.grey700,
+                            fontSize: 4,
+                            color: PdfColors.grey600,
                           ),
+                          textAlign: pw.TextAlign.center,
                         ),
                       ],
                     ),
@@ -254,11 +347,12 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
                   // Text content
                   Expanded(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
                           widget.layoutName,
+                          textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
@@ -270,9 +364,29 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
                         const SizedBox(height: 6),
                         const Text(
                           'Scan to view layout',
+                          textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 11,
                             color: Color(0xFF6B7280),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'rmap.in',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF374151),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Real Estate Map',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF9CA3AF),
                           ),
                         ),
                       ],
@@ -362,11 +476,11 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Print button
+                // Print button - shares image to printer app
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: _isPrinting ? null : _printQrCode,
-                    icon: _isPrinting
+                    onPressed: _isSharing ? null : _shareImageToPrint,
+                    icon: _isSharing
                         ? const SizedBox(
                             width: 18,
                             height: 18,
@@ -377,7 +491,7 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
                             ),
                           )
                         : const Icon(Icons.print, size: 18),
-                    label: Text(_isPrinting ? 'Printing...' : 'Print'),
+                    label: Text(_isSharing ? 'Preparing...' : 'Print'),
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF0FAD97),
                       disabledBackgroundColor: const Color(0xFFCBD5E1),
@@ -391,7 +505,40 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+
+          // Hint text
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+            child: Text(
+              'Tap Print to share to Thermer or other printer app',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                color: Color(0xFF9CA3AF),
+              ),
+            ),
+          ),
+
+          // System print option (PDF)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+            child: TextButton.icon(
+              onPressed: _isPrinting ? null : _printQrCode,
+              icon: _isPrinting
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.print_outlined, size: 16),
+              label: Text(_isPrinting ? 'Printing...' : 'System Print (PDF)'),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF6B7280),
+                textStyle: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
 
           // Done button
           Padding(
