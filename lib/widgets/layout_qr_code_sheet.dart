@@ -184,7 +184,7 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
                         ),
                         pw.SizedBox(height: 8),
                         pw.Text(
-                          'RMAP.IN',
+                          'rmap.in',
                           style: pw.TextStyle(
                             fontSize: 13,
                             fontWeight: pw.FontWeight.bold,
@@ -329,7 +329,7 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
                         ),
                         const SizedBox(height: 16),
                         const Text(
-                          'RMAP.IN',
+                          'rmap.in',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 22,
