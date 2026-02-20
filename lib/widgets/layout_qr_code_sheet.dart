@@ -145,26 +145,26 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
       pdf.addPage(
         pw.Page(
           pageFormat: const PdfPageFormat(labelWidth, labelHeight),
-          margin: const pw.EdgeInsets.all(3),
+          margin: const pw.EdgeInsets.all(2),
           build: (context) {
             return pw.Container(
               width: double.infinity,
               height: double.infinity,
-              padding: const pw.EdgeInsets.all(6),
+              padding:
+                  const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 2),
               child: pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
                   // QR Code - square, matching preview
                   pw.Container(
-                    width: 62,
-                    height: 62,
-                    padding: const pw.EdgeInsets.all(3),
+                    width: 64,
+                    height: 64,
                     child: pw.Image(
                       pw.MemoryImage(qrBytes),
                       fit: pw.BoxFit.contain,
                     ),
                   ),
-                  pw.SizedBox(width: 6),
+                  pw.SizedBox(width: 2),
                   // Text content
                   pw.Expanded(
                     child: pw.Column(
@@ -184,7 +184,7 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
                         ),
                         pw.SizedBox(height: 8),
                         pw.Text(
-                          'rmap.in',
+                          'RMAP.IN',
                           style: pw.TextStyle(
                             fontSize: 13,
                             fontWeight: pw.FontWeight.bold,
@@ -294,24 +294,22 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
                   ),
                 ],
               ),
-              padding: const EdgeInsets.all(12),
               child: Row(
                 children: [
                   // QR Code
-                  Container(
-                    width: 150,
-                    height: 150,
+                  SizedBox(
+                    width: 140,
+                    height: 140,
                     child: QrImageView(
                       data: widget.shareUrl,
                       version: QrVersions.auto,
                       errorCorrectionLevel: QrErrorCorrectLevel
                           .L, // Low error correction for simpler QR
-                      size: 150,
+                      size: 140,
                       gapless: true,
                       backgroundColor: Colors.white,
                     ),
                   ),
-                  const SizedBox(width: 12),
                   // Text content
                   Expanded(
                     child: Column(
@@ -331,7 +329,7 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
                         ),
                         const SizedBox(height: 16),
                         const Text(
-                          'rmap.in',
+                          'RMAP.IN',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 22,
