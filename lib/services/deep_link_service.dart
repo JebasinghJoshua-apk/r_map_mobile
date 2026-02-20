@@ -20,6 +20,7 @@ class _DeepLinkTarget {
     this.isPlotLink = false,
     this.layoutFeatureId,
     this.plotId,
+    this.shortCode,
   });
   final String propertyType;
   final String featureId;
@@ -29,6 +30,9 @@ class _DeepLinkTarget {
   final bool isPlotLink;
   final String? layoutFeatureId;
   final String? plotId;
+
+  /// Short code for /s/{code} URLs (layouts).
+  final String? shortCode;
 }
 
 /// Handles incoming deep links for `/property/...` and `/share/...` URLs and
@@ -50,6 +54,8 @@ class DeepLinkService {
   bool _homeScreenReady = false;
 
   static const _allowedHosts = {
+    'rmap.in',
+    'www.rmap.in',
     'mango-beach-047e3b400.4.azurestaticapps.net',
   };
 
@@ -162,6 +168,15 @@ class DeepLinkService {
         plotId: segments[2],
       );
     }
+    // /s/{shortCode} - short URL for layouts
+    if (segments.length >= 2 && segments[0] == 's') {
+      return _DeepLinkTarget(
+        propertyType: 'Layout',
+        featureId: '', // Will be resolved via shortCode
+        isSharePage: false,
+        shortCode: segments[1],
+      );
+    }
     return null;
   }
 
@@ -170,8 +185,37 @@ class DeepLinkService {
     if (nav == null) return;
 
     debugPrint(
-      '[DeepLink] navigating → ${target.propertyType}/${target.featureId}',
+      '[DeepLink] navigating → ${target.propertyType}/${target.featureId}${target.shortCode != null ? ' (shortCode: ${target.shortCode})' : ''}',
     );
+
+    // Handle short URL (/s/{code}) - resolve shortCode to layoutId first.
+    if (target.shortCode != null && target.shortCode!.isNotEmpty) {
+      _showLoadingOverlay(nav.context);
+      try {
+        final layoutId = await _resolveShortCode(target.shortCode!);
+        if (nav.canPop()) nav.pop();
+
+        if (layoutId == null) {
+          _showError(nav.context, 'Layout not found');
+          return;
+        }
+
+        // Navigate directly to the layout.
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => LayoutDetailScreen(
+              layoutId: layoutId,
+              fromDeepLink: true,
+            ),
+          ),
+        );
+        return;
+      } catch (e) {
+        if (nav.canPop()) nav.pop();
+        _showError(nav.context, 'Failed to load layout');
+        return;
+      }
+    }
 
     // Handle plot deep links - navigate to home map with focused plot.
     if (target.isPlotLink &&
@@ -279,6 +323,25 @@ class DeepLinkService {
   // ───────────────────────────────────────────────────────────────────
   //  API helpers
   // ───────────────────────────────────────────────────────────────────
+
+  /// Resolves a short code to a layout ID by calling the API.
+  Future<String?> _resolveShortCode(String shortCode) async {
+    final baseUrl = ApiConstants.apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final url = '$baseUrl/api/s/${Uri.encodeComponent(shortCode)}';
+
+    try {
+      final response =
+          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['layoutId'] as String?;
+      }
+    } catch (e) {
+      debugPrint('[DeepLink] short code resolve error: $e');
+    }
+    return null;
+  }
 
   Future<Map<String, dynamic>?> _fetchShareSummary(
     String propertyType,

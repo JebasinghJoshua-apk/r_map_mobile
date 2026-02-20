@@ -8,7 +8,7 @@ class ApiConstants {
   /// Override via: --dart-define=WEB_BASE_URL=https://your-site.example
   static const String webBaseUrl = String.fromEnvironment(
     'WEB_BASE_URL',
-    defaultValue: 'https://mango-beach-047e3b400.4.azurestaticapps.net',
+    defaultValue: 'https://rmap.in',
   );
 
   static const String mobileBffBaseUrl = String.fromEnvironment(

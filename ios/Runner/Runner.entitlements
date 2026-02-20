@@ -4,6 +4,8 @@
 <dict>
     <key>com.apple.developer.associated-domains</key>
     <array>
+        <string>applinks:rmap.in</string>
+        <string>applinks:www.rmap.in</string>
         <string>applinks:mango-beach-047e3b400.4.azurestaticapps.net</string>
     </array>
 </dict>
