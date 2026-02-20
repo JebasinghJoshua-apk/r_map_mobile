@@ -16,6 +16,7 @@ import '../services/mobile_bff_map_api.dart';
 import '../services/mobile_bff_saved_properties_api.dart';
 import '../state/auth_scope.dart';
 import '../utils/anchored_popover_geometry.dart';
+import '../utils/user_role.dart';
 import 'auth_dialog.dart';
 import 'dialogs/favorites_dialog.dart';
 import 'dialogs/my_properties_dialog.dart';
@@ -141,11 +142,14 @@ class SearchOverlayState extends State<SearchOverlay> {
   }
 
   Future<void> showMyPropertiesPopup() async {
-    final token = AuthScope.of(context).session?.token;
+    final authState = AuthScope.of(context);
+    final token = authState.session?.token;
     if (token == null || token.trim().isEmpty) {
       ToastMessage.show(context, 'Please login to view your properties.');
       return;
     }
+
+    final userRole = authState.session?.user.roleValue ?? UserRole.user;
 
     await showDialog<void>(
       context: context,
@@ -158,6 +162,7 @@ class SearchOverlayState extends State<SearchOverlay> {
         onMyPropertySelected: widget.onMyPropertySelected,
         onMyPropertyDeleted: widget.onMyPropertyDeleted,
         onOpened: widget.onMyPropertiesOpened,
+        userRole: userRole,
       ),
     );
   }

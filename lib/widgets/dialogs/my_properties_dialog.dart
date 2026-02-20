@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../models/my_property_list_item.dart';
+import '../../screens/layout_details_form_screen.dart';
 import '../../screens/property_details_form_screen.dart';
 import '../../screens/property_polygon_editor_screen.dart';
 import '../../services/mobile_bff_map_api.dart';
 import '../../utils/geojson.dart';
+import '../../utils/user_role.dart';
 import '../toast_message.dart';
 
 class MyPropertiesDialog extends StatefulWidget {
@@ -20,6 +22,7 @@ class MyPropertiesDialog extends StatefulWidget {
     required this.onMyPropertySelected,
     required this.onMyPropertyDeleted,
     required this.onOpened,
+    this.userRole = UserRole.user,
   });
 
   final String bearerToken;
@@ -29,6 +32,7 @@ class MyPropertiesDialog extends StatefulWidget {
   final Future<void> Function(MyPropertyListItem item)? onMyPropertySelected;
   final Future<void> Function(MyPropertyListItem item)? onMyPropertyDeleted;
   final VoidCallback? onOpened;
+  final UserRole userRole;
 
   @override
   State<MyPropertiesDialog> createState() => _MyPropertiesDialogState();
@@ -149,13 +153,17 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
   }
 
   Future<String?> _pickPropertyTypeForAdd() async {
-    const options = <String>[
+    final baseOptions = <String>[
       'Independent House',
       'Plot',
       'Apartment',
       'Land',
       'Commercial Space',
     ];
+    // Only admins can add layouts from mobile
+    final options = widget.userRole == UserRole.admin
+        ? [...baseOptions, 'Layout']
+        : baseOptions;
 
     return showDialog<String>(
       context: context,
@@ -472,6 +480,23 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                       final selectedType = await _pickPropertyTypeForAdd();
                       if (!mounted) return;
                       if (selectedType == null || selectedType.trim().isEmpty) {
+                        return;
+                      }
+                      // Layout uses a dedicated screen with boundary drawing + QR generation
+                      if (selectedType == 'Layout') {
+                        final center = widget.getMapCenter?.call();
+                        final zoom = widget.getMapZoom?.call();
+                        await Navigator.of(context, rootNavigator: true).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => LayoutDetailsFormScreen(
+                              initialCenter: center,
+                              initialZoom: zoom,
+                            ),
+                          ),
+                        );
+                        if (mounted) {
+                          unawaited(_load());
+                        }
                         return;
                       }
                       final center = widget.getMapCenter?.call();

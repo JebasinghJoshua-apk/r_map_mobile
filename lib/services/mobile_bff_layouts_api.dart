@@ -102,6 +102,157 @@ class MobileBffLayoutsApi {
       'Layouts API request failed. MobileBFF: ${ApiConstants.mobileBffBaseUrl}. Request: $requestUri',
     );
   }
+
+  /// Creates a new layout draft with boundary and basic details.
+  ///
+  /// Returns the created [LayoutDraftResponse] containing the layout ID
+  /// which can be used to generate a QR code.
+  Future<LayoutDraftResponse> createLayoutDraft({
+    required String name,
+    required List<List<double>> boundaryLatLng,
+    String? area,
+    String? surveyNumber,
+    String? approvalNumber,
+    String? locationDetails,
+    String? additionalDetails,
+    String? contactNumbers,
+    String? description,
+    int? plotsCount,
+    required String bearerToken,
+  }) async {
+    final uri = _uri('/mobile/layouts/draft');
+
+    final payload = <String, dynamic>{
+      'name': name.trim(),
+      'layoutBoundaryLatLng': boundaryLatLng,
+    };
+
+    if (area != null && area.trim().isNotEmpty) {
+      payload['area'] = area.trim();
+    }
+    if (surveyNumber != null && surveyNumber.trim().isNotEmpty) {
+      payload['surveyNumber'] = surveyNumber.trim();
+    }
+    if (approvalNumber != null && approvalNumber.trim().isNotEmpty) {
+      payload['approvalNumber'] = approvalNumber.trim();
+    }
+    if (locationDetails != null && locationDetails.trim().isNotEmpty) {
+      payload['locationDetails'] = locationDetails.trim();
+    }
+    if (additionalDetails != null && additionalDetails.trim().isNotEmpty) {
+      payload['additionalDetails'] = additionalDetails.trim();
+    }
+    if (contactNumbers != null && contactNumbers.trim().isNotEmpty) {
+      payload['contactNumbers'] = contactNumbers.trim();
+    }
+    if (description != null && description.trim().isNotEmpty) {
+      payload['description'] = description.trim();
+    }
+    if (plotsCount != null && plotsCount > 0) {
+      payload['plotsCount'] = plotsCount;
+    }
+
+    http.Response response;
+    try {
+      final token = bearerToken.trim();
+      final normalized = token.toLowerCase().startsWith('bearer ')
+          ? token.substring('bearer '.length)
+          : token;
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $normalized',
+      };
+
+      response = await _client
+          .post(uri, headers: headers, body: jsonEncode(payload))
+          .timeout(_timeout);
+    } on SocketException {
+      _logNetworkHelp(uri);
+      throw const LayoutsApiException(
+        'Cannot connect to the server. Please check your network and try again.',
+      );
+    } on HttpException {
+      _logNetworkHelp(uri);
+      throw const LayoutsApiException('Network error. Please try again.');
+    } on TimeoutException {
+      throw const LayoutsApiException('Request timed out. Please try again.');
+    } on FormatException {
+      throw const LayoutsApiException('Unexpected response from server');
+    }
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map) {
+        throw const LayoutsApiException('Unexpected response from server');
+      }
+      return LayoutDraftResponse.fromJson(decoded.cast<String, dynamic>());
+    }
+
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      throw const LayoutsApiException('Not authorized to create layouts');
+    }
+
+    throw LayoutsApiException(
+      _tryMessage(response.body) ??
+          'Layout creation failed (${response.statusCode})',
+    );
+  }
+}
+
+/// Response from creating a layout draft.
+class LayoutDraftResponse {
+  const LayoutDraftResponse({
+    required this.id,
+    required this.name,
+    this.area,
+    this.surveyNumber,
+    this.approvalNumber,
+    this.locationDetails,
+    this.additionalDetails,
+    this.contactNumbers,
+    this.description,
+    this.plotsCount,
+    required this.isDraft,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String name;
+  final String? area;
+  final String? surveyNumber;
+  final String? approvalNumber;
+  final String? locationDetails;
+  final String? additionalDetails;
+  final String? contactNumbers;
+  final String? description;
+  final int? plotsCount;
+  final bool isDraft;
+  final DateTime createdAt;
+
+  static LayoutDraftResponse fromJson(Map<String, dynamic> json) {
+    return LayoutDraftResponse(
+      id: (json['id'] as String?) ?? '',
+      name: (json['name'] as String?) ?? '',
+      area: json['area'] as String?,
+      surveyNumber: json['surveyNumber'] as String?,
+      approvalNumber: json['approvalNumber'] as String?,
+      locationDetails: json['locationDetails'] as String?,
+      additionalDetails: json['additionalDetails'] as String?,
+      contactNumbers: json['contactNumbers'] as String?,
+      description: json['description'] as String?,
+      plotsCount: _asIntGlobal(json['plotsCount']),
+      isDraft: (json['isDraft'] as bool?) ?? true,
+      createdAt: DateTime.tryParse((json['createdAt'] as String?) ?? '') ??
+          DateTime.now(),
+    );
+  }
+}
+
+int? _asIntGlobal(Object? value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value);
+  return null;
 }
 
 class LayoutsApiException implements Exception {
