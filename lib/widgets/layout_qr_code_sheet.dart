@@ -129,7 +129,8 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
       final qrImage = await QrPainter(
         data: widget.shareUrl,
         version: QrVersions.auto,
-        errorCorrectionLevel: QrErrorCorrectLevel.L, // Low error correction for simpler QR
+        errorCorrectionLevel:
+            QrErrorCorrectLevel.L, // Low error correction for simpler QR
         gapless: true,
         color: const Color(0xFF000000),
         emptyColor: const Color(0xFFFFFFFF),
@@ -322,7 +323,8 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
                     child: QrImageView(
                       data: widget.shareUrl,
                       version: QrVersions.auto,
-                      errorCorrectionLevel: QrErrorCorrectLevel.L, // Low error correction for simpler QR
+                      errorCorrectionLevel: QrErrorCorrectLevel
+                          .L, // Low error correction for simpler QR
                       size: 110,
                       gapless: true,
                       backgroundColor: Colors.white,
