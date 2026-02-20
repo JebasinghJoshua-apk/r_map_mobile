@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../constants/api_constants.dart';
 import '../../models/my_property_list_item.dart';
 import '../../screens/layout_details_form_screen.dart';
 import '../../screens/property_details_form_screen.dart';
@@ -10,6 +11,7 @@ import '../../screens/property_polygon_editor_screen.dart';
 import '../../services/mobile_bff_map_api.dart';
 import '../../utils/geojson.dart';
 import '../../utils/user_role.dart';
+import '../layout_qr_code_sheet.dart';
 import '../toast_message.dart';
 
 class MyPropertiesDialog extends StatefulWidget {
@@ -881,6 +883,47 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                                       Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
+                                          // QR code icon for Layout-type properties (admin only)
+                                          if (isLayoutProperty &&
+                                              widget.userRole == UserRole.admin)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                right: 6,
+                                              ),
+                                              child: _actionIcon(
+                                                icon: Icons.qr_code_2,
+                                                tooltip: 'Generate QR Code',
+                                                onTap: () {
+                                                  final base = ApiConstants
+                                                      .webBaseUrl
+                                                      .replaceAll(
+                                                    RegExp(r'/$'),
+                                                    '',
+                                                  );
+                                                  final shareUrl =
+                                                      '$base/property/Layout/${item.id}';
+                                                  showModalBottomSheet<void>(
+                                                    context: context,
+                                                    isScrollControlled: true,
+                                                    backgroundColor:
+                                                        Colors.transparent,
+                                                    builder: (_) =>
+                                                        LayoutQrCodeSheet(
+                                                      layoutId: item.id,
+                                                      layoutName:
+                                                          item.name.isNotEmpty
+                                                              ? item.name
+                                                              : 'Layout',
+                                                      shareUrl: shareUrl,
+                                                    ),
+                                                  );
+                                                },
+                                                iconColor:
+                                                    const Color(0xFF0FAD97),
+                                                borderColor:
+                                                    const Color(0xFFD1FAE5),
+                                              ),
+                                            ),
                                           _actionIcon(
                                             icon: Icons.edit_outlined,
                                             tooltip: isEditableProperty &&
