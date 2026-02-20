@@ -214,6 +214,7 @@ class LayoutDraftResponse {
     this.plotsCount,
     required this.isDraft,
     required this.createdAt,
+    this.shortCode,
   });
 
   final String id;
@@ -228,6 +229,9 @@ class LayoutDraftResponse {
   final int? plotsCount;
   final bool isDraft;
   final DateTime createdAt;
+
+  /// Short code for QR URLs (e.g., "A3x9Kp" → rmap.in/s/A3x9Kp)
+  final String? shortCode;
 
   static LayoutDraftResponse fromJson(Map<String, dynamic> json) {
     return LayoutDraftResponse(
@@ -244,6 +248,7 @@ class LayoutDraftResponse {
       isDraft: (json['isDraft'] as bool?) ?? true,
       createdAt: DateTime.tryParse((json['createdAt'] as String?) ?? '') ??
           DateTime.now(),
+      shortCode: json['shortCode'] as String?,
     );
   }
 }

@@ -900,8 +900,14 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                                                     RegExp(r'/$'),
                                                     '',
                                                   );
-                                                  final shareUrl =
-                                                      '$base/property/Layout/${item.id}';
+                                                  // Use short URL if available for cleaner QR codes
+                                                  final shareUrl = item
+                                                                  .shortCode !=
+                                                              null &&
+                                                          item.shortCode!
+                                                              .isNotEmpty
+                                                      ? '$base/s/${item.shortCode}'
+                                                      : '$base/property/Layout/${item.id}';
                                                   showModalBottomSheet<void>(
                                                     context: context,
                                                     isScrollControlled: true,

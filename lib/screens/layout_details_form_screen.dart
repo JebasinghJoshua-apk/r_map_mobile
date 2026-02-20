@@ -315,7 +315,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
   }
 
   Future<void> _showQrCodeSheet(LayoutDraftResponse layout) async {
-    final shareUrl = _buildShareUrl(layout.id);
+    final shareUrl = _buildShareUrl(layout.id, layout.shortCode);
 
     await showModalBottomSheet<void>(
       context: context,
@@ -329,8 +329,12 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
     );
   }
 
-  String _buildShareUrl(String layoutId) {
+  String _buildShareUrl(String layoutId, [String? shortCode]) {
     final base = ApiConstants.webBaseUrl.replaceAll(RegExp(r'/$'), '');
+    // Use short URL if available for cleaner QR codes
+    if (shortCode != null && shortCode.isNotEmpty) {
+      return '$base/s/$shortCode';
+    }
     return '$base/property/Layout/$layoutId';
   }
 

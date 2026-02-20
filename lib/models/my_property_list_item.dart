@@ -18,12 +18,16 @@ class MyPropertyListItem {
     required this.isApproved,
     required this.createdAt,
     required this.updatedAt,
+    this.shortCode,
   });
 
   final String id;
   final String propertyId;
   final String name;
   final String propertyType;
+
+  /// Short code for QR URLs (e.g., "A3x9Kp" → rmap.in/s/A3x9Kp)
+  final String? shortCode;
 
   final String address;
   final String city;
@@ -80,6 +84,7 @@ class MyPropertyListItem {
       isApproved: (json['isApproved'] as bool?) ?? false,
       createdAt: parseDate(json['createdAt']),
       updatedAt: parseDate(json['updatedAt']),
+      shortCode: json['shortCode'] as String?,
     );
   }
 }
