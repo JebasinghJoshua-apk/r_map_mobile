@@ -59,7 +59,7 @@ class DeepLinkService {
     'mango-beach-047e3b400.4.azurestaticapps.net',
   };
 
-  static const _channel = MethodChannel('com.example.r_map_mobile/deeplink');
+  static const _channel = MethodChannel('com.rmap.mobile/deeplink');
 
   // ───────────────────────────────────────────────────────────────────
   //  Public API

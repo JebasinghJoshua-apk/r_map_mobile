@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../constants/api_constants.dart';
@@ -570,46 +571,35 @@ class _PropertyImageCarouselState extends State<PropertyImageCarousel> {
             onPageChanged: (i) => setState(() => _activeIndex = i),
             itemBuilder: (context, index) {
               final url = urls[index];
-              return Image.network(
-                url,
+              return CachedNetworkImage(
+                imageUrl: url,
                 fit: BoxFit.cover,
-                errorBuilder: (context, _, __) {
-                  return const DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Color(0xFFE2E8F0),
-                    ),
-                    child: Center(
-                      child: Icon(
-                        Icons.image_not_supported_outlined,
-                        size: 22,
-                        color: Color(0xFF64748B),
+                placeholder: (context, url) => const DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Color(0xFFF1F5F9),
+                  ),
+                  child: Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
                       ),
                     ),
-                  );
-                },
-                loadingBuilder: (context, child, progress) {
-                  if (progress == null) return child;
-                  final expected = progress.expectedTotalBytes;
-                  final loaded = progress.cumulativeBytesLoaded;
-                  final value = expected != null && expected > 0
-                      ? loaded / expected
-                      : null;
-                  return DecoratedBox(
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF1F5F9),
+                  ),
+                ),
+                errorWidget: (context, url, error) => const DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Color(0xFFE2E8F0),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.image_not_supported_outlined,
+                      size: 22,
+                      color: Color(0xFF64748B),
                     ),
-                    child: Center(
-                      child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          value: value,
-                        ),
-                      ),
-                    ),
-                  );
-                },
+                  ),
+                ),
               );
             },
           ),

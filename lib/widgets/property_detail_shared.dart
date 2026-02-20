@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -527,36 +528,22 @@ class HeroCarousel extends StatelessWidget {
                               },
                               child: Hero(
                                 tag: 'property_image_${img.url}',
-                                child: Image.network(
-                                  img.url,
+                                child: CachedNetworkImage(
+                                  imageUrl: img.url,
                                   fit: BoxFit.cover,
                                   width: double.infinity,
                                   height: double.infinity,
-                                  loadingBuilder: (context, child, progress) {
-                                    if (progress == null) return child;
-                                    final expected =
-                                        progress.expectedTotalBytes;
-                                    final loaded =
-                                        progress.cumulativeBytesLoaded;
-                                    final value =
-                                        expected != null && expected > 0
-                                            ? loaded / expected
-                                            : null;
-                                    return Center(
-                                      child: CircularProgressIndicator(
-                                        value: value,
-                                      ),
-                                    );
-                                  },
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return const Center(
-                                      child: Icon(
-                                        Icons.broken_image_outlined,
-                                        color: Color(0xFF94A3B8),
-                                        size: 36,
-                                      ),
-                                    );
-                                  },
+                                  placeholder: (context, url) => const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                  errorWidget: (context, url, error) =>
+                                      const Center(
+                                    child: Icon(
+                                      Icons.broken_image_outlined,
+                                      color: Color(0xFF94A3B8),
+                                      size: 36,
+                                    ),
+                                  ),
                                 ),
                               ),
                             );
@@ -659,32 +646,21 @@ class _FullScreenImageGalleryState extends State<FullScreenImageGallery> {
                       child: InteractiveViewer(
                         minScale: 1,
                         maxScale: 4,
-                        child: Image.network(
-                          img.url,
+                        child: CachedNetworkImage(
+                          imageUrl: img.url,
                           fit: BoxFit.contain,
-                          loadingBuilder: (context, child, progress) {
-                            if (progress == null) return child;
-                            final expected = progress.expectedTotalBytes;
-                            final loaded = progress.cumulativeBytesLoaded;
-                            final value = expected != null && expected > 0
-                                ? loaded / expected
-                                : null;
-                            return Center(
-                              child: CircularProgressIndicator(
-                                value: value,
-                                color: Colors.white,
-                              ),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Center(
-                              child: Icon(
-                                Icons.broken_image_outlined,
-                                color: Colors.white70,
-                                size: 48,
-                              ),
-                            );
-                          },
+                          placeholder: (context, url) => const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => const Center(
+                            child: Icon(
+                              Icons.broken_image_outlined,
+                              color: Colors.white70,
+                              size: 48,
+                            ),
+                          ),
                         ),
                       ),
                     ),

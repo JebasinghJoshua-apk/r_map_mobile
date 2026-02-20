@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -197,10 +198,17 @@ class PropertyPhotoSection extends StatelessWidget {
                         child: Icon(Icons.image_not_supported_outlined,
                             color: Color(0xFF94A3B8)),
                       )
-                    : Image.network(
-                        url,
+                    : CachedNetworkImage(
+                        imageUrl: url,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Center(
+                        placeholder: (context, url) => const Center(
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => const Center(
                           child: Icon(Icons.broken_image_outlined,
                               color: Color(0xFF94A3B8)),
                         ),
