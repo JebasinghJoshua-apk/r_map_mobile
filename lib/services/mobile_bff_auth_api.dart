@@ -153,7 +153,7 @@ class MobileBffAuthApi {
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
-    
+
     return SendOtpResult(
       success: json['success'] as bool? ?? false,
       requestId: json['requestId'] as String?,
@@ -194,7 +194,7 @@ class MobileBffAuthApi {
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     final success = json['success'] as bool? ?? false;
-    
+
     if (success && json['token'] != null) {
       // User exists, return session
       return VerifyOtpResult(
@@ -203,7 +203,7 @@ class MobileBffAuthApi {
         requiresRegistration: false,
       );
     }
-    
+
     if (success && (json['requiresRegistration'] as bool? ?? false)) {
       // Phone verified but user doesn't exist
       return VerifyOtpResult(
@@ -213,7 +213,7 @@ class MobileBffAuthApi {
         message: json['message'] as String?,
       );
     }
-    
+
     return VerifyOtpResult(
       success: false,
       session: null,

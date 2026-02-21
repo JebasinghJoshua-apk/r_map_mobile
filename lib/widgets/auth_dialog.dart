@@ -5,11 +5,11 @@ import '../services/mobile_bff_auth_api.dart';
 import '../state/auth_scope.dart';
 
 enum AuthMode {
-  otpPhone,      // Enter phone to send OTP (primary)
-  otpVerify,     // Enter OTP code
-  otpRegister,   // New user - enter name after OTP verified
-  login,         // Password login (fallback)
-  register,      // Password register (fallback)
+  otpPhone, // Enter phone to send OTP (primary)
+  otpVerify, // Enter OTP code
+  otpRegister, // New user - enter name after OTP verified
+  login, // Password login (fallback)
+  register, // Password register (fallback)
 }
 
 class AuthDialog extends StatefulWidget {
@@ -135,7 +135,7 @@ class _AuthDialogState extends State<AuthDialog> {
 
   Future<void> _sendOtp() async {
     if (_isSubmitting) return;
-    
+
     final phone = _phoneController.text.trim();
     if (phone.isEmpty) {
       setState(() => _error = 'Please enter your phone number');
@@ -151,7 +151,7 @@ class _AuthDialogState extends State<AuthDialog> {
 
     try {
       final result = await auth.sendOtp(phoneNumber: phone);
-      
+
       if (!result.success) {
         setState(() {
           _error = result.message ?? 'Failed to send OTP';
@@ -164,11 +164,11 @@ class _AuthDialogState extends State<AuthDialog> {
 
       _verifiedPhone = phone;
       _otpChannel = result.channel;
-      
+
       setState(() {
         _mode = AuthMode.otpVerify;
       });
-      
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _focusField(_otpFocusNode);
       });
@@ -431,7 +431,7 @@ class _AuthDialogState extends State<AuthDialog> {
                         ),
                         const SizedBox(height: 10),
                       ],
-                      
+
                       // OTP Phone Entry Mode
                       if (_mode == AuthMode.otpPhone) ...[
                         const Text('Phone Number'),
@@ -447,7 +447,8 @@ class _AuthDialogState extends State<AuthDialog> {
                             hintStyle: TextStyle(color: Colors.black45),
                             prefixIcon: Icon(Icons.call_outlined),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.all(Radius.circular(10)),
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(10)),
                             ),
                             isDense: true,
                           ),
@@ -476,7 +477,8 @@ class _AuthDialogState extends State<AuthDialog> {
                         ),
                         const SizedBox(height: 12),
                         TextButton(
-                          onPressed: _isSubmitting ? null : _switchToPasswordLogin,
+                          onPressed:
+                              _isSubmitting ? null : _switchToPasswordLogin,
                           style: TextButton.styleFrom(
                             padding: EdgeInsets.zero,
                             minimumSize: Size.zero,
@@ -511,7 +513,8 @@ class _AuthDialogState extends State<AuthDialog> {
                             hintStyle: TextStyle(color: Colors.black45),
                             prefixIcon: Icon(Icons.lock_outline),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.all(Radius.circular(10)),
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(10)),
                             ),
                             isDense: true,
                             counterText: '',
@@ -549,12 +552,14 @@ class _AuthDialogState extends State<AuthDialog> {
                             ),
                             const SizedBox(width: 16),
                             TextButton(
-                              onPressed: _isSubmitting ? null : () {
-                                setState(() {
-                                  _mode = AuthMode.otpPhone;
-                                  _otpController.clear();
-                                });
-                              },
+                              onPressed: _isSubmitting
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        _mode = AuthMode.otpPhone;
+                                        _otpController.clear();
+                                      });
+                                    },
                               child: const Text('Change Number'),
                             ),
                           ],
@@ -584,7 +589,8 @@ class _AuthDialogState extends State<AuthDialog> {
                             hintStyle: TextStyle(color: Colors.black45),
                             prefixIcon: Icon(Icons.person_outline),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.all(Radius.circular(10)),
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(10)),
                             ),
                             isDense: true,
                           ),
@@ -643,7 +649,8 @@ class _AuthDialogState extends State<AuthDialog> {
                         ),
                         const SizedBox(height: 12),
                       ],
-                      if (_mode == AuthMode.login || _mode == AuthMode.register) ...[
+                      if (_mode == AuthMode.login ||
+                          _mode == AuthMode.register) ...[
                         const Text('Phone Number'),
                         const SizedBox(height: 6),
                         TextFormField(
@@ -657,7 +664,8 @@ class _AuthDialogState extends State<AuthDialog> {
                             hintStyle: TextStyle(color: Colors.black45),
                             prefixIcon: Icon(Icons.call_outlined),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.all(Radius.circular(10)),
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(10)),
                             ),
                             isDense: true,
                           ),
@@ -683,12 +691,13 @@ class _AuthDialogState extends State<AuthDialog> {
                             hintStyle: const TextStyle(color: Colors.black45),
                             prefixIcon: const Icon(Icons.lock_outline),
                             border: const OutlineInputBorder(
-                              borderRadius: BorderRadius.all(Radius.circular(10)),
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(10)),
                             ),
                             isDense: true,
                             suffixIcon: IconButton(
-                              onPressed: () =>
-                                  setState(() => _hidePassword = !_hidePassword),
+                              onPressed: () => setState(
+                                  () => _hidePassword = !_hidePassword),
                               icon: Icon(_hidePassword
                                   ? Icons.visibility_outlined
                                   : Icons.visibility_off_outlined),
@@ -727,7 +736,8 @@ class _AuthDialogState extends State<AuthDialog> {
                               isDense: true,
                               suffixIcon: IconButton(
                                 onPressed: () => setState(() =>
-                                    _hideConfirmPassword = !_hideConfirmPassword),
+                                    _hideConfirmPassword =
+                                        !_hideConfirmPassword),
                                 icon: Icon(_hideConfirmPassword
                                     ? Icons.visibility_outlined
                                     : Icons.visibility_off_outlined),
