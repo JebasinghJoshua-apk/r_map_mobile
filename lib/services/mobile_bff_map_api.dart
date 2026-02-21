@@ -502,8 +502,9 @@ class MobileBffMapApi {
 
   Future<List<MyPropertyListItem>> getMyProperties({
     String? bearerToken,
+    bool fetchAll = false,
   }) async {
-    final uri = _uri('/mobile/properties/my');
+    final uri = _uri('/mobile/properties/my${fetchAll ? '?all=true' : ''}');
 
     http.Response response;
     try {

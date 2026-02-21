@@ -1052,6 +1052,7 @@ Future<_ProfileMenuAction?> _showProfileMenuPopover({
       final displayName = session == null
           ? ''
           : (fullName.isEmpty ? session.user.phoneNumber : fullName);
+      final isAdmin = session?.user.roleValue == UserRole.admin;
 
       Widget buildItem({
         required IconData icon,
@@ -1157,7 +1158,7 @@ Future<_ProfileMenuAction?> _showProfileMenuPopover({
                             const SizedBox(height: 6),
                             buildItem(
                               icon: Icons.business_outlined,
-                              label: 'My Properties',
+                              label: isAdmin ? 'Properties' : 'My Properties',
                               action: _ProfileMenuAction.myProperties,
                             ),
                             buildItem(

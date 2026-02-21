@@ -448,9 +448,11 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
               padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
               child: Row(
                 children: [
-                  const Text(
-                    'My Properties',
-                    style: TextStyle(
+                  Text(
+                    widget.userRole == UserRole.admin
+                        ? 'Properties'
+                        : 'My Properties',
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                     ),
