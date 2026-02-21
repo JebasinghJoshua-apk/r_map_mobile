@@ -46,6 +46,8 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
   String? _error;
   final Set<String> _deletingIds = <String>{};
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -60,6 +62,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -428,7 +431,21 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
     final sorted = _items.toList(growable: false)
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
-    final shouldShrink = sorted.length <= 3;
+    final q = _searchQuery.trim().toLowerCase();
+    final filteredSorted = q.isEmpty
+        ? sorted
+        : sorted.where((item) {
+            final name = item.name.trim().toLowerCase();
+            final propType = item.propertyType.trim().toLowerCase();
+            final addr = item.address.trim().toLowerCase();
+            final city = item.city.trim().toLowerCase();
+            return name.contains(q) ||
+                propType.contains(q) ||
+                addr.contains(q) ||
+                city.contains(q);
+          }).toList(growable: false);
+
+    final shouldShrink = filteredSorted.length <= 3;
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
@@ -445,40 +462,75 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+              padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
-                    widget.userRole == UserRole.admin
-                        ? 'Properties'
-                        : 'My Properties',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      child: Text(
-                        '${sorted.length}',
-                        style: const TextStyle(
-                          color: Color(0xFF475569),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                  Expanded(
+                    child: SizedBox(
+                      height: 36,
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (value) {
+                          setState(() {
+                            _searchQuery = value;
+                          });
+                        },
+                        textInputAction: TextInputAction.search,
+                        style: const TextStyle(fontSize: 14),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          hintText: 'Search properties',
+                          hintStyle: const TextStyle(fontSize: 14),
+                          prefixIcon: const Icon(Icons.search, size: 20),
+                          prefixIconConstraints: const BoxConstraints(
+                            minWidth: 36,
+                            minHeight: 36,
+                          ),
+                          suffixIcon: q.isEmpty
+                              ? null
+                              : GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _searchController.clear();
+                                      _searchQuery = '';
+                                    });
+                                  },
+                                  child: const Icon(Icons.close, size: 18),
+                                ),
+                          suffixIconConstraints: const BoxConstraints(
+                            minWidth: 32,
+                            minHeight: 36,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 12),
                   FilledButton(
                     onPressed: () async {
                       final selectedType = await _pickPropertyTypeForAdd();
@@ -558,13 +610,13 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
               const Divider(height: 1),
             Flexible(
               fit: FlexFit.loose,
-              child: sorted.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 16, 16, 16),
+              child: filteredSorted.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
                       child: Center(
                         child: Text(
-                          'No properties found.',
-                          style: TextStyle(
+                          q.isEmpty ? 'No properties found.' : 'No matches',
+                          style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             color: Color(0xFF475569),
                           ),
@@ -583,10 +635,10 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                             ? const NeverScrollableScrollPhysics()
                             : null,
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                        itemCount: sorted.length,
+                        itemCount: filteredSorted.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
                         itemBuilder: (context, index) {
-                          final item = sorted[index];
+                          final item = filteredSorted[index];
                           final isNew = _isNew(item.createdAt);
                           final isDeleting =
                               _deletingIds.contains(item.id.trim());
