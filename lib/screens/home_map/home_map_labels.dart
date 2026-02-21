@@ -21,8 +21,7 @@ extension _HomeMapLabels on _HomeMapScreenState {
     }
 
     // Use white text for hybrid/satellite, dark gray for normal map
-    final labelTextColor =
-        isHybrid ? Colors.white : const Color(0xFF374151);
+    final labelTextColor = isHybrid ? Colors.white : const Color(0xFF374151);
 
     final defaultShadows = isHybrid
         ? const <Shadow>[
