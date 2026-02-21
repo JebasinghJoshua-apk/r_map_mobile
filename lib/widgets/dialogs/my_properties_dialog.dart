@@ -83,8 +83,10 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
     });
 
     try {
+      // Admins fetch all properties; regular users fetch only their own
       final results = await widget.mapApi.getMyProperties(
         bearerToken: widget.bearerToken,
+        fetchAll: widget.userRole == UserRole.admin,
       );
       if (!mounted) return;
       setState(() {
