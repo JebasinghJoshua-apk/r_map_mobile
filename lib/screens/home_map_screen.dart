@@ -1258,6 +1258,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
             rotateGesturesEnabled: false,
             tiltGesturesEnabled: false,
             compassEnabled: false,
+            myLocationEnabled: true,
             myLocationButtonEnabled: true,
             zoomControlsEnabled: false,
             // Disable pan/zoom gestures until a place is selected.
