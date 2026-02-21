@@ -90,11 +90,55 @@ extension _HomeMapControls on _HomeMapScreenState {
     );
   }
 
+  Future<void> _goToMyLocation() async {
+    if (_isLocating) return;
+    _updateState(() => _isLocating = true);
+    try {
+      final location = loc.Location();
+      bool serviceEnabled = await location.serviceEnabled();
+      if (!serviceEnabled) {
+        serviceEnabled = await location.requestService();
+        if (!serviceEnabled) {
+          if (mounted)
+            ToastMessage.show(context, 'Location services are disabled');
+          return;
+        }
+      }
+      loc.PermissionStatus permission = await location.hasPermission();
+      if (permission == loc.PermissionStatus.denied) {
+        permission = await location.requestPermission();
+        if (permission != loc.PermissionStatus.granted) {
+          if (mounted) ToastMessage.show(context, 'Location permission denied');
+          return;
+        }
+      }
+      if (permission == loc.PermissionStatus.deniedForever) {
+        if (mounted)
+          ToastMessage.show(context, 'Location permission permanently denied');
+        return;
+      }
+      final locationData = await location.getLocation();
+      if (locationData.latitude != null && locationData.longitude != null) {
+        await _mapController?.animateCamera(
+          CameraUpdate.newLatLngZoom(
+            LatLng(locationData.latitude!, locationData.longitude!),
+            18.0,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) ToastMessage.show(context, 'Failed to get location');
+    } finally {
+      if (mounted) _updateState(() => _isLocating = false);
+    }
+  }
+
   Widget _mapControlButton({
     required IconData icon,
     required String tooltip,
     required VoidCallback onPressed,
     bool highlight = false,
+    bool isLoading = false,
   }) {
     const radius = 8.0;
     const size = 36.0;
@@ -114,12 +158,24 @@ extension _HomeMapControls on _HomeMapScreenState {
               borderRadius: BorderRadius.circular(radius),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
-                onTap: onPressed,
-                child: Icon(
-                  icon,
-                  size: 18,
-                  color: const Color(0xFF1F2937),
-                ),
+                onTap: isLoading ? null : onPressed,
+                child: isLoading
+                    ? const Center(
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                Color(0xFF1F2937)),
+                          ),
+                        ),
+                      )
+                    : Icon(
+                        icon,
+                        size: 18,
+                        color: const Color(0xFF1F2937),
+                      ),
               ),
             ),
             IgnorePointer(

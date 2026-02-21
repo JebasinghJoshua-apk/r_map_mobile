@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_place/google_place.dart';
 import 'package:http/http.dart' as http;
+import 'package:location/location.dart' as loc;
 
 import '../app.dart';
 import '../constants/api_constants.dart';
@@ -133,6 +134,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
   bool _isViewportLoading = false;
   Timer? _viewportLoadingTimer;
+  bool _isLocating = false;
   bool _hasViewportResult = false;
   bool _isViewportFetching = false;
   DateTime? _viewportFetchingStartedAt;
@@ -1259,7 +1261,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
             tiltGesturesEnabled: false,
             compassEnabled: false,
             myLocationEnabled: true,
-            myLocationButtonEnabled: true,
+            myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
             // Disable pan/zoom gestures until a place is selected.
             scrollGesturesEnabled: _hasSelectedPlace,
@@ -1376,14 +1378,26 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
             Positioned(
               left: 16,
               bottom: 10 + bottomPanelInset,
-              child: _mapControlButton(
-                icon: _mapType == MapType.hybrid
-                    ? Icons.map_outlined
-                    : Icons.satellite_alt_outlined,
-                tooltip: _mapType == MapType.hybrid
-                    ? 'Switch to map view'
-                    : 'Switch to satellite view',
-                onPressed: _toggleSatelliteMode,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _mapControlButton(
+                    icon: Icons.my_location,
+                    tooltip: 'My Location',
+                    onPressed: _goToMyLocation,
+                    isLoading: _isLocating,
+                  ),
+                  const SizedBox(height: 10),
+                  _mapControlButton(
+                    icon: _mapType == MapType.hybrid
+                        ? Icons.map_outlined
+                        : Icons.satellite_alt_outlined,
+                    tooltip: _mapType == MapType.hybrid
+                        ? 'Switch to map view'
+                        : 'Switch to satellite view',
+                    onPressed: _toggleSatelliteMode,
+                  ),
+                ],
               ),
             ),
           if (!isBottomPanelOpen && _hasSelectedPlace)
