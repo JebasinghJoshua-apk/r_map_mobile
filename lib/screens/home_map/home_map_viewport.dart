@@ -113,6 +113,7 @@ extension _HomeMapViewport on _HomeMapScreenState {
       propertyTypes,
       isAuthenticated,
       clientFilters: _clientFilterSignature(),
+      isHybrid: _mapType == MapType.hybrid,
     );
     if (signature == _lastViewportSignature) {
       return;
@@ -212,6 +213,7 @@ extension _HomeMapViewport on _HomeMapScreenState {
           response: filteredResponse,
           zoom: zoom,
           pixelRatio: pixelRatio,
+          isHybrid: _mapType == MapType.hybrid,
         );
         perf.stopTimer('buildLabelMarkers');
 

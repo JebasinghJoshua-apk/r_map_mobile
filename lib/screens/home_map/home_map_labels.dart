@@ -5,6 +5,7 @@ extension _HomeMapLabels on _HomeMapScreenState {
     required MapViewportResponse response,
     required double zoom,
     required double pixelRatio,
+    bool isHybrid = true,
   }) async {
     final shouldShowPlotLabels = zoom >= _minPlotLabelZoom;
     final shouldShowRoadLabels = zoom >= _minRoadLabelZoom;
@@ -19,13 +20,25 @@ extension _HomeMapLabels on _HomeMapScreenState {
       );
     }
 
-    const defaultShadows = <Shadow>[
-      Shadow(
-        color: Color(0xD0000000),
-        blurRadius: 3,
-        offset: Offset(0, 0),
-      ),
-    ];
+    // Use white text for hybrid/satellite, dark gray for normal map
+    final labelTextColor =
+        isHybrid ? Colors.white : const Color(0xFF374151);
+
+    final defaultShadows = isHybrid
+        ? const <Shadow>[
+            Shadow(
+              color: Color(0xD0000000),
+              blurRadius: 3,
+              offset: Offset(0, 0),
+            ),
+          ]
+        : const <Shadow>[
+            Shadow(
+              color: Color(0x60FFFFFF),
+              blurRadius: 2,
+              offset: Offset(0, 0),
+            ),
+          ];
 
     // Collect all pending labels first, then render icons in parallel
     final pendingPlotLabels = <_PendingPlotLabel>[];
@@ -120,20 +133,28 @@ extension _HomeMapLabels on _HomeMapScreenState {
               text: p.label,
               pixelRatio: pixelRatio,
               fontSize: p.fontSize,
-              textColor: Colors.white,
+              textColor: labelTextColor,
               shadows: defaultShadows,
               backgroundColor: null,
               padding: EdgeInsets.zero,
               borderRadius: 0,
             ));
 
+    // Road labels always use white with dark shadow for visibility
+    const roadShadows = <Shadow>[
+      Shadow(
+        color: Color(0xD0000000),
+        blurRadius: 3,
+        offset: Offset(0, 0),
+      ),
+    ];
     final roadIconFutures =
         pendingRoadLabels.map((r) => _iconFactory.getTextLabelIcon(
               text: r.name,
               pixelRatio: pixelRatio,
               fontSize: r.fontSize,
               textColor: Colors.white,
-              shadows: defaultShadows,
+              shadows: roadShadows,
               backgroundColor: null,
               padding: EdgeInsets.zero,
               borderRadius: 0,
@@ -144,7 +165,7 @@ extension _HomeMapLabels on _HomeMapScreenState {
               text: a.label,
               pixelRatio: pixelRatio,
               fontSize: a.fontSize,
-              textColor: Colors.white,
+              textColor: labelTextColor,
               shadows: defaultShadows,
               backgroundColor: null,
               padding: EdgeInsets.zero,

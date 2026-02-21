@@ -978,6 +978,7 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
     List<String> propertyTypes,
     bool isAuthenticated, {
     String? clientFilters,
+    bool isHybrid = true,
   }) {
     final minLat = bounds.southwest.latitude < bounds.northeast.latitude
         ? bounds.southwest.latitude
@@ -1008,6 +1009,7 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
       filterSignature.join(','),
       (clientFilters ?? '').trim(),
       isAuthenticated ? 'auth' : 'anon',
+      isHybrid ? 'hybrid' : 'normal',
     ].join('|');
   }
 }

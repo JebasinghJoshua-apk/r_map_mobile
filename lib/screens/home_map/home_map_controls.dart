@@ -6,7 +6,11 @@ extension _HomeMapControls on _HomeMapScreenState {
       _mapType = _mapType == MapType.hybrid ? MapType.normal : MapType.hybrid;
       // Lock to user selection for this session (prevents zoom-based auto-switch).
       _userSelectedMapType = true;
+      // Clear signature to force label color refresh on next viewport fetch.
+      _lastViewportSignature = null;
     });
+    // Trigger viewport refresh to rebuild labels with the new color scheme.
+    _onCameraIdle();
   }
 
   Future<void> _zoomIn() async {
