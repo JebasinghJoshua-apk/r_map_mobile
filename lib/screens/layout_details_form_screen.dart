@@ -69,6 +69,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
   MapType _mapType = MapType.hybrid;
   bool _showSatelliteLabels = true;
   String? _lightMapStyle;
+  bool _isLocating = false;
 
   // Form fields
   final TextEditingController _nameController = TextEditingController();
@@ -313,6 +314,8 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
   }
 
   Future<void> _goToMyLocation() async {
+    if (_isLocating) return;
+    setState(() => _isLocating = true);
     try {
       final location = loc.Location();
 
@@ -366,6 +369,8 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
       if (mounted) {
         ToastMessage.show(context, 'Failed to get location');
       }
+    } finally {
+      if (mounted) setState(() => _isLocating = false);
     }
   }
 
@@ -991,6 +996,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
                       icon: Icons.my_location,
                       tooltip: 'My Location',
                       onPressed: _goToMyLocation,
+                      isLoading: _isLocating,
                     ),
                     const SizedBox(height: 10),
                     _mapControlButton(
@@ -1083,6 +1089,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
     required IconData icon,
     required String tooltip,
     required VoidCallback onPressed,
+    bool isLoading = false,
   }) {
     const radius = 8.0;
     const size = 36.0;
@@ -1099,12 +1106,24 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
           borderRadius: BorderRadius.circular(radius),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
-            onTap: onPressed,
-            child: Icon(
-              icon,
-              size: 18,
-              color: const Color(0xFF1F2937),
-            ),
+            onTap: isLoading ? null : onPressed,
+            child: isLoading
+                ? const Center(
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Color(0xFF1F2937)),
+                      ),
+                    ),
+                  )
+                : Icon(
+                    icon,
+                    size: 18,
+                    color: const Color(0xFF1F2937),
+                  ),
           ),
         ),
       ),

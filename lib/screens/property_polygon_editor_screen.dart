@@ -85,6 +85,7 @@ class _PropertyPolygonEditorScreenState
   MapType _mapType = MapType.hybrid;
   bool _showSatelliteLabels = true;
   String? _lightMapStyle;
+  bool _isLocating = false;
 
   @override
   void initState() {
@@ -659,6 +660,8 @@ class _PropertyPolygonEditorScreenState
   }
 
   Future<void> _goToMyLocation() async {
+    if (_isLocating) return;
+    setState(() => _isLocating = true);
     try {
       final location = loc.Location();
       bool serviceEnabled = await location.serviceEnabled();
@@ -694,6 +697,8 @@ class _PropertyPolygonEditorScreenState
       }
     } catch (e) {
       if (mounted) ToastMessage.show(context, 'Failed to get location');
+    } finally {
+      if (mounted) setState(() => _isLocating = false);
     }
   }
 
@@ -701,6 +706,7 @@ class _PropertyPolygonEditorScreenState
     required IconData icon,
     required String tooltip,
     required VoidCallback onPressed,
+    bool isLoading = false,
   }) {
     const radius = 8.0;
     const size = 36.0;
@@ -717,12 +723,24 @@ class _PropertyPolygonEditorScreenState
           borderRadius: BorderRadius.circular(radius),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
-            onTap: onPressed,
-            child: Icon(
-              icon,
-              size: 18,
-              color: const Color(0xFF1F2937),
-            ),
+            onTap: isLoading ? null : onPressed,
+            child: isLoading
+                ? const Center(
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Color(0xFF1F2937)),
+                      ),
+                    ),
+                  )
+                : Icon(
+                    icon,
+                    size: 18,
+                    color: const Color(0xFF1F2937),
+                  ),
           ),
         ),
       ),
@@ -1272,6 +1290,7 @@ class _PropertyPolygonEditorScreenState
                       icon: Icons.my_location,
                       tooltip: 'My Location',
                       onPressed: _goToMyLocation,
+                      isLoading: _isLocating,
                     ),
                     const SizedBox(height: 10),
                     _mapControlButton(
