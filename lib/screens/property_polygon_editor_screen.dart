@@ -6,8 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_place/google_place.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:location/location.dart' as loc;
 
 import '../constants/search_constants.dart';
+import '../widgets/toast_message.dart';
 import '../models/map_viewport_models.dart';
 import '../services/mobile_bff_map_api.dart';
 import '../utils/geojson.dart';
@@ -656,6 +658,45 @@ class _PropertyPolygonEditorScreenState
     );
   }
 
+  Future<void> _goToMyLocation() async {
+    try {
+      final location = loc.Location();
+      bool serviceEnabled = await location.serviceEnabled();
+      if (!serviceEnabled) {
+        serviceEnabled = await location.requestService();
+        if (!serviceEnabled) {
+          if (mounted)
+            ToastMessage.show(context, 'Location services are disabled');
+          return;
+        }
+      }
+      loc.PermissionStatus permission = await location.hasPermission();
+      if (permission == loc.PermissionStatus.denied) {
+        permission = await location.requestPermission();
+        if (permission != loc.PermissionStatus.granted) {
+          if (mounted) ToastMessage.show(context, 'Location permission denied');
+          return;
+        }
+      }
+      if (permission == loc.PermissionStatus.deniedForever) {
+        if (mounted)
+          ToastMessage.show(context, 'Location permission permanently denied');
+        return;
+      }
+      final locationData = await location.getLocation();
+      if (locationData.latitude != null && locationData.longitude != null) {
+        await _controller?.animateCamera(
+          CameraUpdate.newLatLngZoom(
+            LatLng(locationData.latitude!, locationData.longitude!),
+            18.0,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) ToastMessage.show(context, 'Failed to get location');
+    }
+  }
+
   Widget _mapControlButton({
     required IconData icon,
     required String tooltip,
@@ -1146,7 +1187,7 @@ class _PropertyPolygonEditorScreenState
             initialCameraPosition: CameraPosition(target: _center, zoom: _zoom),
             mapType: _mapType,
             style: _mapType == MapType.normal ? _lightMapStyle : null,
-            myLocationButtonEnabled: true,
+            myLocationButtonEnabled: false,
             myLocationEnabled: true,
             zoomControlsEnabled: false,
             rotateGesturesEnabled: false,
@@ -1224,14 +1265,25 @@ class _PropertyPolygonEditorScreenState
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                _mapControlButton(
-                  icon: _mapType == MapType.hybrid
-                      ? Icons.map_outlined
-                      : Icons.satellite_alt_outlined,
-                  tooltip: _mapType == MapType.hybrid
-                      ? 'Switch to map view'
-                      : 'Switch to satellite view',
-                  onPressed: _toggleMapType,
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _mapControlButton(
+                      icon: Icons.my_location,
+                      tooltip: 'My Location',
+                      onPressed: _goToMyLocation,
+                    ),
+                    const SizedBox(height: 10),
+                    _mapControlButton(
+                      icon: _mapType == MapType.hybrid
+                          ? Icons.map_outlined
+                          : Icons.satellite_alt_outlined,
+                      tooltip: _mapType == MapType.hybrid
+                          ? 'Switch to map view'
+                          : 'Switch to satellite view',
+                      onPressed: _toggleMapType,
+                    ),
+                  ],
                 ),
                 const SizedBox(width: 10),
                 Expanded(

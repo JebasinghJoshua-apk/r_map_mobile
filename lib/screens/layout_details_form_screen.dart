@@ -1,14 +1,20 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_place/google_place.dart';
+import 'package:location/location.dart' as loc;
 
 import '../constants/api_constants.dart';
 import '../constants/search_constants.dart';
+import '../models/map_viewport_models.dart';
 import '../services/mobile_bff_layouts_api.dart';
+import '../services/mobile_bff_map_api.dart';
 import '../state/auth_scope.dart';
+import '../utils/geojson.dart';
 import '../widgets/api_key_missing_banner.dart';
 import '../widgets/layout_qr_code_sheet.dart';
 import '../widgets/toast_message.dart';
@@ -31,12 +37,23 @@ class LayoutDetailsFormScreen extends StatefulWidget {
 
 class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
   static const LatLng _fallbackCenter = LatLng(20.5937, 78.9629); // India
+  static const Color _viewportGrayStroke = Color(0xFF4B5563);
+  static const Color _viewportGrayFill = Color(0x654B5563);
 
   late final LatLng _center;
   late final double _zoom;
   List<LatLng> _boundaryPoints = <LatLng>[];
+  int _geometryRevision = 0;
+
+  final Map<String, BitmapDescriptor> _labelIconCache =
+      <String, BitmapDescriptor>{};
+  final Map<int, BitmapDescriptor> _edgeLabelIcons = <int, BitmapDescriptor>{};
 
   final MobileBffLayoutsApi _layoutsApi = MobileBffLayoutsApi();
+  final MobileBffMapApi _mapApi = MobileBffMapApi();
+  Timer? _viewportDebounce;
+  int _viewportSeq = 0;
+  Set<Polygon> _viewportPropertyPolygons = const <Polygon>{};
 
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -50,6 +67,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
   GoogleMapController? _controller;
 
   MapType _mapType = MapType.hybrid;
+  bool _showSatelliteLabels = true;
   String? _lightMapStyle;
 
   // Form fields
@@ -99,6 +117,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
     _searchDebounce?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _viewportDebounce?.cancel();
     _nameController.dispose();
     _areaController.dispose();
     _surveyNumberController.dispose();
@@ -109,6 +128,78 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
     _descriptionController.dispose();
     _plotsCountController.dispose();
     super.dispose();
+  }
+
+  void _scheduleViewportFetch() {
+    _viewportDebounce?.cancel();
+    _viewportDebounce = Timer(const Duration(milliseconds: 250), () {
+      unawaited(_fetchViewportPolygons());
+    });
+  }
+
+  Future<void> _fetchViewportPolygons() async {
+    final controller = _controller;
+    if (controller == null) return;
+
+    final requestId = ++_viewportSeq;
+    LatLngBounds bounds;
+    double zoom;
+    try {
+      bounds = await controller.getVisibleRegion();
+      zoom = await controller.getZoomLevel();
+    } catch (_) {
+      return;
+    }
+
+    // Get bearer token from AuthScope
+    String? bearerToken;
+    try {
+      final authState = AuthScope.of(context);
+      bearerToken = authState.session?.token;
+    } catch (_) {
+      // No auth scope available
+    }
+
+    MapViewportResponse response;
+    try {
+      response = await _mapApi.getViewport(
+        bounds: bounds,
+        zoom: zoom,
+        bearerToken: bearerToken,
+      );
+    } catch (_) {
+      return;
+    }
+
+    if (!mounted || requestId != _viewportSeq) return;
+
+    final polygons = <Polygon>{};
+    for (final feature in response.properties) {
+      final rings = GeoJson.tryParsePolygons(feature.boundaryGeoJson);
+      if (rings.isEmpty) continue;
+
+      for (var i = 0; i < rings.length; i++) {
+        final ring = rings[i];
+        if (ring.length < 3) continue;
+        polygons.add(
+          Polygon(
+            polygonId:
+                PolygonId('vp:${feature.propertyId}:${feature.featureId}:$i'),
+            points: ring,
+            strokeColor: _viewportGrayStroke,
+            fillColor: _viewportGrayFill,
+            strokeWidth: 4,
+            zIndex: 1,
+            consumeTapEvents: false,
+          ),
+        );
+      }
+    }
+
+    if (!mounted || requestId != _viewportSeq) return;
+    setState(() {
+      _viewportPropertyPolygons = Set<Polygon>.unmodifiable(polygons);
+    });
   }
 
   Future<void> _loadMapStyle() async {
@@ -126,31 +217,156 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
   void _onMapTap(LatLng point) {
     setState(() {
       _boundaryPoints = [..._boundaryPoints, point];
+      _geometryRevision++;
     });
+    unawaited(_refreshEdgeLabels());
   }
 
   void _undoLastPoint() {
     if (_boundaryPoints.isEmpty) return;
     setState(() {
       _boundaryPoints = _boundaryPoints.sublist(0, _boundaryPoints.length - 1);
+      _geometryRevision++;
     });
+    unawaited(_refreshEdgeLabels());
   }
 
   void _clearAllPoints() {
     if (_boundaryPoints.isEmpty) return;
     setState(() {
       _boundaryPoints = <LatLng>[];
+      _geometryRevision++;
+      _edgeLabelIcons.clear();
     });
   }
 
   void _toggleMapType() {
     setState(() {
-      if (_mapType == MapType.hybrid) {
-        _mapType = MapType.normal;
-      } else {
-        _mapType = MapType.hybrid;
-      }
+      // Toggle between map view (normal) and satellite view.
+      final satelliteType =
+          _showSatelliteLabels ? MapType.hybrid : MapType.satellite;
+      final isSatellite =
+          _mapType == MapType.hybrid || _mapType == MapType.satellite;
+      _mapType = isSatellite ? MapType.normal : satelliteType;
     });
+  }
+
+  void _setShowSatelliteLabels(bool show) {
+    if (_showSatelliteLabels == show) return;
+    setState(() {
+      _showSatelliteLabels = show;
+      // Match web semantics: labels ON => hybrid, labels OFF => satellite.
+      _mapType = show ? MapType.hybrid : MapType.satellite;
+    });
+  }
+
+  Widget _mapLabelsToggle() {
+    const teal = Color(0xFF0FAD97);
+    const bg = Colors.white;
+
+    void toggle(bool nextShowLabels) {
+      _setShowSatelliteLabels(nextShowLabels);
+    }
+
+    final showLabels = _showSatelliteLabels;
+
+    return Material(
+      color: Colors.transparent,
+      elevation: 4,
+      shadowColor: Colors.black26,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: () => toggle(!showLabels),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: teal, width: 1),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Checkbox(
+                value: showLabels,
+                onChanged: (v) => toggle(v ?? true),
+                activeColor: teal,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              const SizedBox(width: 2),
+              const Text(
+                'Labels',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF374151),
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _goToMyLocation() async {
+    try {
+      final location = loc.Location();
+
+      // Check if location service is enabled
+      bool serviceEnabled = await location.serviceEnabled();
+      if (!serviceEnabled) {
+        serviceEnabled = await location.requestService();
+        if (!serviceEnabled) {
+          if (mounted) {
+            ToastMessage.show(context, 'Location services are disabled');
+          }
+          return;
+        }
+      }
+
+      // Check permission
+      loc.PermissionStatus permission = await location.hasPermission();
+      if (permission == loc.PermissionStatus.denied) {
+        permission = await location.requestPermission();
+        if (permission != loc.PermissionStatus.granted) {
+          if (mounted) {
+            ToastMessage.show(context, 'Location permission denied');
+          }
+          return;
+        }
+      }
+
+      if (permission == loc.PermissionStatus.deniedForever) {
+        if (mounted) {
+          ToastMessage.show(context, 'Location permission permanently denied');
+        }
+        return;
+      }
+
+      // Get current position
+      final locationData = await location.getLocation();
+
+      if (locationData.latitude != null && locationData.longitude != null) {
+        final myLocation =
+            LatLng(locationData.latitude!, locationData.longitude!);
+
+        // Animate camera to current location
+        await _controller?.animateCamera(
+          CameraUpdate.newLatLngZoom(
+            myLocation,
+            18.0,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ToastMessage.show(context, 'Failed to get location');
+      }
+    }
   }
 
   void _onSearchChanged(String query) {
@@ -339,29 +555,35 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
   }
 
   Set<Polygon> _buildPolygons() {
-    if (_boundaryPoints.length < 3) return const <Polygon>{};
+    final polygons = <Polygon>{..._viewportPropertyPolygons};
 
-    return <Polygon>{
-      Polygon(
-        polygonId: const PolygonId('layout_boundary'),
-        points: _boundaryPoints,
-        strokeWidth: 3,
-        strokeColor: const Color(0xFF1D4ED8),
-        fillColor: const Color(0xFF2563EB).withOpacity(0.20),
-        consumeTapEvents: false,
-      ),
-    };
+    if (_boundaryPoints.length >= 3) {
+      polygons.add(
+        Polygon(
+          polygonId: PolygonId('layout_boundary_$_geometryRevision'),
+          points: _boundaryPoints,
+          strokeWidth: 3,
+          strokeColor: const Color(0xFF0FAD97),
+          fillColor: const Color(0x330FAD97),
+          consumeTapEvents: false,
+          zIndex: 10,
+        ),
+      );
+    }
+
+    return polygons;
   }
 
   Set<Marker> _buildMarkers() {
-    final markers = <Marker>{};
+    // Vertex markers
+    final vertexMarkers = <Marker>{};
     for (var i = 0; i < _boundaryPoints.length; i++) {
-      markers.add(
+      vertexMarkers.add(
         Marker(
-          markerId: MarkerId('point_$i'),
+          markerId: MarkerId('v$i'),
           position: _boundaryPoints[i],
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-          anchor: const Offset(0.5, 0.5),
+          icon:
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
           draggable: true,
           onDrag: (newPos) {
             setState(() {
@@ -373,26 +595,188 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
             setState(() {
               _boundaryPoints = List<LatLng>.from(_boundaryPoints)
                 ..[i] = newPos;
+              _geometryRevision++;
             });
+            unawaited(_refreshEdgeLabels());
           },
         ),
       );
     }
-    return markers;
+
+    // Edge label markers (measurements)
+    final edgeMarkers = <Marker>{};
+    final showEdgeMarkers = _boundaryPoints.length >= 2;
+    if (showEdgeMarkers) {
+      final willClose = _boundaryPoints.length >= 3;
+      final lastIndex = _boundaryPoints.length - 1;
+      final edgeCount = willClose ? _boundaryPoints.length : lastIndex;
+      for (var i = 0; i < edgeCount; i++) {
+        final a = _boundaryPoints[i];
+        final b = _boundaryPoints[(i + 1) % _boundaryPoints.length];
+        final mid = _midpoint(a, b);
+        final icon = _edgeLabelIcons[i];
+        if (icon == null) continue;
+        edgeMarkers.add(
+          Marker(
+            markerId: MarkerId('e$i'),
+            position: mid,
+            icon: icon,
+            anchor: const Offset(0.5, 0.5),
+            zIndex: 2,
+            consumeTapEvents: false,
+          ),
+        );
+      }
+    }
+
+    return {...vertexMarkers, ...edgeMarkers};
   }
 
   Set<Polyline> _buildPolylines() {
     if (_boundaryPoints.length < 2) return const <Polyline>{};
 
-    // Draw lines between consecutive points (open path while drawing)
+    final polylinePoints = _boundaryPoints.length >= 3
+        ? <LatLng>[..._boundaryPoints, _boundaryPoints.first]
+        : <LatLng>[..._boundaryPoints];
+
     return <Polyline>{
       Polyline(
-        polylineId: const PolylineId('boundary_outline'),
-        points: _boundaryPoints,
-        color: const Color(0xFF1D4ED8),
+        polylineId: PolylineId('boundary_outline_$_geometryRevision'),
+        points: polylinePoints,
+        color: const Color(0xFF0FAD97),
         width: 3,
+        zIndex: 3,
       ),
     };
+  }
+
+  static double _distanceMeters(LatLng a, LatLng b) {
+    const earthRadiusMeters = 6371000.0;
+
+    double toRad(double deg) => deg * (math.pi / 180.0);
+
+    final lat1 = toRad(a.latitude);
+    final lat2 = toRad(b.latitude);
+    final dLat = toRad(b.latitude - a.latitude);
+    final dLng = toRad(b.longitude - a.longitude);
+
+    final sinDLat = math.sin(dLat / 2);
+    final sinDLng = math.sin(dLng / 2);
+    final h =
+        sinDLat * sinDLat + math.cos(lat1) * math.cos(lat2) * sinDLng * sinDLng;
+    final c = 2 * math.atan2(math.sqrt(h), math.sqrt(1 - h));
+    return earthRadiusMeters * c;
+  }
+
+  static String _formatFeet(double meters) {
+    final feet = meters * 3.280839895;
+    return "${feet.toStringAsFixed(1)}'";
+  }
+
+  static LatLng _midpoint(LatLng a, LatLng b) {
+    return LatLng(
+      (a.latitude + b.latitude) / 2,
+      (a.longitude + b.longitude) / 2,
+    );
+  }
+
+  Future<BitmapDescriptor> _labelIcon(String text) async {
+    final cached = _labelIconCache[text];
+    if (cached != null) return cached;
+
+    final bytes = await _renderLabelPng(text);
+    final icon = BitmapDescriptor.bytes(bytes);
+    _labelIconCache[text] = icon;
+    return icon;
+  }
+
+  Future<Uint8List> _renderLabelPng(String text) async {
+    const paddingX = 2.0;
+    const paddingY = 2.0;
+    const fontSize = 11.0;
+
+    final outlinePainter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          fontSize: fontSize,
+          fontWeight: FontWeight.w700,
+          foreground: Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2
+            ..color = const Color(0xCC000000),
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout();
+
+    final fillPainter = TextPainter(
+      text: const TextSpan(),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    );
+    fillPainter.text = TextSpan(
+      text: text,
+      style: const TextStyle(
+        fontSize: fontSize,
+        fontWeight: FontWeight.w700,
+        color: Colors.white,
+      ),
+    );
+    fillPainter.layout();
+
+    final textW = math.max(outlinePainter.width, fillPainter.width);
+    final textH = math.max(outlinePainter.height, fillPainter.height);
+    final w = textW + paddingX * 2;
+    final h = textH + paddingY * 2;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+
+    const offset = Offset(paddingX, paddingY);
+    outlinePainter.paint(canvas, offset);
+    fillPainter.paint(canvas, offset);
+
+    final picture = recorder.endRecording();
+    final img = await picture.toImage(w.ceil(), h.ceil());
+    final data = await img.toByteData(format: ui.ImageByteFormat.png);
+    return data!.buffer.asUint8List();
+  }
+
+  Future<void> _refreshEdgeLabels() async {
+    if (!mounted) return;
+
+    final revision = _geometryRevision;
+    final points = List<LatLng>.from(_boundaryPoints);
+
+    if (points.length < 2) {
+      if (!mounted) return;
+      setState(() {
+        _edgeLabelIcons.clear();
+      });
+      return;
+    }
+
+    final lastIndex = points.length - 1;
+    final willClose = points.length >= 3;
+    final edgeCount = willClose ? points.length : lastIndex;
+
+    final icons = <int, BitmapDescriptor>{};
+    for (var i = 0; i < edgeCount; i++) {
+      final a = points[i];
+      final b = points[(i + 1) % points.length];
+      final meters = _distanceMeters(a, b);
+      final label = _formatFeet(meters);
+      icons[i] = await _labelIcon(label);
+    }
+
+    if (!mounted || revision != _geometryRevision) return;
+    setState(() {
+      _edgeLabelIcons
+        ..clear()
+        ..addAll(icons);
+    });
   }
 
   @override
@@ -405,25 +789,42 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
     }
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Draw Layout Boundary'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
+        titleSpacing: 6,
+        leadingWidth: 44,
+        title: const Text(
+          'Draw Boundary',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF0F172A),
+          ),
         ),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
         actions: [
-          if (_boundaryPoints.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.undo),
-              tooltip: 'Undo last point',
-              onPressed: _undoLastPoint,
+          Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: FilledButton(
+              onPressed: _boundaryPoints.length >= 3 ? _proceedToForm : null,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF0FAD97),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                minimumSize: const Size(0, 36),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text(
+                'Next',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
             ),
-          if (_boundaryPoints.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.clear),
-              tooltip: 'Clear all',
-              onPressed: _clearAllPoints,
-            ),
+          ),
         ],
       ),
       body: Stack(
@@ -437,8 +838,10 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
             style: _mapType == MapType.normal ? _lightMapStyle : null,
             onMapCreated: (controller) {
               _controller = controller;
+              _scheduleViewportFetch();
             },
             onTap: _onMapTap,
+            onCameraIdle: _scheduleViewportFetch,
             polygons: _buildPolygons(),
             markers: _buildMarkers(),
             polylines: _buildPolylines(),
@@ -447,6 +850,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
             zoomControlsEnabled: false,
             mapToolbarEnabled: false,
             compassEnabled: false,
+            rotateGesturesEnabled: false,
           ),
 
           // API key warning
@@ -512,6 +916,34 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _mapLabelsToggle(),
+                      const Spacer(),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _topMapActionButton(
+                            icon: Icons.delete_outline,
+                            tooltip: 'Clear',
+                            onPressed: _boundaryPoints.isEmpty
+                                ? null
+                                : _clearAllPoints,
+                            iconColor: const Color(0xFFDC2626),
+                          ),
+                          const SizedBox(height: 10),
+                          _topMapActionButton(
+                            icon: Icons.undo,
+                            tooltip: 'Undo last point',
+                            onPressed:
+                                _boundaryPoints.isEmpty ? null : _undoLastPoint,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                   if (_predictions.isNotEmpty)
                     Material(
                       elevation: 4,
@@ -544,102 +976,94 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
               ),
             ),
 
-          // Map controls
-          Positioned(
-            right: 12,
-            bottom: 100,
-            child: Column(
-              children: [
-                _mapControlButton(
-                  icon: _mapType == MapType.hybrid
-                      ? Icons.map_outlined
-                      : Icons.satellite_alt,
-                  tooltip: 'Toggle map type',
-                  onTap: _toggleMapType,
-                ),
-                const SizedBox(height: 8),
-                _mapControlButton(
-                  icon: Icons.my_location,
-                  tooltip: 'My location',
-                  onTap: () async {
-                    // Re-center to current location
-                    // For now just reset to initial center
-                    await _controller?.animateCamera(
-                      CameraUpdate.newLatLngZoom(_center, _zoom),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-
-          // Instructions and point count
-          Positioned(
-            left: 12,
-            bottom: 100,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x20000000),
-                    blurRadius: 8,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Tap on map to draw boundary',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Points: ${_boundaryPoints.length}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: _boundaryPoints.length >= 3
-                          ? const Color(0xFF059669)
-                          : const Color(0xFF94A3B8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Next button
+          // Bottom controls: My Location + Map Type | Instructions | Zoom
           Positioned(
             left: 16,
             right: 16,
-            bottom: 24,
-            child: FilledButton(
-              onPressed: _boundaryPoints.length >= 3 ? _proceedToForm : null,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF0FAD97),
-                disabledBackgroundColor: const Color(0xFFCBD5E1),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            bottom: 16,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _mapControlButton(
+                      icon: Icons.my_location,
+                      tooltip: 'My Location',
+                      onPressed: _goToMyLocation,
+                    ),
+                    const SizedBox(height: 10),
+                    _mapControlButton(
+                      icon: _mapType == MapType.hybrid
+                          ? Icons.map_outlined
+                          : Icons.satellite_alt_outlined,
+                      tooltip: _mapType == MapType.hybrid
+                          ? 'Switch to map view'
+                          : 'Switch to satellite view',
+                      onPressed: _toggleMapType,
+                    ),
+                  ],
                 ),
-              ),
-              child: const Text(
-                'Next: Fill Details',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 240),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x14000000),
+                              blurRadius: 10,
+                              offset: Offset(0, 4),
+                            )
+                          ],
+                        ),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 36),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.touch_app_outlined,
+                                  size: 16,
+                                  color: Color(0xFF64748B),
+                                ),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    _boundaryPoints.length >= 3
+                                        ? 'Press Next to continue'
+                                        : 'Tap map to add points (${_boundaryPoints.length}/3).',
+                                    textAlign: TextAlign.center,
+                                    softWrap: true,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF475569),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 10),
+                _mapZoomControl(),
+              ],
             ),
           ),
         ],
@@ -647,31 +1071,157 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
     );
   }
 
+  Future<void> _zoomIn() async {
+    await _controller?.animateCamera(CameraUpdate.zoomIn());
+  }
+
+  Future<void> _zoomOut() async {
+    await _controller?.animateCamera(CameraUpdate.zoomOut());
+  }
+
   Widget _mapControlButton({
     required IconData icon,
     required String tooltip,
-    required VoidCallback onTap,
+    required VoidCallback onPressed,
   }) {
-    return Material(
-      elevation: 4,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Tooltip(
-            message: tooltip,
+    const radius = 8.0;
+    const size = 36.0;
+
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Material(
+          color: Colors.white,
+          elevation: 4,
+          shadowColor: Colors.black26,
+          borderRadius: BorderRadius.circular(radius),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onPressed,
             child: Icon(
               icon,
-              color: const Color(0xFF475569),
+              size: 18,
+              color: const Color(0xFF1F2937),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _topMapActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback? onPressed,
+    Color? iconColor,
+  }) {
+    const radius = 8.0;
+    const size = 40.0;
+    final enabled = onPressed != null;
+    const teal = Color(0xFF0FAD97);
+
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Material(
+          color: Colors.white,
+          elevation: 4,
+          shadowColor: Colors.black26,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radius),
+            side: BorderSide(
+              color: enabled ? teal : teal.withOpacity(0.45),
+              width: 1,
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onPressed,
+            child: Icon(
+              icon,
+              size: 20,
+              color: enabled
+                  ? (iconColor ?? const Color(0xFF1F2937))
+                  : const Color(0xFF94A3B8),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _mapZoomControl() {
+    const radius = 8.0;
+    const size = 36.0;
+    const borderColor = Color(0xFFE2E8F0);
+
+    Widget segment({
+      required IconData icon,
+      required String tooltip,
+      required VoidCallback onPressed,
+      required BorderRadius borderRadius,
+    }) {
+      return Tooltip(
+        message: tooltip,
+        child: Material(
+          color: Colors.white,
+          borderRadius: borderRadius,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onPressed,
+            child: SizedBox(
+              width: size,
+              height: size,
+              child: Icon(
+                icon,
+                size: 18,
+                color: const Color(0xFF1F2937),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Material(
+      color: Colors.transparent,
+      elevation: 4,
+      shadowColor: Colors.black26,
+      borderRadius: BorderRadius.circular(radius),
+      child: Container(
+        width: size,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(radius),
+          border: Border.all(color: borderColor),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            segment(
+              icon: Icons.add,
+              tooltip: 'Zoom in',
+              onPressed: _zoomIn,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(radius),
+                topRight: Radius.circular(radius),
+              ),
+            ),
+            const Divider(height: 1, thickness: 1, color: borderColor),
+            segment(
+              icon: Icons.remove,
+              tooltip: 'Zoom out',
+              onPressed: _zoomOut,
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(radius),
+                bottomRight: Radius.circular(radius),
+              ),
+            ),
+          ],
         ),
       ),
     );
