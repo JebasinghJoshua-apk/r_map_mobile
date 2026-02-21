@@ -86,6 +86,56 @@ class AuthState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Sends OTP to the specified phone number.
+  Future<SendOtpResult> sendOtp({
+    required String phoneNumber,
+    OtpPurpose purpose = OtpPurpose.login,
+  }) async {
+    return _api.sendOtp(phoneNumber: phoneNumber, purpose: purpose);
+  }
+
+  /// Verifies OTP and logs in if user exists.
+  /// Returns [VerifyOtpResult] - check requiresRegistration to know if user needs to register.
+  Future<VerifyOtpResult> verifyOtp({
+    required String phoneNumber,
+    required String otpCode,
+    OtpPurpose purpose = OtpPurpose.login,
+  }) async {
+    final result = await _api.verifyOtp(
+      phoneNumber: phoneNumber,
+      otpCode: otpCode,
+      purpose: purpose,
+    );
+
+    if (result.success && result.session != null) {
+      await _persist(result.session!);
+      _session = result.session;
+      AnalyticsService.instance.setUserId(result.session!.user.id);
+      AnalyticsService.instance.logLogin();
+      notifyListeners();
+    }
+
+    return result;
+  }
+
+  /// Registers a new user after OTP verification.
+  Future<void> registerWithOtp({
+    required String phoneNumber,
+    required String otpCode,
+    String? name,
+  }) async {
+    final session = await _api.registerWithOtp(
+      phoneNumber: phoneNumber,
+      otpCode: otpCode,
+      name: name,
+    );
+    await _persist(session);
+    _session = session;
+    AnalyticsService.instance.setUserId(session.user.id);
+    AnalyticsService.instance.logSignUp();
+    notifyListeners();
+  }
+
   Future<void> _persist(AuthSession session) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, session.token);

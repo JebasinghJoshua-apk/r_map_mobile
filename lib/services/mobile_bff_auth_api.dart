@@ -125,6 +125,141 @@ class MobileBffAuthApi {
         'Registration failed (${response.statusCode})');
   }
 
+  /// Sends OTP to the specified phone number.
+  /// Returns [SendOtpResult] with success status and channel used.
+  Future<SendOtpResult> sendOtp({
+    required String phoneNumber,
+    OtpPurpose purpose = OtpPurpose.login,
+  }) async {
+    final uri = _uri('/mobile/auth/otp/send');
+    http.Response response;
+    try {
+      response = await _client
+          .post(
+            uri,
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'phoneNumber': phoneNumber,
+              'purpose': purpose.index + 1, // 1=Login, 2=Register
+            }),
+          )
+          .timeout(_timeout);
+    } on SocketException {
+      throw const AuthApiException(
+        'Cannot connect to the server. Please check your network.',
+      );
+    } on TimeoutException {
+      throw const AuthApiException('Request timed out. Please try again.');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    
+    return SendOtpResult(
+      success: json['success'] as bool? ?? false,
+      requestId: json['requestId'] as String?,
+      channel: json['channel'] as String?,
+      message: json['message'] as String?,
+      retryAfterSeconds: json['retryAfterSeconds'] as int?,
+    );
+  }
+
+  /// Verifies OTP code for the specified phone number.
+  /// Returns [VerifyOtpResult] with token if successful, or registration flag.
+  Future<VerifyOtpResult> verifyOtp({
+    required String phoneNumber,
+    required String otpCode,
+    OtpPurpose purpose = OtpPurpose.login,
+  }) async {
+    final uri = _uri('/mobile/auth/otp/verify');
+    http.Response response;
+    try {
+      response = await _client
+          .post(
+            uri,
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'phoneNumber': phoneNumber,
+              'otpCode': otpCode,
+              'purpose': purpose.index + 1,
+            }),
+          )
+          .timeout(_timeout);
+    } on SocketException {
+      throw const AuthApiException(
+        'Cannot connect to the server. Please check your network.',
+      );
+    } on TimeoutException {
+      throw const AuthApiException('Request timed out. Please try again.');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final success = json['success'] as bool? ?? false;
+    
+    if (success && json['token'] != null) {
+      // User exists, return session
+      return VerifyOtpResult(
+        success: true,
+        session: _parseSession(json),
+        requiresRegistration: false,
+      );
+    }
+    
+    if (success && (json['requiresRegistration'] as bool? ?? false)) {
+      // Phone verified but user doesn't exist
+      return VerifyOtpResult(
+        success: true,
+        session: null,
+        requiresRegistration: true,
+        message: json['message'] as String?,
+      );
+    }
+    
+    return VerifyOtpResult(
+      success: false,
+      session: null,
+      requiresRegistration: false,
+      message: json['message'] as String? ?? 'OTP verification failed',
+    );
+  }
+
+  /// Registers a new user with OTP verification.
+  /// Phone must be verified first with [verifyOtp].
+  Future<AuthSession> registerWithOtp({
+    required String phoneNumber,
+    required String otpCode,
+    String? name,
+  }) async {
+    final uri = _uri('/mobile/auth/otp/register');
+    http.Response response;
+    try {
+      response = await _client
+          .post(
+            uri,
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'phoneNumber': phoneNumber,
+              'otpCode': otpCode,
+              'name': name,
+            }),
+          )
+          .timeout(_timeout);
+    } on SocketException {
+      throw const AuthApiException(
+        'Cannot connect to the server. Please check your network.',
+      );
+    } on TimeoutException {
+      throw const AuthApiException('Request timed out. Please try again.');
+    }
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return _parseSession(json);
+    }
+
+    throw AuthApiException(_tryMessage(response.body) ??
+        'Registration failed (${response.statusCode})');
+  }
+
   AuthSession _parseSession(Map<String, dynamic> json) {
     final token = (json['token'] as String?) ?? '';
     final userJson =
@@ -229,4 +364,41 @@ class AuthApiException implements Exception {
 
   @override
   String toString() => message;
+}
+
+enum OtpPurpose {
+  login,
+  register,
+  passwordReset,
+  phoneVerification,
+}
+
+class SendOtpResult {
+  const SendOtpResult({
+    required this.success,
+    this.requestId,
+    this.channel,
+    this.message,
+    this.retryAfterSeconds,
+  });
+
+  final bool success;
+  final String? requestId;
+  final String? channel; // "whatsapp" or "sms"
+  final String? message;
+  final int? retryAfterSeconds;
+}
+
+class VerifyOtpResult {
+  const VerifyOtpResult({
+    required this.success,
+    this.session,
+    required this.requiresRegistration,
+    this.message,
+  });
+
+  final bool success;
+  final AuthSession? session;
+  final bool requiresRegistration;
+  final String? message;
 }
