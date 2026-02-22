@@ -145,57 +145,60 @@ class _LayoutQrCodeSheetState extends State<LayoutQrCodeSheet> {
       pdf.addPage(
         pw.Page(
           pageFormat: const PdfPageFormat(labelWidth, labelHeight),
-          margin: const pw.EdgeInsets.all(2),
+          margin: pw.EdgeInsets.zero,
           build: (context) {
-            return pw.Container(
-              width: double.infinity,
-              height: double.infinity,
-              padding:
-                  const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-              child: pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.center,
-                children: [
-                  // QR Code - square, matching preview
-                  pw.Container(
-                    width: 64,
-                    height: 64,
-                    child: pw.Image(
-                      pw.MemoryImage(qrBytes),
-                      fit: pw.BoxFit.contain,
+            const qrSize = 64.0;
+            return pw.Center(
+              child: pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(horizontal: 6),
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.center,
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  mainAxisSize: pw.MainAxisSize.max,
+                  children: [
+                    // QR Code - square, matching preview
+                    pw.Container(
+                      width: qrSize,
+                      height: qrSize,
+                      child: pw.Image(
+                        pw.MemoryImage(qrBytes),
+                        fit: pw.BoxFit.contain,
+                      ),
                     ),
-                  ),
-                  pw.SizedBox(width: 2),
-                  // Text content
-                  pw.Expanded(
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.center,
-                      mainAxisAlignment: pw.MainAxisAlignment.center,
-                      children: [
-                        pw.Text(
-                          widget.layoutName,
-                          style: pw.TextStyle(
-                            fontSize: 13,
-                            fontWeight: pw.FontWeight.bold,
-                            color: PdfColors.black,
+                    pw.SizedBox(width: 4),
+                    // Text content
+                    pw.Expanded(
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.center,
+                        mainAxisAlignment: pw.MainAxisAlignment.center,
+                        mainAxisSize: pw.MainAxisSize.min,
+                        children: [
+                          pw.Text(
+                            widget.layoutName,
+                            style: pw.TextStyle(
+                              fontSize: 13,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColors.black,
+                            ),
+                            maxLines: 2,
+                            overflow: pw.TextOverflow.clip,
+                            textAlign: pw.TextAlign.center,
                           ),
-                          maxLines: 2,
-                          overflow: pw.TextOverflow.clip,
-                          textAlign: pw.TextAlign.center,
-                        ),
-                        pw.SizedBox(height: 8),
-                        pw.Text(
-                          'rmap.in',
-                          style: pw.TextStyle(
-                            fontSize: 13,
-                            fontWeight: pw.FontWeight.bold,
-                            color: PdfColors.black,
+                          pw.SizedBox(height: 8),
+                          pw.Text(
+                            'rmap.in',
+                            style: pw.TextStyle(
+                              fontSize: 13,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColors.black,
+                            ),
+                            textAlign: pw.TextAlign.center,
                           ),
-                          textAlign: pw.TextAlign.center,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },

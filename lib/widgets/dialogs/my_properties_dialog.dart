@@ -470,7 +470,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                 children: [
                   Expanded(
                     child: SizedBox(
-                      height: 36,
+                      height: 42,
                       child: TextField(
                         controller: _searchController,
                         onChanged: (value) {
@@ -492,8 +492,8 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                           hintStyle: const TextStyle(fontSize: 14),
                           prefixIcon: const Icon(Icons.search, size: 20),
                           prefixIconConstraints: const BoxConstraints(
-                            minWidth: 36,
-                            minHeight: 36,
+                            minWidth: 42,
+                            minHeight: 42,
                           ),
                           suffixIcon: q.isEmpty
                               ? null
@@ -508,7 +508,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                                 ),
                           suffixIconConstraints: const BoxConstraints(
                             minWidth: 32,
-                            minHeight: 36,
+                            minHeight: 42,
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
@@ -532,7 +532,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   FilledButton(
                     onPressed: () async {
                       final selectedType = await _pickPropertyTypeForAdd();
@@ -573,7 +573,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                         horizontal: 12,
                         vertical: 6,
                       ),
-                      minimumSize: const Size(0, 36),
+                      minimumSize: const Size(0, 42),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
