@@ -161,7 +161,8 @@ extension _HomeMapCarousel on _HomeMapScreenState {
         _independentHousesCarousel =
             List<MapPropertyFeature>.unmodifiable(candidates);
         // Update index to match selected property's new position
-        final newIdx = candidates.indexWhere((p) => _featureMatches(p, selected));
+        final newIdx =
+            candidates.indexWhere((p) => _featureMatches(p, selected));
         if (newIdx >= 0) {
           _activeIndependentHouseIndex = newIdx;
         }
@@ -413,7 +414,8 @@ class _StableCarouselPageView extends StatefulWidget {
   final double height;
 
   @override
-  State<_StableCarouselPageView> createState() => _StableCarouselPageViewState();
+  State<_StableCarouselPageView> createState() =>
+      _StableCarouselPageViewState();
 }
 
 class _StableCarouselPageViewState extends State<_StableCarouselPageView> {
