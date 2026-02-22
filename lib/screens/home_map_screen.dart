@@ -1087,48 +1087,43 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
           icon: icon,
           anchor: anchor,
           zIndex: zIndex,
-          onTap: p.feature.propertyType.trim() == 'IndependentHouse'
-              ? () => _handleIndependentHouseTapped(
-                    p.feature,
-                    target: p.focusCenter ?? p.center,
-                    zoom: p.focusZoom ?? 20.0,
-                  )
-              : p.isLayout
-                  ? (p.shouldShowLayoutBadge
-                      ? () => _focusPropertyOnMap(
-                            target: p.focusCenter ?? p.center,
-                            zoom: p.focusZoom ?? _layoutFocusZoomTarget,
-                          )
-                      : () {
-                          final layoutId = p.feature.featureId.trim();
-                          if (layoutId.isEmpty) {
-                            ToastMessage.show(
-                              context,
-                              'Layout details not available',
-                            );
-                            return;
-                          }
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (!mounted) return;
-                            _dismissKeyboard();
-                            _closeAnyPanel();
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => LayoutDetailScreen(
-                                  layoutId: layoutId,
-                                  fallbackFeature: p.feature,
-                                ),
-                              ),
-                            );
-                          });
-                        })
-                  : () => unawaited(
-                        _handlePropertyTapped(
-                          p.feature,
-                          target: p.focusCenter ?? p.center,
-                          zoom: p.focusZoom ?? 20.0,
-                        ),
-                      ),
+          onTap: p.isLayout
+              ? (p.shouldShowLayoutBadge
+                  ? () => _focusPropertyOnMap(
+                        target: p.focusCenter ?? p.center,
+                        zoom: p.focusZoom ?? _layoutFocusZoomTarget,
+                      )
+                  : () {
+                      final layoutId = p.feature.featureId.trim();
+                      if (layoutId.isEmpty) {
+                        ToastMessage.show(
+                          context,
+                          'Layout details not available',
+                        );
+                        return;
+                      }
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!mounted) return;
+                        _dismissKeyboard();
+                        _closeAnyPanel();
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => LayoutDetailScreen(
+                              layoutId: layoutId,
+                              fallbackFeature: p.feature,
+                            ),
+                          ),
+                        );
+                      });
+                    })
+              // IndependentHouse, Land, CommercialSpace, ApartmentFlat - all use carousel
+              : () => unawaited(
+                    _handleCarouselPropertyTapped(
+                      p.feature,
+                      target: p.focusCenter ?? p.center,
+                      zoom: p.focusZoom ?? 20.0,
+                    ),
+                  ),
           infoWindow: InfoWindow.noText,
         ),
       );
@@ -1611,23 +1606,23 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
               bottom: 0,
               child: Padding(
                 padding: EdgeInsets.only(bottom: bottomPanelInset),
-                child:
-                    _selectedProperty!.propertyType.trim() == 'IndependentHouse'
-                        ? _buildIndependentHouseCarouselPanel()
-                        : PropertyDetailsPanel(
-                            feature: _selectedProperty!,
-                            imageUrls: _selectedPropertyMediaUrls,
-                            isLoadingImages: _isSelectedPropertyMediaLoading,
-                            imagesError: _selectedPropertyMediaError,
-                            isSaved: _isFeatureSaved(_selectedProperty!),
-                            isSaving: _isFeatureSaving(_selectedProperty!),
-                            onToggleSaved: () => unawaited(
-                              _toggleFeatureSaved(_selectedProperty!),
-                            ),
-                            onOpenDetails: () =>
-                                _openPropertyDetails(_selectedProperty!),
-                            onClose: _closePropertyPanel,
-                          ),
+                // All non-Layout property types use carousel panel
+                child: _selectedProperty!.propertyType.trim() == 'Layout'
+                    ? PropertyDetailsPanel(
+                        feature: _selectedProperty!,
+                        imageUrls: _selectedPropertyMediaUrls,
+                        isLoadingImages: _isSelectedPropertyMediaLoading,
+                        imagesError: _selectedPropertyMediaError,
+                        isSaved: _isFeatureSaved(_selectedProperty!),
+                        isSaving: _isFeatureSaving(_selectedProperty!),
+                        onToggleSaved: () => unawaited(
+                          _toggleFeatureSaved(_selectedProperty!),
+                        ),
+                        onOpenDetails: () =>
+                            _openPropertyDetails(_selectedProperty!),
+                        onClose: _closePropertyPanel,
+                      )
+                    : _buildIndependentHouseCarouselPanel(),
               ),
             ),
         ],

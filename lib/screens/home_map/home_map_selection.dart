@@ -199,20 +199,15 @@ extension _HomeMapSelection on _HomeMapScreenState {
       final target = focusCenter ?? effectiveFeature.centerPoint ?? center;
       final zoom = focusZoom ?? _priceBadgeFocusZoomTarget(type);
 
-      if (type == 'IndependentHouse') {
-        await _handleIndependentHouseTapped(
-          effectiveFeature,
-          target: target,
-          zoom: zoom,
-        );
-      } else if (isLayout) {
+      if (isLayout) {
         await _focusPropertyOnMap(
           target: target,
           zoom: zoom,
           boundaryGeoJson: effectiveFeature.boundaryGeoJson,
         );
       } else {
-        await _handlePropertyTapped(
+        // IndependentHouse, Land, CommercialSpace, ApartmentFlat - all use carousel
+        await _handleCarouselPropertyTapped(
           effectiveFeature,
           target: target,
           zoom: zoom,
@@ -492,20 +487,15 @@ extension _HomeMapSelection on _HomeMapScreenState {
       final target = focusCenter ?? effectiveFeature.centerPoint ?? center;
       final zoom = focusZoom ?? _priceBadgeFocusZoomTarget(type);
 
-      if (type == 'IndependentHouse') {
-        await _handleIndependentHouseTapped(
-          effectiveFeature,
-          target: target,
-          zoom: zoom,
-        );
-      } else if (isLayout) {
+      if (isLayout) {
         await _focusPropertyOnMap(
           target: target,
           zoom: zoom,
           boundaryGeoJson: effectiveFeature.boundaryGeoJson,
         );
       } else {
-        await _handlePropertyTapped(
+        // IndependentHouse, Land, CommercialSpace, ApartmentFlat - all use carousel
+        await _handleCarouselPropertyTapped(
           effectiveFeature,
           target: target,
           zoom: zoom,
@@ -672,39 +662,6 @@ extension _HomeMapSelection on _HomeMapScreenState {
   void _closeAnyPanel() {
     _closePlotPanel();
     _closePropertyPanel();
-  }
-
-  Future<void> _handlePropertyTapped(
-    MapPropertyFeature feature, {
-    required LatLng target,
-    required double zoom,
-  }) async {
-    _closePlotPanel();
-
-    // Save the pre-tap camera so closing the panel can restore it.
-    await _captureCameraBeforePropertyFocus();
-
-    _updateState(() {
-      _selectedProperty = feature;
-      _selectedPropertyHighlightPolygons =
-          _buildSelectedPropertyHighlightPolygons(feature);
-
-      // Only IndependentHouse uses the special carousel panel.
-      if (feature.propertyType.trim() != 'IndependentHouse') {
-        _independentHousesCarousel = const <MapPropertyFeature>[];
-        _activeIndependentHouseIndex = 0;
-        _independentHouseCarouselDebounce?.cancel();
-        _independentHouseCarouselRequestSeq++;
-      }
-    });
-
-    unawaited(_refreshMarkerSelectionStyles());
-    _ensurePropertyMediaLoaded(feature);
-    await _focusPropertyOnMap(
-      target: target,
-      zoom: zoom,
-      boundaryGeoJson: feature.boundaryGeoJson,
-    );
   }
 
   Set<Polygon> _buildSelectedPlotHighlightPolygons(MapPlotFeature plot) {

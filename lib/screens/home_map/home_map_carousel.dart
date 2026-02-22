@@ -1,12 +1,14 @@
 part of '../home_map_screen.dart';
 
-/// Carousel extension for IndependentHouse properties.
+/// Carousel extension for property browsing.
 ///
 /// Key design principles:
 /// 1. PageController is the single source of truth for visible page
 /// 2. _selectedProperty is updated ONLY from onPageChanged or tap
 /// 3. Never fight the PageController - don't try to "sync" it
 /// 4. Use stable keys to prevent PageView recreation during rebuilds
+/// 5. Shows all property types EXCEPT Layout (which uses separate plot panel)
+/// 6. Respects user-applied filters from filter dialog
 extension _HomeMapCarousel on _HomeMapScreenState {
   static const double _carouselRadiusKm = 4.0;
   static const int _carouselMaxItems = 10;
@@ -46,9 +48,9 @@ extension _HomeMapCarousel on _HomeMapScreenState {
       return;
     }
 
-    // Only refresh for IndependentHouse selection
-    if (_selectedProperty?.propertyType.trim() != 'IndependentHouse' &&
-        anchor == null) {
+    // Skip refresh for Layout (Layout uses plot panel, not carousel)
+    final selectedType = _selectedProperty?.propertyType.trim();
+    if (selectedType == 'Layout' && anchor == null) {
       return;
     }
 
@@ -70,42 +72,57 @@ extension _HomeMapCarousel on _HomeMapScreenState {
     final queryBounds = _mergeBounds(expanded, radiusBounds);
     final requestId = ++_independentHouseCarouselRequestSeq;
 
+    // Determine property types to query (server-side filtering)
+    // Layout excluded - it uses plot panel, not carousel
+    const carouselEligibleTypes = <String>[
+      'IndependentHouse',
+      'Land',
+      'CommercialSpace',
+      'ApartmentFlat',
+    ];
+    final userSelectedType = _selectedPropertyType?.trim();
+    final queryTypes = (userSelectedType != null &&
+            userSelectedType.isNotEmpty &&
+            userSelectedType != 'Layout')
+        ? <String>[userSelectedType]
+        : carouselEligibleTypes;
+
     try {
       final response = await _mapApi.getViewport(
         bounds: queryBounds,
         zoom: carouselQueryZoom,
-        propertyTypes: const <String>['IndependentHouse'],
+        propertyTypes: queryTypes,
         bearerToken: token,
       );
 
       if (!mounted || requestId != _independentHouseCarouselRequestSeq) return;
 
-      // Filter and sort by distance
+      // Apply user filters then exclude Layout (Layout uses plot panel)
       final filteredResponse = _applyClientFilters(response);
-      final houses = filteredResponse.properties
-          .where((p) => p.propertyType.trim() == 'IndependentHouse')
+      final carouselProperties = filteredResponse.properties
+          .where((p) => p.propertyType.trim() != 'Layout')
           .toList(growable: true);
 
-      houses.sort((a, b) {
+      carouselProperties.sort((a, b) {
         final aScore = _distanceScore(center, a.centerPoint);
         final bScore = _distanceScore(center, b.centerPoint);
         return aScore.compareTo(bScore);
       });
 
       // Take candidates within radius or closest ones
-      final withinRadius = houses.where((h) {
-        final c = h.centerPoint;
+      final withinRadius = carouselProperties.where((p) {
+        final c = p.centerPoint;
         return c != null && _distanceKm(center, c) <= _carouselRadiusKm;
       }).toList(growable: false);
 
-      final baseCandidates = withinRadius.isNotEmpty ? withinRadius : houses;
+      final baseCandidates =
+          withinRadius.isNotEmpty ? withinRadius : carouselProperties;
       var candidates =
           baseCandidates.take(_carouselMaxItems).toList(growable: true);
 
-      // Ensure selected/anchor property is in list
+      // Ensure selected/anchor property is in list (if not Layout)
       final selected = anchor ?? _selectedProperty;
-      if (selected != null &&
-          selected.propertyType.trim() == 'IndependentHouse') {
+      if (selected != null && selected.propertyType.trim() != 'Layout') {
         final exists = candidates.any((p) => _featureMatches(p, selected));
         if (!exists) {
           candidates.insert(0, selected);
@@ -179,8 +196,9 @@ extension _HomeMapCarousel on _HomeMapScreenState {
     });
   }
 
-  /// Handle tap on an IndependentHouse marker.
-  Future<void> _handleIndependentHouseTapped(
+  /// Handle tap on a carousel-eligible property marker.
+  /// Works for IndependentHouse, Land, CommercialSpace, ApartmentFlat.
+  Future<void> _handleCarouselPropertyTapped(
     MapPropertyFeature feature, {
     required LatLng target,
     required double zoom,
