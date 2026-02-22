@@ -328,6 +328,7 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
                     title: title,
                     propertyType: 'Layout',
                     featureId: widget.layoutId,
+                    shortCode: _detail?.shortCode,
                     location: location,
                     priceLabel: null,
                     listingType: null,

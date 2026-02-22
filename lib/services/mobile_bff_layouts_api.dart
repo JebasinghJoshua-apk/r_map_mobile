@@ -281,6 +281,7 @@ class LayoutDetailDto {
     this.contactNumbers,
     this.area,
     this.plotsCount,
+    this.shortCode,
     required this.createdAt,
     required this.isDraft,
     required this.images,
@@ -296,6 +297,9 @@ class LayoutDetailDto {
   final String? contactNumbers;
   final String? area;
   final int? plotsCount;
+
+  /// Short code for generating compact share URLs (e.g., rmap.in/s/ABC123).
+  final String? shortCode;
   final DateTime createdAt;
   final bool isDraft;
   final List<LayoutImageDto> images;
@@ -312,6 +316,7 @@ class LayoutDetailDto {
       contactNumbers: json['contactNumbers'] as String?,
       area: json['area'] as String?,
       plotsCount: _asInt(json['plotsCount']),
+      shortCode: json['shortCode'] as String?,
       createdAt: DateTime.tryParse((json['createdAt'] as String?) ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
       isDraft: (json['isDraft'] as bool?) ?? false,

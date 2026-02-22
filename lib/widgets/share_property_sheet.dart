@@ -16,6 +16,7 @@ class SharePropertyInfo {
     required this.title,
     required this.propertyType,
     required this.featureId,
+    this.shortCode,
     this.location,
     this.priceLabel,
     this.listingType,
@@ -25,6 +26,9 @@ class SharePropertyInfo {
   final String title;
   final String propertyType;
   final String featureId;
+
+  /// Short code for generating compact share URLs (e.g., rmap.in/s/ABC123).
+  final String? shortCode;
   final String? location;
   final String? priceLabel;
   final String? listingType;
@@ -53,6 +57,13 @@ void showSharePropertySheet(BuildContext context, SharePropertyInfo info) {
 
 String _buildShareUrl(SharePropertyInfo info) {
   final base = ApiConstants.webBaseUrl.replaceAll(RegExp(r'/$'), '');
+
+  // Use short URL if shortCode is available
+  if (info.shortCode != null && info.shortCode!.isNotEmpty) {
+    return '$base/s/${info.shortCode}';
+  }
+
+  // Fallback to full property URL
   final encodedType = Uri.encodeComponent(info.propertyType.trim());
   final fid = info.featureId.trim();
   return '$base/property/$encodedType/$fid';

@@ -422,6 +422,7 @@ abstract class BasePropertyDetailScreenState<T extends BasePropertyDetailScreen>
                         title: title,
                         propertyType: feature.propertyType.trim(),
                         featureId: feature.featureId.trim(),
+                        shortCode: feature.metadata['shortCode'],
                         location: location,
                         priceLabel: price,
                         listingType:
