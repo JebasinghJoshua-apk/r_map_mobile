@@ -188,31 +188,77 @@ class DeepLinkService {
       '[DeepLink] navigating → ${target.propertyType}/${target.featureId}${target.shortCode != null ? ' (shortCode: ${target.shortCode})' : ''}',
     );
 
-    // Handle short URL (/s/{code}) - resolve shortCode to layoutId first.
+    // Handle short URL (/s/{code}) - resolve shortCode to property type + ID.
     if (target.shortCode != null && target.shortCode!.isNotEmpty) {
       _showLoadingOverlay(nav.context);
       try {
-        final layoutId = await _resolveShortCode(target.shortCode!);
+        final resolved = await _resolveShortCode(target.shortCode!);
         if (nav.canPop()) nav.pop();
 
-        if (layoutId == null) {
-          _showError(nav.context, 'Layout not found');
+        if (resolved == null) {
+          _showError(nav.context, 'Property not found');
           return;
         }
 
-        // Navigate directly to the layout.
-        nav.push(
-          MaterialPageRoute(
-            builder: (_) => LayoutDetailScreen(
-              layoutId: layoutId,
-              fromDeepLink: true,
+        // Navigate to the resolved property
+        final isLayout = resolved.propertyType.toLowerCase() == 'layout';
+
+        if (isLayout) {
+          nav.push(
+            MaterialPageRoute(
+              builder: (_) => LayoutDetailScreen(
+                layoutId: resolved.featureId,
+                fromDeepLink: true,
+              ),
             ),
-          ),
-        );
+          );
+        } else {
+          // Fetch property summary and navigate to PropertyDetailScreen
+          final summary = await _fetchShareSummary(
+            resolved.propertyType,
+            resolved.featureId,
+          );
+
+          if (summary == null) {
+            _showError(nav.context, 'Property not found');
+            return;
+          }
+
+          // Build center GeoJSON from coordinates if available.
+          String? centerGeoJson;
+          final lat = summary['centerLatitude'];
+          final lng = summary['centerLongitude'];
+          if (lat is num && lng is num) {
+            centerGeoJson = '{"type":"Point","coordinates":[$lng,$lat]}';
+          }
+
+          // Build a minimal MapPropertyFeature from the share summary.
+          final feature = MapPropertyFeature(
+            propertyId: summary['propertyId'] as String? ?? '',
+            featureId: summary['featureId'] as String? ?? resolved.featureId,
+            propertyType:
+                summary['propertyType'] as String? ?? resolved.propertyType,
+            name: summary['title'] as String? ?? 'Property',
+            isOwnedByCurrentUser: false,
+            listingType: null,
+            boundaryGeoJson: null,
+            centerGeoJson: centerGeoJson,
+            metadata: _buildMetadataFromSummary(summary),
+          );
+
+          nav.push(
+            MaterialPageRoute(
+              builder: (_) => PropertyDetailScreen(
+                feature: feature,
+                fromDeepLink: true,
+              ),
+            ),
+          );
+        }
         return;
       } catch (e) {
         if (nav.canPop()) nav.pop();
-        _showError(nav.context, 'Failed to load layout');
+        _showError(nav.context, 'Failed to load property');
         return;
       }
     }
@@ -324,8 +370,9 @@ class DeepLinkService {
   //  API helpers
   // ───────────────────────────────────────────────────────────────────
 
-  /// Resolves a short code to a layout ID by calling the API.
-  Future<String?> _resolveShortCode(String shortCode) async {
+  /// Resolves a short code to property type and feature ID by calling the API.
+  Future<({String propertyType, String featureId})?> _resolveShortCode(
+      String shortCode) async {
     final baseUrl = ApiConstants.apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
     final url = '$baseUrl/api/s/${Uri.encodeComponent(shortCode)}';
 
@@ -335,7 +382,11 @@ class DeepLinkService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        return data['layoutId'] as String?;
+        final propertyType = data['propertyType'] as String?;
+        final featureId = data['featureId'] as String?;
+        if (propertyType != null && featureId != null) {
+          return (propertyType: propertyType, featureId: featureId);
+        }
       }
     } catch (e) {
       debugPrint('[DeepLink] short code resolve error: $e');
