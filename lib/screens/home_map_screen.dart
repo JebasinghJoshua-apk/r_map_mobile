@@ -254,11 +254,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   List<MapPropertyFeature> _independentHousesCarousel =
       const <MapPropertyFeature>[];
   int _activeIndependentHouseIndex = 0;
-  PageController? _independentHouseCarouselController;
   Timer? _independentHouseCarouselDebounce;
   int _independentHouseCarouselRequestSeq = 0;
   DateTime? _independentHouseCarouselRefreshSuppressedUntil;
-  bool _suppressCarouselFocusOnce = false;
+  int _carouselVersion = 0; // Increments only on explicit rebuild
 
   // Media cache keyed by "<propertyType>:<featureId>".
   final Map<String, _PropertyMediaCacheEntry> _propertyMediaCache =
@@ -297,7 +296,21 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   Future<void> _refreshMarkerSelectionStyles() async {
     if (!mounted) return;
 
-    final features = _propertyByFeatureId.values.toList(growable: false);
+    final features = _propertyByFeatureId.values.toList(growable: true);
+
+    // Ensure the selected property is included in the features list even if
+    // it's not in the current viewport. This happens when swiping the carousel
+    // to a property that's outside the visible map area.
+    final selected = _selectedProperty;
+    if (selected != null) {
+      final existsInFeatures = features.any(
+        (f) => f.featureId.trim() == selected.featureId.trim(),
+      );
+      if (!existsInFeatures) {
+        features.add(selected);
+      }
+    }
+
     if (features.isEmpty) return;
 
     final requestId = ++_markerStyleSeq;
@@ -912,12 +925,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   }) async {
     // Phase 1: Collect pending marker data without rendering icons
     final pendingMarkers = <_PendingPropertyMarker>[];
+    final selected = _selectedProperty;
 
     for (final feature in response.properties) {
       final center = feature.centerPoint;
       if (center == null) continue;
 
-      final selected = _selectedProperty;
       final isSelected = selected != null &&
           selected.propertyType.trim() == feature.propertyType.trim() &&
           selected.featureId.trim() == feature.featureId.trim();

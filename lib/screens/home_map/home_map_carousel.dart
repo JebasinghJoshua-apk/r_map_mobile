@@ -1,28 +1,32 @@
 part of '../home_map_screen.dart';
 
+/// Carousel extension for IndependentHouse properties.
+///
+/// Key design principles:
+/// 1. PageController is the single source of truth for visible page
+/// 2. _selectedProperty is updated ONLY from onPageChanged or tap
+/// 3. Never fight the PageController - don't try to "sync" it
+/// 4. Use stable keys to prevent PageView recreation during rebuilds
 extension _HomeMapCarousel on _HomeMapScreenState {
   static const double _carouselRadiusKm = 4.0;
   static const int _carouselMaxItems = 10;
 
-  int _carouselPageCount(int itemCount) => itemCount + 2;
-
-  int _itemIndexFromCarouselPage(int pageIndex, int itemCount) {
-    if (itemCount <= 0) return 0;
-    if (pageIndex <= 0) return itemCount - 1;
-    if (pageIndex >= itemCount + 1) return 0;
-    return pageIndex - 1;
-  }
-
-  bool get _isIndependentHouseCarouselRefreshSuppressed {
+  /// Check if carousel refresh is currently suppressed.
+  bool get _isCarouselRefreshSuppressed {
     final until = _independentHouseCarouselRefreshSuppressedUntil;
     if (until == null) return false;
     return DateTime.now().isBefore(until);
   }
 
+  /// Suppress carousel refresh for a duration (prevents re-sorting during swipe).
+  void _suppressCarouselRefresh(Duration duration) {
+    _independentHouseCarouselRefreshSuppressedUntil =
+        DateTime.now().add(duration);
+  }
+
+  /// Schedule a debounced carousel refresh.
   void _scheduleIndependentHouseCarouselRefresh() {
-    if (_isIndependentHouseCarouselRefreshSuppressed) {
-      return;
-    }
+    if (_isCarouselRefreshSuppressed) return;
 
     _independentHouseCarouselDebounce?.cancel();
     _independentHouseCarouselDebounce = Timer(
@@ -31,11 +35,18 @@ extension _HomeMapCarousel on _HomeMapScreenState {
     );
   }
 
+  /// Refresh carousel candidates from API.
   Future<void> _refreshIndependentHouseCarouselCandidates({
     MapPropertyFeature? anchor,
   }) async {
-    if (!mounted) return;
-    if (_mapController == null) return;
+    if (!mounted || _mapController == null) return;
+
+    // Skip if suppressed and no explicit anchor
+    if (anchor == null && _isCarouselRefreshSuppressed) {
+      return;
+    }
+
+    // Only refresh for IndependentHouse selection
     if (_selectedProperty?.propertyType.trim() != 'IndependentHouse' &&
         anchor == null) {
       return;
@@ -50,11 +61,9 @@ extension _HomeMapCarousel on _HomeMapScreenState {
       return;
     }
 
-    // Larger-than-viewport fetch ONLY for the bottom panel.
-    // Keep payload light by forcing zoom < 11 => Minimal detail on backend.
+    // Build query bounds
     const carouselBoundsMultiplier = 3.0;
     const carouselQueryZoom = 10.0;
-
     final expanded = _expandBounds(bounds, carouselBoundsMultiplier);
     final center = _lastCameraPosition.target;
     final radiusBounds = _boundsAroundCenter(center, _carouselRadiusKm);
@@ -69,47 +78,35 @@ extension _HomeMapCarousel on _HomeMapScreenState {
         bearerToken: token,
       );
 
-      if (!mounted || requestId != _independentHouseCarouselRequestSeq) {
-        return;
-      }
+      if (!mounted || requestId != _independentHouseCarouselRequestSeq) return;
 
+      // Filter and sort by distance
       final filteredResponse = _applyClientFilters(response);
       final houses = filteredResponse.properties
           .where((p) => p.propertyType.trim() == 'IndependentHouse')
           .toList(growable: true);
 
       houses.sort((a, b) {
-        final aCenter = a.centerPoint;
-        final bCenter = b.centerPoint;
-        final aScore = aCenter == null
-            ? double.infinity
-            : _distanceScoreFromCenter(center, aCenter);
-        final bScore = bCenter == null
-            ? double.infinity
-            : _distanceScoreFromCenter(center, bCenter);
+        final aScore = _distanceScore(center, a.centerPoint);
+        final bScore = _distanceScore(center, b.centerPoint);
         return aScore.compareTo(bScore);
       });
 
-      // Prefer items within 4km of map center; fallback to nearest overall.
+      // Take candidates within radius or closest ones
       final withinRadius = houses.where((h) {
         final c = h.centerPoint;
-        if (c == null) return false;
-        return _distanceKm(center, c) <= _carouselRadiusKm;
+        return c != null && _distanceKm(center, c) <= _carouselRadiusKm;
       }).toList(growable: false);
 
       final baseCandidates = withinRadius.isNotEmpty ? withinRadius : houses;
       var candidates =
           baseCandidates.take(_carouselMaxItems).toList(growable: true);
 
+      // Ensure selected/anchor property is in list
       final selected = anchor ?? _selectedProperty;
       if (selected != null &&
           selected.propertyType.trim() == 'IndependentHouse') {
-        final exists = candidates.any(
-          (p) =>
-              p.featureId.trim() == selected.featureId.trim() ||
-              (p.propertyId.trim().isNotEmpty &&
-                  p.propertyId.trim() == selected.propertyId.trim()),
-        );
+        final exists = candidates.any((p) => _featureMatches(p, selected));
         if (!exists) {
           candidates.insert(0, selected);
         }
@@ -119,50 +116,235 @@ extension _HomeMapCarousel on _HomeMapScreenState {
         candidates = candidates.take(_carouselMaxItems).toList(growable: false);
       }
 
-      final nextIndex = selected == null
+      // Find index of selected property
+      final selectedIndex = selected == null
           ? 0
-          : candidates.indexWhere(
-              (p) =>
-                  p.featureId.trim() == selected.featureId.trim() ||
-                  (p.propertyId.trim().isNotEmpty &&
-                      p.propertyId.trim() == selected.propertyId.trim()),
-            );
+          : candidates.indexWhere((p) => _featureMatches(p, selected));
+      final safeIndex = selectedIndex >= 0 ? selectedIndex : 0;
 
-      _updateState(() {
-        _independentHousesCarousel =
-            List<MapPropertyFeature>.unmodifiable(candidates);
-        _activeIndependentHouseIndex = nextIndex >= 0 ? nextIndex : 0;
-      });
-
-      if (candidates.isEmpty) {
-        return;
-      }
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final c = _independentHouseCarouselController;
-        if (!mounted || c == null || !c.hasClients) return;
-        final targetPage =
-            (_activeIndependentHouseIndex.clamp(0, candidates.length - 1)) + 1;
-        if (c.page?.round() != targetPage) {
-          _suppressCarouselFocusOnce = true;
-          c.jumpToPage(targetPage);
-        }
-      });
-    } catch (_) {
-      // Best-effort: if this fails, we keep the previous carousel list.
+      // Rebuild carousel with new candidates
+      _rebuildCarousel(candidates, safeIndex);
+    } catch (e) {
+      debugPrint('[CAROUSEL] Refresh error: $e');
     }
   }
 
-  double _distanceScoreFromCenter(LatLng center, LatLng point) {
-    final lat0 = center.latitude;
-    final lng0 = center.longitude;
-    final dLat = point.latitude - lat0;
-    final dLng = point.longitude - lng0;
-    // Simple planar approximation with longitude scaled by cos(latitude).
-    final scale = math.cos(lat0 * (math.pi / 180.0));
+  /// Check if two features match by featureId or propertyId.
+  bool _featureMatches(MapPropertyFeature a, MapPropertyFeature b) {
+    if (a.featureId.trim() == b.featureId.trim()) return true;
+    if (a.propertyId.trim().isNotEmpty &&
+        a.propertyId.trim() == b.propertyId.trim()) return true;
+    return false;
+  }
+
+  /// Rebuild carousel with new candidates, positioning at given index.
+  void _rebuildCarousel(List<MapPropertyFeature> candidates, int initialIndex) {
+    if (!mounted) return;
+
+    final maxIdx = math.max(0, candidates.length - 1);
+    final safeIndex = initialIndex.clamp(0, maxIdx);
+
+    final oldItems = _independentHousesCarousel;
+
+    // Check if we can skip forcing widget recreation:
+    // - Selected property exists in BOTH old and new lists
+    // - This is a "soft" refresh (not an explicit tap that needs repositioning)
+    final selected = _selectedProperty;
+    final canSkipRecreation = selected != null &&
+        oldItems.isNotEmpty &&
+        oldItems.any((p) => _featureMatches(p, selected)) &&
+        candidates.any((p) => _featureMatches(p, selected));
+
+    if (canSkipRecreation) {
+      // Just update the list, let the stable widget preserve scroll position
+      _updateState(() {
+        _independentHousesCarousel =
+            List<MapPropertyFeature>.unmodifiable(candidates);
+        // Update index to match selected property's new position
+        final newIdx = candidates.indexWhere((p) => _featureMatches(p, selected));
+        if (newIdx >= 0) {
+          _activeIndependentHouseIndex = newIdx;
+        }
+      });
+      return;
+    }
+
+    // Force widget recreation by incrementing version
+    _updateState(() {
+      _independentHousesCarousel =
+          List<MapPropertyFeature>.unmodifiable(candidates);
+      _activeIndependentHouseIndex = safeIndex;
+      _carouselVersion++; // Force _StableCarouselPageView recreation
+    });
+  }
+
+  /// Handle tap on an IndependentHouse marker.
+  Future<void> _handleIndependentHouseTapped(
+    MapPropertyFeature feature, {
+    required LatLng target,
+    required double zoom,
+  }) async {
+    _closePlotPanel();
+    await _captureCameraBeforePropertyFocus();
+
+    // Suppress refresh during animation
+    _suppressCarouselRefresh(const Duration(milliseconds: 2500));
+
+    // Set selection immediately
+    _updateState(() {
+      _selectedProperty = feature;
+      _selectedPropertyHighlightPolygons =
+          _buildSelectedPropertyHighlightPolygons(feature);
+    });
+
+    unawaited(_refreshMarkerSelectionStyles());
+
+    // Refresh candidates with this feature as anchor
+    await _refreshIndependentHouseCarouselCandidates(anchor: feature);
+
+    _ensurePropertyMediaLoaded(feature);
+    await _focusPropertyOnMap(
+      target: target,
+      zoom: zoom,
+      boundaryGeoJson: feature.boundaryGeoJson,
+    );
+  }
+
+  /// Height for the carousel panel.
+  double _propertyCarouselHeight(BuildContext context) {
+    final h = MediaQuery.of(context).size.height;
+    return (h * 0.24).clamp(190.0, 250.0);
+  }
+
+  /// Build the carousel panel widget.
+  Widget _buildIndependentHouseCarouselPanel() {
+    final items = _independentHousesCarousel;
+
+    // Fallback: show single property panel if carousel isn't ready
+    if (items.isEmpty && _selectedProperty != null) {
+      return _buildSinglePropertyPanel(_selectedProperty!);
+    }
+
+    if (items.length == 1) {
+      return _buildSinglePropertyPanel(items.first);
+    }
+
+    // Use stable carousel widget that isolates PageView from parent rebuilds.
+    // Key changes when carouselVersion changes (explicit rebuild from tap/refresh).
+    // Inside the widget, PageController is only recreated when initialPage changes.
+    return _StableCarouselPageView(
+      key: ValueKey<int>(_carouselVersion),
+      itemCount: items.length,
+      initialPage: _activeIndependentHouseIndex,
+      height: _propertyCarouselHeight(context),
+      onPageChanged: _handleCarouselPageChanged,
+      itemBuilder: _buildCarouselItem,
+    );
+  }
+
+  /// Handle page change from swipe.
+  void _handleCarouselPageChanged(int index) {
+    if (!mounted) return;
+
+    final items = _independentHousesCarousel;
+    if (items.isEmpty || index < 0 || index >= items.length) return;
+
+    // Suppress refresh to prevent re-sorting during swipe
+    _suppressCarouselRefresh(const Duration(milliseconds: 1500));
+
+    final next = items[index];
+
+    // Skip if already selected
+    final current = _selectedProperty;
+    if (current != null && _featureMatches(current, next)) {
+      if (_activeIndependentHouseIndex != index) {
+        _updateState(() {
+          _activeIndependentHouseIndex = index;
+        });
+      }
+      return;
+    }
+
+    // Update selection
+    _updateState(() {
+      _activeIndependentHouseIndex = index;
+      _selectedProperty = next;
+      _selectedPropertyHighlightPolygons =
+          _buildSelectedPropertyHighlightPolygons(next);
+    });
+
+    unawaited(_refreshMarkerSelectionStyles());
+    _ensurePropertyMediaLoaded(next);
+
+    // Focus map on new property
+    final center = next.centerPoint;
+    if (center != null) {
+      unawaited(_focusPropertyOnMap(target: center, zoom: 20.0));
+    }
+  }
+
+  /// Build a single carousel item.
+  Widget _buildCarouselItem(BuildContext context, int index) {
+    final items = _independentHousesCarousel;
+    if (items.isEmpty || index >= items.length) {
+      return const SizedBox.shrink();
+    }
+
+    final feature = items[index];
+    final key = _propertyMediaCacheKey(feature);
+    final cached = key == null ? null : _propertyMediaCache[key];
+
+    // Preload neighbors
+    if (index == _activeIndependentHouseIndex && items.length > 1) {
+      _ensurePropertyMediaLoaded(feature);
+      final n = items.length;
+      _ensurePropertyMediaLoaded(items[(index - 1 + n) % n]);
+      _ensurePropertyMediaLoaded(items[(index + 1) % n]);
+    }
+
+    return PropertyDetailsPanel(
+      key: ValueKey('property:${feature.featureId.trim()}'),
+      feature: feature,
+      imageUrls: cached?.urls,
+      isLoadingImages: cached?.isLoading ?? false,
+      imagesError: cached?.error,
+      isSaved: _isFeatureSaved(feature),
+      isSaving: _isFeatureSaving(feature),
+      onToggleSaved: () => unawaited(_toggleFeatureSaved(feature)),
+      outerPadding: const EdgeInsets.fromLTRB(4, 0, 6, 8),
+      onOpenDetails: () => _openPropertyDetails(feature),
+      onClose: _closePropertyPanel,
+    );
+  }
+
+  /// Build single property panel (non-carousel).
+  Widget _buildSinglePropertyPanel(MapPropertyFeature feature) {
+    final key = _propertyMediaCacheKey(feature);
+    final cached = key == null ? null : _propertyMediaCache[key];
+    return PropertyDetailsPanel(
+      key: ValueKey('property:${feature.featureId.trim()}'),
+      feature: feature,
+      imageUrls: cached?.urls,
+      isLoadingImages: cached?.isLoading ?? false,
+      imagesError: cached?.error,
+      isSaved: _isFeatureSaved(feature),
+      isSaving: _isFeatureSaving(feature),
+      onToggleSaved: () => unawaited(_toggleFeatureSaved(feature)),
+      outerPadding: const EdgeInsets.fromLTRB(4, 0, 6, 8),
+      onOpenDetails: () => _openPropertyDetails(feature),
+      onClose: _closePropertyPanel,
+    );
+  }
+
+  // --- Helper methods ---
+
+  double _distanceScore(LatLng center, LatLng? point) {
+    if (point == null) return double.infinity;
+    final dLat = point.latitude - center.latitude;
+    final dLng = point.longitude - center.longitude;
+    final scale = math.cos(center.latitude * (math.pi / 180.0));
     final x = dLng * scale;
-    final y = dLat;
-    return x * x + y * y;
+    return x * x + dLat * dLat;
   }
 
   double _distanceKm(LatLng a, LatLng b) {
@@ -181,246 +363,105 @@ extension _HomeMapCarousel on _HomeMapScreenState {
   }
 
   LatLngBounds _boundsAroundCenter(LatLng center, double radiusKm) {
-    // Approx conversion: 1 deg latitude ~ 111 km.
     final degLat = radiusKm / 111.0;
     final cosLat = math.cos(center.latitude * (math.pi / 180.0)).abs();
     final safeCosLat = cosLat < 0.0001 ? 0.0001 : cosLat;
     final degLng = radiusKm / (111.0 * safeCosLat);
 
-    double clampLat(double v) => v.clamp(-90.0, 90.0);
-    double clampLng(double v) => v.clamp(-180.0, 180.0);
-
-    final sw = LatLng(
-      clampLat(center.latitude - degLat),
-      clampLng(center.longitude - degLng),
+    return LatLngBounds(
+      southwest: LatLng(
+        (center.latitude - degLat).clamp(-90.0, 90.0),
+        (center.longitude - degLng).clamp(-180.0, 180.0),
+      ),
+      northeast: LatLng(
+        (center.latitude + degLat).clamp(-90.0, 90.0),
+        (center.longitude + degLng).clamp(-180.0, 180.0),
+      ),
     );
-    final ne = LatLng(
-      clampLat(center.latitude + degLat),
-      clampLng(center.longitude + degLng),
-    );
-
-    return LatLngBounds(southwest: sw, northeast: ne);
   }
 
   LatLngBounds _mergeBounds(LatLngBounds a, LatLngBounds b) {
-    final sw = LatLng(
-      math.min(a.southwest.latitude, b.southwest.latitude),
-      math.min(a.southwest.longitude, b.southwest.longitude),
+    return LatLngBounds(
+      southwest: LatLng(
+        math.min(a.southwest.latitude, b.southwest.latitude),
+        math.min(a.southwest.longitude, b.southwest.longitude),
+      ),
+      northeast: LatLng(
+        math.max(a.northeast.latitude, b.northeast.latitude),
+        math.max(a.northeast.longitude, b.northeast.longitude),
+      ),
     );
-    final ne = LatLng(
-      math.max(a.northeast.latitude, b.northeast.latitude),
-      math.max(a.northeast.longitude, b.northeast.longitude),
-    );
-    return LatLngBounds(southwest: sw, northeast: ne);
   }
+}
 
-  Future<void> _handleIndependentHouseTapped(
-    MapPropertyFeature feature, {
-    required LatLng target,
-    required double zoom,
-  }) async {
-    _closePlotPanel();
+/// A stable carousel widget that isolates PageView state from parent rebuilds.
+/// This widget owns its own PageController and only recreates it when [initialPage] changes.
+class _StableCarouselPageView extends StatefulWidget {
+  const _StableCarouselPageView({
+    super.key,
+    required this.itemCount,
+    required this.initialPage,
+    required this.itemBuilder,
+    required this.onPageChanged,
+    required this.height,
+  });
 
-    // Save the pre-tap camera so closing the panel can restore it.
-    await _captureCameraBeforePropertyFocus();
+  final int itemCount;
+  final int initialPage;
+  final Widget Function(BuildContext, int) itemBuilder;
+  final void Function(int) onPageChanged;
+  final double height;
 
-    // Suppress carousel refresh during zoom animation to prevent re-sorting
-    // from viewport updates which could show wrong property in panel.
-    _independentHouseCarouselRefreshSuppressedUntil =
-        DateTime.now().add(const Duration(milliseconds: 2500));
+  @override
+  State<_StableCarouselPageView> createState() => _StableCarouselPageViewState();
+}
 
-    _updateState(() {
-      _selectedProperty = feature;
-      _selectedPropertyHighlightPolygons =
-          _buildSelectedPropertyHighlightPolygons(feature);
-    });
+class _StableCarouselPageViewState extends State<_StableCarouselPageView> {
+  late PageController _controller;
 
-    unawaited(_refreshMarkerSelectionStyles());
-
-    await _refreshIndependentHouseCarouselCandidates(anchor: feature);
-
-    final candidates = _independentHousesCarousel.isNotEmpty
-        ? _independentHousesCarousel
-        : <MapPropertyFeature>[feature];
-
-    final nextIndex = candidates.indexWhere(
-      (p) => p.featureId.trim() == feature.featureId.trim(),
-    );
-
-    // Ensure carousel controller exists and is aligned to selected item.
-    _independentHouseCarouselController?.dispose();
-    _independentHouseCarouselController = PageController(
-      initialPage: (nextIndex >= 0 ? nextIndex : 0) + 1,
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController(
+      initialPage: widget.initialPage,
       viewportFraction: 0.92,
     );
-
-    _ensurePropertyMediaLoaded(feature);
-    await _focusPropertyOnMap(
-      target: target,
-      zoom: zoom,
-      boundaryGeoJson: feature.boundaryGeoJson,
-    );
   }
 
-  double _propertyCarouselHeight(BuildContext context) {
-    final h = MediaQuery.of(context).size.height;
-    // Keep it compact so the map remains usable and markers above the card
-    // remain tappable.
-    final target = h * 0.24;
-    return target.clamp(190.0, 250.0);
+  @override
+  void didUpdateWidget(_StableCarouselPageView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Only recreate controller if initial page changed significantly
+    // (i.e., a new carousel was built, not just a parent rebuild)
+    if (widget.initialPage != oldWidget.initialPage) {
+      _controller.dispose();
+      _controller = PageController(
+        initialPage: widget.initialPage,
+        viewportFraction: 0.92,
+      );
+    }
   }
 
-  Widget _buildIndependentHouseCarouselPanel() {
-    final items = _independentHousesCarousel;
-    if (items.isEmpty) {
-      // Fallback for rare cases where selection exists but viewport list isn't ready.
-      return PropertyDetailsPanel(
-        key: ValueKey(
-          'property:${_selectedProperty!.propertyType.trim()}:${_selectedProperty!.featureId.trim()}',
-        ),
-        feature: _selectedProperty!,
-        imageUrls: _selectedPropertyMediaUrls,
-        isLoadingImages: _isSelectedPropertyMediaLoading,
-        imagesError: _selectedPropertyMediaError,
-        isSaved: _isFeatureSaved(_selectedProperty!),
-        isSaving: _isFeatureSaving(_selectedProperty!),
-        onToggleSaved: () => unawaited(_toggleFeatureSaved(_selectedProperty!)),
-        outerPadding: const EdgeInsets.fromLTRB(4, 0, 6, 8),
-        onOpenDetails: () => _openPropertyDetails(_selectedProperty!),
-        onClose: _closePropertyPanel,
-      );
-    }
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
-    if (items.length == 1) {
-      final feature = items.first;
-      final key = _propertyMediaCacheKey(feature);
-      final cached = key == null ? null : _propertyMediaCache[key];
-      return PropertyDetailsPanel(
-        key: ValueKey(
-          'property:${feature.propertyType.trim()}:${feature.featureId.trim()}',
-        ),
-        feature: feature,
-        imageUrls: cached?.urls,
-        isLoadingImages: cached?.isLoading ?? false,
-        imagesError: cached?.error,
-        isSaved: _isFeatureSaved(feature),
-        isSaving: _isFeatureSaving(feature),
-        onToggleSaved: () => unawaited(_toggleFeatureSaved(feature)),
-        outerPadding: const EdgeInsets.fromLTRB(4, 0, 6, 8),
-        onOpenDetails: () => _openPropertyDetails(feature),
-        onClose: _closePropertyPanel,
-      );
-    }
+  void _handlePageChanged(int index) {
+    widget.onPageChanged(index);
+  }
 
-    final controller = _independentHouseCarouselController ??
-        PageController(
-          initialPage:
-              (_activeIndependentHouseIndex.clamp(0, items.length - 1)) + 1,
-          viewportFraction: 0.92,
-        );
-    _independentHouseCarouselController ??= controller;
-
-    final pageCount = _carouselPageCount(items.length);
-
+  @override
+  Widget build(BuildContext context) {
     return SizedBox(
-      height: _propertyCarouselHeight(context),
+      height: widget.height,
       child: PageView.builder(
-        controller: controller,
-        itemCount: pageCount,
+        controller: _controller,
+        itemCount: widget.itemCount,
         padEnds: true,
-        onPageChanged: (index) {
-          if (!mounted) return;
-
-          // Swiping focuses the map which triggers camera idle -> viewport fetch.
-          // Suppress carousel refresh briefly to avoid re-sorting/replacing the
-          // list mid-transition (can cause a one-frame mismatch/blink).
-          _independentHouseCarouselRefreshSuppressedUntil =
-              DateTime.now().add(const Duration(milliseconds: 900));
-
-          final itemIndex = _itemIndexFromCarouselPage(index, items.length);
-          final next = items[itemIndex];
-
-          // Skip update if this property is already selected (e.g., initial page
-          // change when PageController is created after marker tap).
-          final current = _selectedProperty;
-          if (current != null &&
-              current.featureId.trim() == next.featureId.trim()) {
-            // Update index but don't overwrite the selection or focus the map.
-            if (_activeIndependentHouseIndex != itemIndex) {
-              _updateState(() {
-                _activeIndependentHouseIndex = itemIndex;
-              });
-            }
-            return;
-          }
-
-          _updateState(() {
-            _activeIndependentHouseIndex = itemIndex;
-            _selectedProperty = next;
-            _selectedPropertyHighlightPolygons =
-                _buildSelectedPropertyHighlightPolygons(next);
-          });
-
-          unawaited(_refreshMarkerSelectionStyles());
-
-          _ensurePropertyMediaLoaded(next);
-
-          final center = next.centerPoint;
-          final suppressFocus = _suppressCarouselFocusOnce;
-          if (suppressFocus) {
-            _suppressCarouselFocusOnce = false;
-          } else if (center != null) {
-            unawaited(_focusPropertyOnMap(target: center, zoom: 20.0));
-          }
-
-          // Loop correction: when user swipes onto a sentinel page, jump to the
-          // corresponding real page without animation.
-          if (index == 0 || index == pageCount - 1) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              final c = _independentHouseCarouselController;
-              if (!mounted || c == null || !c.hasClients) return;
-              if (items.isEmpty) return;
-
-              final target = (index == 0) ? items.length : 1;
-              if (c.page?.round() != target) {
-                _suppressCarouselFocusOnce = true;
-                c.jumpToPage(target);
-              }
-            });
-          }
-        },
-        itemBuilder: (context, index) {
-          final itemIndex = _itemIndexFromCarouselPage(index, items.length);
-          final feature = items[itemIndex];
-          final key = _propertyMediaCacheKey(feature);
-          final cached = key == null ? null : _propertyMediaCache[key];
-
-          // Preload neighbors for smoother swiping.
-          if (itemIndex == _activeIndependentHouseIndex) {
-            _ensurePropertyMediaLoaded(feature);
-            final n = items.length;
-            final prev = items[(itemIndex - 1 + n) % n];
-            final next = items[(itemIndex + 1) % n];
-            _ensurePropertyMediaLoaded(prev);
-            _ensurePropertyMediaLoaded(next);
-          }
-
-          return PropertyDetailsPanel(
-            key: ValueKey(
-              'property:${feature.propertyType.trim()}:${feature.featureId.trim()}',
-            ),
-            feature: feature,
-            imageUrls: cached?.urls,
-            isLoadingImages: cached?.isLoading ?? false,
-            imagesError: cached?.error,
-            isSaved: _isFeatureSaved(feature),
-            isSaving: _isFeatureSaving(feature),
-            onToggleSaved: () => unawaited(_toggleFeatureSaved(feature)),
-            outerPadding: const EdgeInsets.fromLTRB(4, 0, 6, 8),
-            onOpenDetails: () => _openPropertyDetails(feature),
-            onClose: _closePropertyPanel,
-          );
-        },
+        onPageChanged: _handlePageChanged,
+        itemBuilder: widget.itemBuilder,
       ),
     );
   }

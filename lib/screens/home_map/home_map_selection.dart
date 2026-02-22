@@ -653,9 +653,6 @@ extension _HomeMapSelection on _HomeMapScreenState {
     _independentHouseCarouselDebounce?.cancel();
     _independentHouseCarouselRequestSeq++;
 
-    _independentHouseCarouselController?.dispose();
-    _independentHouseCarouselController = null;
-
     // Update marker badge colors back to default.
     unawaited(_refreshMarkerSelectionStyles());
 
@@ -698,8 +695,6 @@ extension _HomeMapSelection on _HomeMapScreenState {
         _activeIndependentHouseIndex = 0;
         _independentHouseCarouselDebounce?.cancel();
         _independentHouseCarouselRequestSeq++;
-        _independentHouseCarouselController?.dispose();
-        _independentHouseCarouselController = null;
       }
     });
 
@@ -806,7 +801,9 @@ extension _HomeMapSelection on _HomeMapScreenState {
         featureId.isNotEmpty ? (lookup[featureId] ?? feature) : feature;
 
     final polygons = GeoJson.tryParsePolygons(source.boundaryGeoJson);
-    if (polygons.isEmpty) return const <Polygon>{};
+    if (polygons.isEmpty) {
+      return const <Polygon>{};
+    }
 
     final zoom = _effectiveZoom ?? _lastCameraPosition.zoom;
     final style = _propertyStyleForType(type);
@@ -1039,8 +1036,6 @@ extension _HomeMapSelection on _HomeMapScreenState {
         _activeIndependentHouseIndex = 0;
         _independentHouseCarouselDebounce?.cancel();
         _independentHouseCarouselRequestSeq++;
-        _independentHouseCarouselController?.dispose();
-        _independentHouseCarouselController = null;
       }
     });
 
