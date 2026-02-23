@@ -439,11 +439,18 @@ class _StableCarouselPageView extends StatefulWidget {
 class _StableCarouselPageViewState extends State<_StableCarouselPageView> {
   late PageController _controller;
 
+  // For infinite scrolling, we use a large virtual item count
+  // and map indices back to real items using modulo.
+  static const int _infiniteMultiplier = 1000;
+  int get _virtualItemCount => widget.itemCount * _infiniteMultiplier;
+  int get _virtualInitialPage =>
+      ((_infiniteMultiplier ~/ 2) * widget.itemCount) + widget.initialPage;
+
   @override
   void initState() {
     super.initState();
     _controller = PageController(
-      initialPage: widget.initialPage,
+      initialPage: _virtualInitialPage,
       viewportFraction: 0.92,
     );
   }
@@ -453,10 +460,11 @@ class _StableCarouselPageViewState extends State<_StableCarouselPageView> {
     super.didUpdateWidget(oldWidget);
     // Only recreate controller if initial page changed significantly
     // (i.e., a new carousel was built, not just a parent rebuild)
-    if (widget.initialPage != oldWidget.initialPage) {
+    if (widget.initialPage != oldWidget.initialPage ||
+        widget.itemCount != oldWidget.itemCount) {
       _controller.dispose();
       _controller = PageController(
-        initialPage: widget.initialPage,
+        initialPage: _virtualInitialPage,
         viewportFraction: 0.92,
       );
     }
@@ -468,8 +476,16 @@ class _StableCarouselPageViewState extends State<_StableCarouselPageView> {
     super.dispose();
   }
 
-  void _handlePageChanged(int index) {
-    widget.onPageChanged(index);
+  void _handlePageChanged(int virtualIndex) {
+    // Map virtual index back to real index
+    final realIndex = virtualIndex % widget.itemCount;
+    widget.onPageChanged(realIndex);
+  }
+
+  Widget _buildItem(BuildContext context, int virtualIndex) {
+    // Map virtual index back to real index
+    final realIndex = virtualIndex % widget.itemCount;
+    return widget.itemBuilder(context, realIndex);
   }
 
   @override
@@ -478,10 +494,10 @@ class _StableCarouselPageViewState extends State<_StableCarouselPageView> {
       height: widget.height,
       child: PageView.builder(
         controller: _controller,
-        itemCount: widget.itemCount,
+        itemCount: _virtualItemCount,
         padEnds: true,
         onPageChanged: _handlePageChanged,
-        itemBuilder: widget.itemBuilder,
+        itemBuilder: _buildItem,
       ),
     );
   }
