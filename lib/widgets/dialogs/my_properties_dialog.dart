@@ -383,6 +383,62 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
     );
   }
 
+  Widget _approvalStatusChip(String status) {
+    final normalizedStatus = status.toLowerCase();
+    IconData icon;
+    String label;
+    Color iconColor;
+    Color textColor;
+
+    switch (normalizedStatus) {
+      case 'approved':
+        icon = Icons.check_circle_outline;
+        label = 'Live';
+        iconColor = const Color(0xFF16A34A);
+        textColor = const Color(0xFF15803D);
+        break;
+      case 'rejected':
+        icon = Icons.cancel_outlined;
+        label = 'Rejected';
+        iconColor = const Color(0xFFDC2626);
+        textColor = const Color(0xFFB91C1C);
+        break;
+      case 'needsexpertreview':
+        icon = Icons.warning_amber_outlined;
+        label = 'Expert Review';
+        iconColor = const Color(0xFFF59E0B);
+        textColor = const Color(0xFFD97706);
+        break;
+      case 'draft':
+        icon = Icons.edit_outlined;
+        label = 'Draft';
+        iconColor = const Color(0xFF6B7280);
+        textColor = const Color(0xFF4B5563);
+        break;
+      default:
+        icon = Icons.pending_actions_outlined;
+        label = 'Pending';
+        iconColor = const Color(0xFFF59E0B);
+        textColor = const Color(0xFFD97706);
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: iconColor),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: textColor,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _actionIcon({
     required IconData icon,
     required String tooltip,
@@ -924,12 +980,8 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                                                   Icons.schedule,
                                                   dateLabel,
                                                 ),
-                                                if (!item.isApproved)
-                                                  _metaChip(
-                                                    Icons
-                                                        .pending_actions_outlined,
-                                                    'Pending',
-                                                  ),
+                                                _approvalStatusChip(
+                                                    item.approvalStatus),
                                               ],
                                             ),
                                           ],

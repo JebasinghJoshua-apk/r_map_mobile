@@ -15,7 +15,7 @@ class MyPropertyListItem {
     required this.pinCode,
     required this.centerPointGeoJson,
     required this.plotsCount,
-    required this.isApproved,
+    required this.approvalStatus,
     required this.createdAt,
     required this.updatedAt,
     this.shortCode,
@@ -39,9 +39,12 @@ class MyPropertyListItem {
 
   final int? plotsCount;
 
-  final bool isApproved;
+  final String approvalStatus;
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  /// Whether the property is approved (approvalStatus == "Approved")
+  bool get isApproved => approvalStatus.toLowerCase() == 'approved';
 
   LatLng? get centerPoint => GeoJson.tryParsePoint(centerPointGeoJson);
 
@@ -81,7 +84,7 @@ class MyPropertyListItem {
       pinCode: (json['pinCode'] as String?) ?? '',
       centerPointGeoJson: json['centerPointGeoJson'] as String?,
       plotsCount: json['plotsCount'] as int?,
-      isApproved: (json['isApproved'] as bool?) ?? false,
+      approvalStatus: (json['approvalStatus'] as String?) ?? 'Pending',
       createdAt: parseDate(json['createdAt']),
       updatedAt: parseDate(json['updatedAt']),
       shortCode: json['shortCode'] as String?,
