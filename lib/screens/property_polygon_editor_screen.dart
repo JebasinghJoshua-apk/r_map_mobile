@@ -732,8 +732,8 @@ class _PropertyPolygonEditorScreenState
                       height: 16.w,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor:
-                            const AlwaysStoppedAnimation<Color>(Color(0xFF1F2937)),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xFF1F2937)),
                       ),
                     ),
                   )
@@ -1188,8 +1188,7 @@ class _PropertyPolygonEditorScreenState
                   : null,
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF0FAD97),
-                padding:
-                    EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
                 minimumSize: Size(0, 36.h),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 shape: RoundedRectangleBorder(

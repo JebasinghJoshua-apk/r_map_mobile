@@ -52,49 +52,49 @@ class _RMapAppState extends State<RMapApp> {
         return AuthScope(
           authState: _authState,
           child: MaterialApp(
-        title: 'R Map',
-        builder: (context, child) {
-          final mediaQuery = MediaQuery.of(context);
-          return MediaQuery(
-            data: mediaQuery.copyWith(
-              textScaler: const TextScaler.linear(1.0),
-            ),
-            child: child ?? const SizedBox.shrink(),
-          );
-        },
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF0FAD97),
-          ),
-          useMaterial3: true,
-          filledButtonTheme: FilledButtonThemeData(
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF0FAD97),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+            title: 'R Map',
+            builder: (context, child) {
+              final mediaQuery = MediaQuery.of(context);
+              return MediaQuery(
+                data: mediaQuery.copyWith(
+                  textScaler: const TextScaler.linear(1.0),
+                ),
+                child: child ?? const SizedBox.shrink(),
+              );
+            },
+            theme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: const Color(0xFF0FAD97),
               ),
-              minimumSize: const Size(0, 36),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-          ),
-          outlinedButtonTheme: OutlinedButtonThemeData(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF0FAD97),
-              side: const BorderSide(color: Color(0xFF0FAD97)),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+              useMaterial3: true,
+              filledButtonTheme: FilledButtonThemeData(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF0FAD97),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  minimumSize: const Size(0, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
               ),
-              minimumSize: const Size(0, 36),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              outlinedButtonTheme: OutlinedButtonThemeData(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF0FAD97),
+                  side: const BorderSide(color: Color(0xFF0FAD97)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  minimumSize: const Size(0, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
             ),
-          ),
-        ),
-        navigatorKey: appNavigatorKey,
-        navigatorObservers: [
-          routeObserver,
-          AnalyticsService.instance.observer,
-        ],
-        home: const SplashScreen(),
+            navigatorKey: appNavigatorKey,
+            navigatorObservers: [
+              routeObserver,
+              AnalyticsService.instance.observer,
+            ],
+            home: const SplashScreen(),
           ),
         );
       },
