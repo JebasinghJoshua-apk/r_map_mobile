@@ -165,13 +165,10 @@ extension _HomeMapControls on _HomeMapScreenState {
               decoration: hasGlow
                   ? BoxDecoration(
                       borderRadius: BorderRadius.circular(radius),
-                      boxShadow: [
-                        BoxShadow(
-                          color: glowColor.withOpacity(0.5),
-                          blurRadius: 12,
-                          spreadRadius: 1,
-                        ),
-                      ],
+                      border: Border.all(
+                        color: glowColor.withOpacity(0.5),
+                        width: 1.5,
+                      ),
                     )
                   : null,
               child: Material(
@@ -212,16 +209,9 @@ extension _HomeMapControls on _HomeMapScreenState {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(radius),
                     border: Border.all(
-                      color: const Color(0xFF14B8A6),
-                      width: 2,
+                      color: const Color(0xFF14B8A6).withOpacity(0.5),
+                      width: 1.5,
                     ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x3314B8A6),
-                        blurRadius: 14,
-                        offset: Offset(0, 0),
-                      ),
-                    ],
                   ),
                 ),
               ),

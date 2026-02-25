@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'screens/splash_screen.dart';
 import 'services/analytics_service.dart';
@@ -43,9 +44,14 @@ class _RMapAppState extends State<RMapApp> {
 
   @override
   Widget build(BuildContext context) {
-    return AuthScope(
-      authState: _authState,
-      child: MaterialApp(
+    return ScreenUtilInit(
+      designSize: const Size(375, 812), // iPhone X design reference
+      minTextAdapt: true,
+      splitScreenMode: true,
+      builder: (context, child) {
+        return AuthScope(
+          authState: _authState,
+          child: MaterialApp(
         title: 'R Map',
         builder: (context, child) {
           final mediaQuery = MediaQuery.of(context);
@@ -89,7 +95,9 @@ class _RMapAppState extends State<RMapApp> {
           AnalyticsService.instance.observer,
         ],
         home: const SplashScreen(),
-      ),
+          ),
+        );
+      },
     );
   }
 }

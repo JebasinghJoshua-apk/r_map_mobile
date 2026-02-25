@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_place/google_place.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart' as loc;
@@ -548,15 +549,15 @@ class _PropertyPolygonEditorScreenState
       color: Colors.transparent,
       elevation: 4,
       shadowColor: Colors.black26,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(8.r),
       child: InkWell(
         onTap: () => toggle(!showLabels),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(8.r),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
           decoration: BoxDecoration(
             color: bg,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(8.r),
             border: Border.all(color: teal, width: 1),
           ),
           child: Row(
@@ -569,16 +570,16 @@ class _PropertyPolygonEditorScreenState
                 visualDensity: VisualDensity.compact,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              const SizedBox(width: 2),
-              const Text(
+              SizedBox(width: 2.w),
+              Text(
                 'Labels',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 13.sp,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF374151),
+                  color: const Color(0xFF374151),
                 ),
               ),
-              const SizedBox(width: 6),
+              SizedBox(width: 6.w),
             ],
           ),
         ),
@@ -587,8 +588,8 @@ class _PropertyPolygonEditorScreenState
   }
 
   Widget _mapZoomControl() {
-    const radius = 8.0;
-    const size = 36.0;
+    final radius = 8.r;
+    final size = 36.w;
     const borderColor = Color(0xFFE2E8F0);
 
     Widget segment({
@@ -610,7 +611,7 @@ class _PropertyPolygonEditorScreenState
               height: size,
               child: Icon(
                 icon,
-                size: 18,
+                size: 18.sp,
                 color: const Color(0xFF1F2937),
               ),
             ),
@@ -638,7 +639,7 @@ class _PropertyPolygonEditorScreenState
               icon: Icons.add,
               tooltip: 'Zoom in',
               onPressed: () => unawaited(_zoomIn()),
-              borderRadius: const BorderRadius.only(
+              borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(radius),
                 topRight: Radius.circular(radius),
               ),
@@ -648,7 +649,7 @@ class _PropertyPolygonEditorScreenState
               icon: Icons.remove,
               tooltip: 'Zoom out',
               onPressed: () => unawaited(_zoomOut()),
-              borderRadius: const BorderRadius.only(
+              borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(radius),
                 bottomRight: Radius.circular(radius),
               ),
@@ -708,8 +709,8 @@ class _PropertyPolygonEditorScreenState
     required VoidCallback onPressed,
     bool isLoading = false,
   }) {
-    const radius = 8.0;
-    const size = 36.0;
+    final radius = 8.r;
+    final size = 36.w;
 
     return Tooltip(
       message: tooltip,
@@ -725,20 +726,20 @@ class _PropertyPolygonEditorScreenState
           child: InkWell(
             onTap: isLoading ? null : onPressed,
             child: isLoading
-                ? const Center(
+                ? Center(
                     child: SizedBox(
-                      width: 16,
-                      height: 16,
+                      width: 16.w,
+                      height: 16.w,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         valueColor:
-                            AlwaysStoppedAnimation<Color>(Color(0xFF1F2937)),
+                            const AlwaysStoppedAnimation<Color>(Color(0xFF1F2937)),
                       ),
                     ),
                   )
                 : Icon(
                     icon,
-                    size: 18,
+                    size: 18.sp,
                     color: const Color(0xFF1F2937),
                   ),
           ),
@@ -753,8 +754,8 @@ class _PropertyPolygonEditorScreenState
     required VoidCallback? onPressed,
     Color? iconColor,
   }) {
-    const radius = 8.0;
-    const size = 40.0;
+    final radius = 8.r;
+    final size = 40.w;
     final enabled = onPressed != null;
     const teal = Color(0xFF0FAD97);
 
@@ -779,7 +780,7 @@ class _PropertyPolygonEditorScreenState
             onTap: onPressed,
             child: Icon(
               icon,
-              size: 20,
+              size: 20.sp,
               color: enabled
                   ? (iconColor ?? const Color(0xFF1F2937))
                   : const Color(0xFF94A3B8),
@@ -1154,14 +1155,14 @@ class _PropertyPolygonEditorScreenState
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        titleSpacing: 6,
-        leadingWidth: 44,
+        titleSpacing: 6.w,
+        leadingWidth: 44.w,
         title: Text(
           title,
-          style: const TextStyle(
-            fontSize: 18,
+          style: TextStyle(
+            fontSize: 18.sp,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF0F172A),
+            color: const Color(0xFF0F172A),
           ),
         ),
         backgroundColor: Colors.white,
@@ -1169,7 +1170,7 @@ class _PropertyPolygonEditorScreenState
         elevation: 0,
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 10),
+            padding: EdgeInsets.only(right: 10.w),
             child: FilledButton(
               onPressed: _canFinish
                   ? () async {
@@ -1188,14 +1189,14 @@ class _PropertyPolygonEditorScreenState
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF0FAD97),
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                minimumSize: const Size(0, 36),
+                    EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                minimumSize: Size(0, 36.h),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(10.r),
                 ),
               ),
-              child: const Text(
+              child: Text(
                 'Next',
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
@@ -1242,9 +1243,9 @@ class _PropertyPolygonEditorScreenState
             },
           ),
           Positioned(
-            left: 16,
-            right: 16,
-            top: 16,
+            left: 16.w,
+            right: 16.w,
+            top: 16.h,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1252,7 +1253,7 @@ class _PropertyPolygonEditorScreenState
                   alignment: Alignment.topCenter,
                   child: _buildSearchBox(context),
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: 10.h),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1267,7 +1268,7 @@ class _PropertyPolygonEditorScreenState
                           onPressed: _points.isEmpty ? null : _clear,
                           iconColor: const Color(0xFFDC2626),
                         ),
-                        const SizedBox(height: 10),
+                        SizedBox(height: 10.h),
                         _topMapActionButton(
                           icon: Icons.undo,
                           tooltip: 'Undo last point',
@@ -1281,9 +1282,9 @@ class _PropertyPolygonEditorScreenState
             ),
           ),
           Positioned(
-            left: 16,
-            right: 16,
-            bottom: 16 + bottomPadding,
+            left: 16.w,
+            right: 16.w,
+            bottom: 16.h + bottomPadding,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -1296,7 +1297,7 @@ class _PropertyPolygonEditorScreenState
                       onPressed: _goToMyLocation,
                       isLoading: _isLocating,
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10.h),
                     _mapControlButton(
                       icon: _mapType == MapType.hybrid
                           ? Icons.map_outlined
@@ -1308,16 +1309,16 @@ class _PropertyPolygonEditorScreenState
                     ),
                   ],
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10.w),
                 Expanded(
                   child: Align(
                     alignment: Alignment.bottomCenter,
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 240),
+                      constraints: BoxConstraints(maxWidth: 240.w),
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(12.r),
                           border: Border.all(color: const Color(0xFFE2E8F0)),
                           boxShadow: const [
                             BoxShadow(
@@ -1328,21 +1329,21 @@ class _PropertyPolygonEditorScreenState
                           ],
                         ),
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(minHeight: 36),
+                          constraints: BoxConstraints(minHeight: 36.h),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 12.w,
+                              vertical: 10.h,
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.touch_app_outlined,
-                                  size: 16,
-                                  color: Color(0xFF64748B),
+                                  size: 16.sp,
+                                  color: const Color(0xFF64748B),
                                 ),
-                                const SizedBox(width: 8),
+                                SizedBox(width: 8.w),
                                 Flexible(
                                   child: Text(
                                     _canFinish
@@ -1350,10 +1351,10 @@ class _PropertyPolygonEditorScreenState
                                         : 'Tap map to add points (${_points.length}/3).',
                                     textAlign: TextAlign.center,
                                     softWrap: true,
-                                    style: const TextStyle(
-                                      fontSize: 12,
+                                    style: TextStyle(
+                                      fontSize: 12.sp,
                                       fontWeight: FontWeight.w600,
-                                      color: Color(0xFF475569),
+                                      color: const Color(0xFF475569),
                                     ),
                                   ),
                                 ),
@@ -1365,7 +1366,7 @@ class _PropertyPolygonEditorScreenState
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10.w),
                 _mapZoomControl(),
               ],
             ),
