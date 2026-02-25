@@ -1423,6 +1423,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                       tooltip: 'Nearby layouts',
                       highlight: _isNearbyLayoutsReopenHintOn,
                       onPressed: _onNearbyButtonTapped,
+                      backgroundColor: const Color(0xFF0D9488),
+                      iconColor: Colors.white,
                     ),
                   ),
                   const SizedBox(height: 10),

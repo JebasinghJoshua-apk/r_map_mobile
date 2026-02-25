@@ -143,9 +143,13 @@ extension _HomeMapControls on _HomeMapScreenState {
     required VoidCallback onPressed,
     bool highlight = false,
     bool isLoading = false,
+    Color? backgroundColor,
+    Color? iconColor,
   }) {
     const radius = 8.0;
     const size = 36.0;
+    final bgColor = backgroundColor ?? Colors.white;
+    final fgColor = iconColor ?? const Color(0xFF1F2937);
 
     return Tooltip(
       message: tooltip,
@@ -156,7 +160,7 @@ extension _HomeMapControls on _HomeMapScreenState {
           fit: StackFit.expand,
           children: [
             Material(
-              color: Colors.white,
+              color: bgColor,
               elevation: 4,
               shadowColor: Colors.black26,
               borderRadius: BorderRadius.circular(radius),
@@ -164,21 +168,20 @@ extension _HomeMapControls on _HomeMapScreenState {
               child: InkWell(
                 onTap: isLoading ? null : onPressed,
                 child: isLoading
-                    ? const Center(
+                    ? Center(
                         child: SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                                Color(0xFF1F2937)),
+                            valueColor: AlwaysStoppedAnimation<Color>(fgColor),
                           ),
                         ),
                       )
                     : Icon(
                         icon,
                         size: 18,
-                        color: const Color(0xFF1F2937),
+                        color: fgColor,
                       ),
               ),
             ),
