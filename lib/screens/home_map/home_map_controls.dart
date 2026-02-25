@@ -145,11 +145,13 @@ extension _HomeMapControls on _HomeMapScreenState {
     bool isLoading = false,
     Color? backgroundColor,
     Color? iconColor,
+    Color? glowColor,
   }) {
     const radius = 8.0;
     const size = 36.0;
     final bgColor = backgroundColor ?? Colors.white;
     final fgColor = iconColor ?? const Color(0xFF1F2937);
+    final hasGlow = glowColor != null;
 
     return Tooltip(
       message: tooltip,
@@ -159,30 +161,46 @@ extension _HomeMapControls on _HomeMapScreenState {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Material(
-              color: bgColor,
-              elevation: 4,
-              shadowColor: Colors.black26,
-              borderRadius: BorderRadius.circular(radius),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: isLoading ? null : onPressed,
-                child: isLoading
-                    ? Center(
-                        child: SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(fgColor),
-                          ),
+            Container(
+              decoration: hasGlow
+                  ? BoxDecoration(
+                      borderRadius: BorderRadius.circular(radius),
+                      boxShadow: [
+                        BoxShadow(
+                          color: glowColor.withOpacity(0.5),
+                          blurRadius: 12,
+                          spreadRadius: 1,
                         ),
-                      )
-                    : Icon(
-                        icon,
-                        size: 18,
-                        color: fgColor,
-                      ),
+                      ],
+                    )
+                  : null,
+              child: Material(
+                color: bgColor,
+                elevation: hasGlow ? 2 : 4,
+                shadowColor:
+                    hasGlow ? glowColor.withOpacity(0.3) : Colors.black26,
+                borderRadius: BorderRadius.circular(radius),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: isLoading ? null : onPressed,
+                  child: isLoading
+                      ? Center(
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(fgColor),
+                            ),
+                          ),
+                        )
+                      : Icon(
+                          icon,
+                          size: 18,
+                          color: fgColor,
+                        ),
+                ),
               ),
             ),
             IgnorePointer(

@@ -33,6 +33,14 @@ class ApiConstants {
   static const String uploadsBaseUrlOverride =
       String.fromEnvironment('UPLOADS_BASE_URL');
 
+  /// Azure CDN/Front Door base URL for serving images.
+  /// When configured, images are served from the global CDN edge.
+  /// Override via: --dart-define=CDN_BASE_URL=https://rmap-images-xxx.azurefd.net
+  static const String cdnBaseUrl = String.fromEnvironment(
+    'CDN_BASE_URL',
+    defaultValue: '',
+  );
+
   // Base URL for serving uploaded media (usually the API host).
   static const String uploadsBaseUrl = String.fromEnvironment(
     'UPLOADS_BASE_URL',
@@ -56,11 +64,16 @@ class ApiConstants {
   ///   `API_BASE_URL` (`10.0.2.2`) is wrong, causing images to fail to load.
   ///
   /// Precedence:
-  /// 1) `UPLOADS_BASE_URL`
-  /// 2) `API_BASE_URL`
-  /// 3) Derived from `MOBILE_BFF_BASE_URL` (preferred for real devices)
-  /// 4) Default `uploadsBaseUrl`
+  /// 1) `CDN_BASE_URL` (Azure Front Door CDN for fastest global delivery)
+  /// 2) `UPLOADS_BASE_URL`
+  /// 3) `API_BASE_URL`
+  /// 4) Derived from `MOBILE_BFF_BASE_URL` (preferred for real devices)
+  /// 5) Default `uploadsBaseUrl`
   static String get effectiveUploadsBaseUrl {
+    // CDN takes highest priority for optimal performance
+    final cdn = cdnBaseUrl.trim();
+    if (cdn.isNotEmpty) return cdn;
+
     final uploadsOverride = uploadsBaseUrlOverride.trim();
     if (uploadsOverride.isNotEmpty) return uploadsOverride;
 
@@ -120,5 +133,14 @@ class ApiConstants {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Returns true if CDN is configured for image delivery.
+  static bool get isCdnConfigured => cdnBaseUrl.trim().isNotEmpty;
+
+  /// Returns the CDN URL if configured, null otherwise.
+  static String? get effectiveCdnBaseUrl {
+    final cdn = cdnBaseUrl.trim();
+    return cdn.isNotEmpty ? cdn : null;
   }
 }
