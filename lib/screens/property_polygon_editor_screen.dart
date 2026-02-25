@@ -1071,6 +1071,10 @@ class _PropertyPolygonEditorScreenState
 
   @override
   Widget build(BuildContext context) {
+    // Account for Samsung/Android nav bar (edge-to-edge mode)
+    final bottomSystemInset = MediaQuery.of(context).viewPadding.bottom;
+    final bottomPadding = bottomSystemInset > 0 ? bottomSystemInset : 0.0;
+
     final title = widget.mode == PropertyPolygonEditorMode.add
         ? 'Add Property'
         : 'Edit Property';
@@ -1279,7 +1283,7 @@ class _PropertyPolygonEditorScreenState
           Positioned(
             left: 16,
             right: 16,
-            bottom: 16,
+            bottom: 16 + bottomPadding,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [

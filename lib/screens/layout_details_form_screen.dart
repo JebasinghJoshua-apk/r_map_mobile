@@ -789,6 +789,10 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
     final keyAvailable = googlePlacesApiKey.trim().isNotEmpty &&
         googlePlacesApiKey != 'YOUR_GOOGLE_PLACES_API_KEY';
 
+    // Account for Samsung/Android nav bar (edge-to-edge mode)
+    final bottomSystemInset = MediaQuery.of(context).viewPadding.bottom;
+    final bottomPadding = bottomSystemInset > 0 ? bottomSystemInset : 0.0;
+
     if (_showForm) {
       return _buildFormView();
     }
@@ -985,7 +989,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
           Positioned(
             left: 16,
             right: 16,
-            bottom: 16,
+            bottom: 16 + bottomPadding,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
