@@ -35,10 +35,10 @@ class ApiConstants {
 
   /// Azure CDN/Front Door base URL for serving images.
   /// When configured, images are served from the global CDN edge.
-  /// Override via: --dart-define=CDN_BASE_URL=https://rmap-images-xxx.azurefd.net
+  /// Override via: --dart-define=CDN_BASE_URL=https://your-cdn.azurefd.net
   static const String cdnBaseUrl = String.fromEnvironment(
     'CDN_BASE_URL',
-    defaultValue: '',
+    defaultValue: 'https://rmap-images-a0a7h9axfcdnfka6.z02.azurefd.net',
   );
 
   // Base URL for serving uploaded media (usually the API host).
