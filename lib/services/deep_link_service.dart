@@ -7,9 +7,9 @@ import 'package:http/http.dart' as http;
 
 import '../constants/api_constants.dart';
 import '../models/map_viewport_models.dart';
-import '../screens/property_detail_screen.dart';
 import '../screens/layout_detail_screen.dart';
 import '../utils/pending_plot_selection.dart';
+import '../utils/pending_property_selection.dart';
 
 /// Parsed deep-link destination.
 class _DeepLinkTarget {
@@ -213,7 +213,7 @@ class DeepLinkService {
             ),
           );
         } else {
-          // Fetch property summary and navigate to PropertyDetailScreen
+          // Fetch property summary and show bottom panel on home map.
           final summary = await _fetchShareSummary(
             resolved.propertyType,
             resolved.featureId,
@@ -224,35 +224,11 @@ class DeepLinkService {
             return;
           }
 
-          // Build center GeoJSON from coordinates if available.
-          String? centerGeoJson;
-          final lat = summary['centerLatitude'];
-          final lng = summary['centerLongitude'];
-          if (lat is num && lng is num) {
-            centerGeoJson = '{"type":"Point","coordinates":[$lng,$lat]}';
-          }
-
-          // Build a minimal MapPropertyFeature from the share summary.
-          final feature = MapPropertyFeature(
-            propertyId: summary['propertyId'] as String? ?? '',
-            featureId: summary['featureId'] as String? ?? resolved.featureId,
-            propertyType:
-                summary['propertyType'] as String? ?? resolved.propertyType,
-            name: summary['title'] as String? ?? 'Property',
-            isOwnedByCurrentUser: false,
-            listingType: null,
-            boundaryGeoJson: null,
-            centerGeoJson: centerGeoJson,
-            metadata: _buildMetadataFromSummary(summary),
-          );
-
-          nav.push(
-            MaterialPageRoute(
-              builder: (_) => PropertyDetailScreen(
-                feature: feature,
-                fromDeepLink: true,
-              ),
-            ),
+          _selectPropertyOnHomeMap(
+            nav,
+            summary,
+            resolved.featureId,
+            resolved.propertyType,
           );
         }
         return;
@@ -305,35 +281,11 @@ class DeepLinkService {
           ),
         );
       } else {
-        // Build center GeoJSON from coordinates if available.
-        String? centerGeoJson;
-        final lat = summary['centerLatitude'];
-        final lng = summary['centerLongitude'];
-        if (lat is num && lng is num) {
-          centerGeoJson = '{"type":"Point","coordinates":[$lng,$lat]}';
-        }
-
-        // Build a minimal MapPropertyFeature from the share summary.
-        final feature = MapPropertyFeature(
-          propertyId: summary['propertyId'] as String? ?? '',
-          featureId: summary['featureId'] as String? ?? target.featureId,
-          propertyType:
-              summary['propertyType'] as String? ?? target.propertyType,
-          name: summary['title'] as String? ?? 'Property',
-          isOwnedByCurrentUser: false,
-          listingType: null,
-          boundaryGeoJson: null,
-          centerGeoJson: centerGeoJson,
-          metadata: _buildMetadataFromSummary(summary),
-        );
-
-        nav.push(
-          MaterialPageRoute(
-            builder: (_) => PropertyDetailScreen(
-              feature: feature,
-              fromDeepLink: true,
-            ),
-          ),
+        _selectPropertyOnHomeMap(
+          nav,
+          summary,
+          target.featureId,
+          target.propertyType,
         );
       }
     } catch (e) {
@@ -342,6 +294,42 @@ class DeepLinkService {
       debugPrint('[DeepLink] error: $e');
       _showError(nav.context, 'Could not open property');
     }
+  }
+
+  /// Build a [MapPropertyFeature] from the share summary and hand it off
+  /// to the home map via [PendingPropertySelection] so the bottom panel opens
+  /// with the property focused on the map — same UX as tapping a marker.
+  void _selectPropertyOnHomeMap(
+    NavigatorState nav,
+    Map<String, dynamic> summary,
+    String fallbackFeatureId,
+    String fallbackPropertyType,
+  ) {
+    // Build center GeoJSON from coordinates if available.
+    String? centerGeoJson;
+    final lat = summary['centerLatitude'];
+    final lng = summary['centerLongitude'];
+    if (lat is num && lng is num) {
+      centerGeoJson = '{"type":"Point","coordinates":[$lng,$lat]}';
+    }
+
+    final feature = MapPropertyFeature(
+      propertyId: summary['propertyId'] as String? ?? '',
+      featureId: summary['featureId'] as String? ?? fallbackFeatureId,
+      propertyType:
+          summary['propertyType'] as String? ?? fallbackPropertyType,
+      name: summary['title'] as String? ?? 'Property',
+      isOwnedByCurrentUser: false,
+      listingType: null,
+      boundaryGeoJson: summary['boundaryGeoJson'] as String?,
+      centerGeoJson: centerGeoJson,
+      metadata: _buildMetadataFromSummary(summary),
+    );
+
+    PendingPropertySelection.set(feature);
+
+    // Pop to root (home map) so it picks up the pending selection.
+    nav.popUntil((route) => route.isFirst);
   }
 
   /// Navigate to home map and focus on a specific plot.
