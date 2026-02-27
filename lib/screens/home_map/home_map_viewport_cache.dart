@@ -773,6 +773,16 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
         final strokeWidth =
             _adjustStrokeWidthForZoom(styleZoom, _propertyBaseStrokeWidth);
 
+        // Property types that use the carousel panel (not Layout, not IndividualPlots
+        // whose child plots already redirect to the parent).
+        final isCarouselType = const {
+          'independenthouse',
+          'land',
+          'commercialspace',
+          'apartment',
+          'apartmentflat',
+        }.contains(normalizedType);
+
         for (var i = 0; i < polygons.length; i++) {
           final points = polygons[i];
           if (points.length < 3) continue;
@@ -785,7 +795,18 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
               strokeWidth: strokeWidth,
               strokeColor: style.stroke.withOpacity(strokeOpacity),
               fillColor: style.fill.withOpacity(fillOpacity),
-              consumeTapEvents: false,
+              consumeTapEvents: isCarouselType,
+              onTap: isCarouselType
+                  ? () {
+                      final center = feature.centerPoint;
+                      if (center == null) return;
+                      unawaited(_handleCarouselPropertyTapped(
+                        feature,
+                        target: center,
+                        zoom: 20.0,
+                      ));
+                    }
+                  : null,
               zIndex: style.zIndex,
             ),
           );

@@ -591,6 +591,27 @@ extension _HomeMapSelection on _HomeMapScreenState {
 
   void _handlePlotTapped(MapPlotFeature plot) {
     if (!mounted) return;
+
+    // If this plot belongs to an IndividualPlots property (not a Layout),
+    // select the parent property instead so marker tap and polygon tap
+    // behave identically.
+    final ipId = plot.individualPlotsId?.trim() ?? '';
+    final layoutId = plot.layoutId?.trim() ?? '';
+    if (ipId.isNotEmpty && layoutId.isEmpty) {
+      final parentFeature = _propertyByFeatureId[ipId];
+      if (parentFeature != null) {
+        final center = plot.centerPoint ?? parentFeature.centerPoint;
+        if (center != null) {
+          unawaited(_handleCarouselPropertyTapped(
+            parentFeature,
+            target: center,
+            zoom: 20.0,
+          ));
+          return;
+        }
+      }
+    }
+
     _safeSetState(() {
       _selectedPlot = plot;
       _selectedPlotHighlightPolygons =

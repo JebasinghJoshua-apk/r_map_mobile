@@ -1557,49 +1557,78 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
               bottom: 0,
               child: Padding(
                 padding: EdgeInsets.only(bottom: bottomPanelInset),
-                child: PlotDetailsPanel(
-                  plot: selectedPlot,
-                  isSold: selectedPlot.layoutId != null &&
-                      _isSoldPlot(selectedPlot),
-                  areaLabel: _plotAreaLabel(selectedPlot),
-                  tags: _plotTags(selectedPlot),
-                  onClose: _closePlotPanel,
-                  contactNumbers: _layoutContactNumbersForPlot(selectedPlot),
-                  onLayoutDetails: () {
-                    final layoutId = selectedPlot.layoutId;
-                    if (layoutId == null || layoutId.trim().isEmpty) {
-                      ToastMessage.show(
-                        context,
-                        'Layout details not available',
-                      );
-                      return;
-                    }
-                    _dismissKeyboard();
-                    final feature = _propertyByFeatureId[layoutId.trim()];
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => LayoutDetailScreen(
-                          layoutId: layoutId.trim(),
-                          fallbackFeature: feature,
+                child: () {
+                  final isIndividualPlot =
+                      (selectedPlot.individualPlotsId?.trim().isNotEmpty ??
+                              false) &&
+                          (selectedPlot.layoutId == null ||
+                              selectedPlot.layoutId!.trim().isEmpty);
+                  return PlotDetailsPanel(
+                    plot: selectedPlot,
+                    isSold: _isSoldPlot(selectedPlot),
+                    areaLabel: _plotAreaLabel(selectedPlot),
+                    tags: _plotTags(selectedPlot),
+                    onClose: _closePlotPanel,
+                    contactNumbers: _layoutContactNumbersForPlot(selectedPlot),
+                    detailsLabel:
+                        isIndividualPlot ? 'Property Details →' : null,
+                    onLayoutDetails: () {
+                      if (isIndividualPlot) {
+                        final ipId = selectedPlot.individualPlotsId!.trim();
+                        final feature = _propertyByFeatureId[ipId];
+                        if (feature == null) {
+                          ToastMessage.show(
+                            context,
+                            'Property details not available',
+                          );
+                          return;
+                        }
+                        _dismissKeyboard();
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => PropertyDetailScreen(
+                              feature: feature,
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                      final layoutId = selectedPlot.layoutId;
+                      if (layoutId == null || layoutId.trim().isEmpty) {
+                        ToastMessage.show(
+                          context,
+                          'Layout details not available',
+                        );
+                        return;
+                      }
+                      _dismissKeyboard();
+                      final feature = _propertyByFeatureId[layoutId.trim()];
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => LayoutDetailScreen(
+                            layoutId: layoutId.trim(),
+                            fallbackFeature: feature,
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                  onUpdateStatus: () {
-                    final isAuthenticated =
-                        AuthScope.of(context).isAuthenticated;
-                    final layoutId = selectedPlot.layoutId?.trim();
-                    final canEditStatus = isAuthenticated &&
-                        layoutId != null &&
-                        layoutId.isNotEmpty &&
-                        _ownedLayoutIds.contains(layoutId);
+                      );
+                    },
+                    onUpdateStatus: () {
+                      final isAuthenticated =
+                          AuthScope.of(context).isAuthenticated;
+                      final layoutId = selectedPlot.layoutId?.trim();
+                      final canEditStatus = isAuthenticated &&
+                          layoutId != null &&
+                          layoutId.isNotEmpty &&
+                          _ownedLayoutIds.contains(layoutId);
 
-                    if (!canEditStatus) {
-                      return null;
-                    }
-                    return (status) => _updatePlotStatus(selectedPlot, status);
-                  }(),
-                ),
+                      if (!canEditStatus) {
+                        return null;
+                      }
+                      return (status) =>
+                          _updatePlotStatus(selectedPlot, status);
+                    }(),
+                  );
+                }(),
               ),
             ),
           if (selectedPlot == null && _selectedProperty != null)

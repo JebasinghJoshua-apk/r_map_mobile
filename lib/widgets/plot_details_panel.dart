@@ -22,6 +22,7 @@ class PlotDetailsPanel extends StatefulWidget {
     this.contactNumbers,
     this.onLayoutDetails,
     this.onUpdateStatus,
+    this.detailsLabel,
   });
 
   final MapPlotFeature plot;
@@ -33,6 +34,9 @@ class PlotDetailsPanel extends StatefulWidget {
   final List<String>? contactNumbers;
   final VoidCallback? onLayoutDetails;
   final Future<void> Function(String)? onUpdateStatus;
+
+  /// Label for the details link. Defaults to 'Layout Details →'.
+  final String? detailsLabel;
 
   @override
   State<PlotDetailsPanel> createState() => _PlotDetailsPanelState();
@@ -322,8 +326,9 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                                       visualDensity:
                                                           VisualDensity.compact,
                                                     ),
-                                                    child: const Text(
-                                                      'Layout Details →',
+                                                    child: Text(
+                                                      widget.detailsLabel ??
+                                                          'Layout Details →',
                                                       maxLines: 1,
                                                       overflow:
                                                           TextOverflow.ellipsis,
