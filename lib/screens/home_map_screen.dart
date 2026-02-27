@@ -1231,447 +1231,450 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         _handleBackPress();
       },
       child: Scaffold(
-      body: Stack(
-        children: [
-          GoogleMap(
-            initialCameraPosition: _initialCameraPosition,
-            onMapCreated: _onMapCreated,
-            onTap: (_) => _closeAnyPanel(),
-            onCameraMoveStarted: _onCameraMoveStarted,
-            onCameraMove: (position) {
-              _lastCameraPosition = position;
-              if (_effectiveZoom == null ||
-                  (position.zoom - _effectiveZoom!).abs() >=
-                      _styleZoomMinDelta) {
-                _effectiveZoom = position.zoom;
-              }
-              _zoomNotifier.value = position.zoom;
+        body: Stack(
+          children: [
+            GoogleMap(
+              initialCameraPosition: _initialCameraPosition,
+              onMapCreated: _onMapCreated,
+              onTap: (_) => _closeAnyPanel(),
+              onCameraMoveStarted: _onCameraMoveStarted,
+              onCameraMove: (position) {
+                _lastCameraPosition = position;
+                if (_effectiveZoom == null ||
+                    (position.zoom - _effectiveZoom!).abs() >=
+                        _styleZoomMinDelta) {
+                  _effectiveZoom = position.zoom;
+                }
+                _zoomNotifier.value = position.zoom;
 
-              // Skip auto-switch if user manually selected map type this session.
-              if (_userSelectedMapType) return;
+                // Skip auto-switch if user manually selected map type this session.
+                if (_userSelectedMapType) return;
 
-              final shouldBeHybrid = _mapType == MapType.hybrid
-                  ? position.zoom >= _hybridZoomExit
-                  : position.zoom >= _hybridZoomEnter;
+                final shouldBeHybrid = _mapType == MapType.hybrid
+                    ? position.zoom >= _hybridZoomExit
+                    : position.zoom >= _hybridZoomEnter;
 
-              final nextMapType =
-                  shouldBeHybrid ? MapType.hybrid : MapType.normal;
-              if (nextMapType != _mapType) {
-                setState(() {
-                  _mapType = nextMapType;
-                });
-              }
-            },
-            onCameraIdle: _onCameraIdle,
-            mapType: _mapType,
-            style: _mapType == MapType.normal ? _lightMapStyle : null,
-            mapToolbarEnabled: false,
-            markers: markers,
-            polygons: {
-              ..._layoutPolygons,
-              ..._propertyPolygons,
-              ..._selectedPropertyHighlightPolygons,
-              ..._plotPolygons,
-              ..._selectedPlotHighlightPolygons,
-              ..._amenityPolygons,
-              ..._roadPolygons,
-              ..._layoutPreviewPolygons,
-            },
-            polylines: _roadPolylines,
-            rotateGesturesEnabled: false,
-            tiltGesturesEnabled: false,
-            compassEnabled: false,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
-            // Disable pan/zoom gestures until a place is selected.
-            scrollGesturesEnabled: _hasSelectedPlace,
-            zoomGesturesEnabled: _hasSelectedPlace,
-          ),
-          // Blurred overlay until a place is selected (matches web style).
-          if (!_hasSelectedPlace)
-            Positioned.fill(
-              child: AbsorbPointer(
-                absorbing: true,
-                child: BackdropFilter(
-                  filter: ui.ImageFilter.blur(sigmaX: 2.0, sigmaY: 2.0),
+                final nextMapType =
+                    shouldBeHybrid ? MapType.hybrid : MapType.normal;
+                if (nextMapType != _mapType) {
+                  setState(() {
+                    _mapType = nextMapType;
+                  });
+                }
+              },
+              onCameraIdle: _onCameraIdle,
+              mapType: _mapType,
+              style: _mapType == MapType.normal ? _lightMapStyle : null,
+              mapToolbarEnabled: false,
+              markers: markers,
+              polygons: {
+                ..._layoutPolygons,
+                ..._propertyPolygons,
+                ..._selectedPropertyHighlightPolygons,
+                ..._plotPolygons,
+                ..._selectedPlotHighlightPolygons,
+                ..._amenityPolygons,
+                ..._roadPolygons,
+                ..._layoutPreviewPolygons,
+              },
+              polylines: _roadPolylines,
+              rotateGesturesEnabled: false,
+              tiltGesturesEnabled: false,
+              compassEnabled: false,
+              myLocationEnabled: true,
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: false,
+              // Disable pan/zoom gestures until a place is selected.
+              scrollGesturesEnabled: _hasSelectedPlace,
+              zoomGesturesEnabled: _hasSelectedPlace,
+            ),
+            // Blurred overlay until a place is selected (matches web style).
+            if (!_hasSelectedPlace)
+              Positioned.fill(
+                child: AbsorbPointer(
+                  absorbing: true,
+                  child: BackdropFilter(
+                    filter: ui.ImageFilter.blur(sigmaX: 2.0, sigmaY: 2.0),
+                    child: Container(
+                      color: Colors.white.withOpacity(0.2),
+                    ),
+                  ),
+                ),
+              ),
+            // Viewport loading indicator (panning/zooming data fetch).
+            if (_isViewportFetching && !showEmptyState && _hasSelectedPlace)
+              Positioned.fill(
+                child: Center(
                   child: Container(
-                    color: Colors.white.withOpacity(0.2),
-                  ),
-                ),
-              ),
-            ),
-          // Viewport loading indicator (panning/zooming data fetch).
-          if (_isViewportFetching && !showEmptyState && _hasSelectedPlace)
-            Positioned.fill(
-              child: Center(
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.85),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: const Color(0xFFE2E8F0),
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.85),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFFE2E8F0),
+                        width: 1,
                       ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Color(0xFF6B7280)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
                         ),
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        'Loading',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF4B5563),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          Positioned(
-            top: 48,
-            left: 16,
-            right: 16,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                NetworkStatusBanner(isOffline: _isOffline),
-                if (_isOffline) const SizedBox(height: 8),
-                _googlePlace == null
-                    ? const ApiKeyMissingBanner()
-                    : SearchOverlay(
-                        key: _searchOverlayKey,
-                        googlePlace: _googlePlace!,
-                        onPlaceSelected: _moveCameraTo,
-                        onShortlistedPlaceSelected: _moveCameraToFromShortlist,
-                        onShortlistedPropertySelected:
-                            _onShortlistedPropertySelected,
-                        onMyPropertySelected: _onMyPropertySelected,
-                        onMyPropertyDeleted: _onMyPropertyDeleted,
-                        onMyPropertiesOpened: _closeAnyPanel,
-                        getMapCenter: () => _lastCameraPosition.target,
-                        getMapZoom: () => _lastCameraPosition.zoom,
-                        onSearchTap: _closeAnyPanel,
-                        onOpenChanged: (isOpen) {
-                          if (_isSearchOverlayOpen == isOpen) return;
-                          _safeSetState(() {
-                            _isSearchOverlayOpen = isOpen;
-                          });
-                        },
-                        onFilterTap: _onFilterButtonTapped,
-                        hasActiveFilters: _hasAppliedNonDefaultFilters,
-                        favoritesCount: _savedPropertyIds.length,
-                      ),
-              ],
-            ),
-          ),
-          // Filter coachmark overlay (below the search bar, right-aligned to filter icon).
-          if (_showFilterCoachmark)
-            Positioned(
-              top: 100,
-              right: 71, // 16 (margin) + 48 (profile button) + 7 (gap)
-              child: FilterCoachmarkTooltip(
-                onDismiss: _dismissFilterCoachmark,
-              ),
-            ),
-          if (!isBottomPanelOpen && _hasSelectedPlace)
-            Positioned(
-              left: 16,
-              bottom: 10 + bottomPanelInset,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _mapControlButton(
-                    icon: Icons.my_location,
-                    tooltip: 'My Location',
-                    onPressed: _goToMyLocation,
-                    isLoading: _isLocating,
-                  ),
-                  const SizedBox(height: 10),
-                  _mapControlButton(
-                    icon: _mapType == MapType.hybrid
-                        ? Icons.map_outlined
-                        : Icons.satellite_alt_outlined,
-                    tooltip: _mapType == MapType.hybrid
-                        ? 'Switch to map view'
-                        : 'Switch to satellite view',
-                    onPressed: _toggleSatelliteMode,
-                  ),
-                ],
-              ),
-            ),
-          if (!isBottomPanelOpen && _hasSelectedPlace)
-            Positioned(
-              right: 16,
-              bottom: 10 + bottomPanelInset,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  NearbyPulseWrapper(
-                    active: _showNearbyPulse,
-                    child: _mapControlButton(
-                      icon: Icons.list_alt_outlined,
-                      tooltip: 'Nearby layouts',
-                      highlight: _isNearbyLayoutsReopenHintOn,
-                      onPressed: _onNearbyButtonTapped,
-                      backgroundColor: Colors.white,
-                      iconColor: const Color(0xFF0D9488),
-                      glowColor: const Color(0xFF14B8A6),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  _mapZoomControl(),
-                ],
-              ),
-            ),
-          // Nearby coachmark — separate Positioned so it doesn't
-          // shift the button and can receive taps outside the column.
-          if (!isBottomPanelOpen && _hasSelectedPlace && _showNearbyCoachmark)
-            Positioned(
-              // Vertically centre on the nearby-list button:
-              // zoom (73) + gap (10) + half-button (18) = 101
-              bottom: 10 + bottomPanelInset + 101 - 36,
-              right: 16 + 40, // 16 (column right) + 36 (button) + 4 (gap)
-              child: NearbyCoachmarkTooltip(
-                onDismiss: _dismissNearbyCoachmark,
-              ),
-            ),
-          if (showEmptyState)
-            Builder(
-              builder: (context) {
-                _emptyStateDismissTimer ??= Timer(
-                  const Duration(seconds: 6),
-                  () {
-                    if (mounted) {
-                      setState(() => _isEmptyStateDismissed = true);
-                    }
-                  },
-                );
-                return Positioned.fill(
-                  child: Center(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.94),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x1F0F172A),
-                            blurRadius: 16,
-                            offset: Offset(0, 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                Color(0xFF6B7280)),
                           ),
-                        ],
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Loading',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF4B5563),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            Positioned(
+              top: 48,
+              left: 16,
+              right: 16,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  NetworkStatusBanner(isOffline: _isOffline),
+                  if (_isOffline) const SizedBox(height: 8),
+                  _googlePlace == null
+                      ? const ApiKeyMissingBanner()
+                      : SearchOverlay(
+                          key: _searchOverlayKey,
+                          googlePlace: _googlePlace!,
+                          onPlaceSelected: _moveCameraTo,
+                          onShortlistedPlaceSelected:
+                              _moveCameraToFromShortlist,
+                          onShortlistedPropertySelected:
+                              _onShortlistedPropertySelected,
+                          onMyPropertySelected: _onMyPropertySelected,
+                          onMyPropertyDeleted: _onMyPropertyDeleted,
+                          onMyPropertiesOpened: _closeAnyPanel,
+                          getMapCenter: () => _lastCameraPosition.target,
+                          getMapZoom: () => _lastCameraPosition.zoom,
+                          onSearchTap: _closeAnyPanel,
+                          onOpenChanged: (isOpen) {
+                            if (_isSearchOverlayOpen == isOpen) return;
+                            _safeSetState(() {
+                              _isSearchOverlayOpen = isOpen;
+                            });
+                          },
+                          onFilterTap: _onFilterButtonTapped,
+                          hasActiveFilters: _hasAppliedNonDefaultFilters,
+                          favoritesCount: _savedPropertyIds.length,
+                        ),
+                ],
+              ),
+            ),
+            // Filter coachmark overlay (below the search bar, right-aligned to filter icon).
+            if (_showFilterCoachmark)
+              Positioned(
+                top: 100,
+                right: 71, // 16 (margin) + 48 (profile button) + 7 (gap)
+                child: FilterCoachmarkTooltip(
+                  onDismiss: _dismissFilterCoachmark,
+                ),
+              ),
+            if (!isBottomPanelOpen && _hasSelectedPlace)
+              Positioned(
+                left: 16,
+                bottom: 10 + bottomPanelInset,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _mapControlButton(
+                      icon: Icons.my_location,
+                      tooltip: 'My Location',
+                      onPressed: _goToMyLocation,
+                      isLoading: _isLocating,
+                    ),
+                    const SizedBox(height: 10),
+                    _mapControlButton(
+                      icon: _mapType == MapType.hybrid
+                          ? Icons.map_outlined
+                          : Icons.satellite_alt_outlined,
+                      tooltip: _mapType == MapType.hybrid
+                          ? 'Switch to map view'
+                          : 'Switch to satellite view',
+                      onPressed: _toggleSatelliteMode,
+                    ),
+                  ],
+                ),
+              ),
+            if (!isBottomPanelOpen && _hasSelectedPlace)
+              Positioned(
+                right: 16,
+                bottom: 10 + bottomPanelInset,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    NearbyPulseWrapper(
+                      active: _showNearbyPulse,
+                      child: _mapControlButton(
+                        icon: Icons.list_alt_outlined,
+                        tooltip: 'Nearby layouts',
+                        highlight: _isNearbyLayoutsReopenHintOn,
+                        onPressed: _onNearbyButtonTapped,
+                        backgroundColor: Colors.white,
+                        iconColor: const Color(0xFF0D9488),
+                        glowColor: const Color(0xFF14B8A6),
                       ),
-                      child: Padding(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Positioned(
-                              top: -12,
-                              right: -14,
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: () {
-                                  _emptyStateDismissTimer?.cancel();
-                                  _emptyStateDismissTimer = null;
-                                  setState(() => _isEmptyStateDismissed = true);
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8),
-                                  child: Icon(
-                                    Icons.close,
-                                    size: 18,
-                                    color: Color(0xFF64748B),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'No listings here yet 👀',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF0F172A),
-                                  ),
-                                ),
-                                SizedBox(height: 6),
-                                Text(
-                                  'Listings in this area are coming soon.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF475569),
-                                  ),
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'Be the first to add a property.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF0FAD97),
-                                  ),
-                                ),
-                                if (_isViewportFetching) ...[
-                                  SizedBox(height: 10),
-                                  Text(
-                                    'Checking this area…',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF64748B),
-                                    ),
-                                  ),
-                                ],
-                              ],
+                    ),
+                    const SizedBox(height: 10),
+                    _mapZoomControl(),
+                  ],
+                ),
+              ),
+            // Nearby coachmark — separate Positioned so it doesn't
+            // shift the button and can receive taps outside the column.
+            if (!isBottomPanelOpen && _hasSelectedPlace && _showNearbyCoachmark)
+              Positioned(
+                // Vertically centre on the nearby-list button:
+                // zoom (73) + gap (10) + half-button (18) = 101
+                bottom: 10 + bottomPanelInset + 101 - 36,
+                right: 16 + 40, // 16 (column right) + 36 (button) + 4 (gap)
+                child: NearbyCoachmarkTooltip(
+                  onDismiss: _dismissNearbyCoachmark,
+                ),
+              ),
+            if (showEmptyState)
+              Builder(
+                builder: (context) {
+                  _emptyStateDismissTimer ??= Timer(
+                    const Duration(seconds: 6),
+                    () {
+                      if (mounted) {
+                        setState(() => _isEmptyStateDismissed = true);
+                      }
+                    },
+                  );
+                  return Positioned.fill(
+                    child: Center(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.94),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x1F0F172A),
+                              blurRadius: 16,
+                              offset: Offset(0, 8),
                             ),
                           ],
                         ),
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 18, vertical: 16),
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Positioned(
+                                top: -12,
+                                right: -14,
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () {
+                                    _emptyStateDismissTimer?.cancel();
+                                    _emptyStateDismissTimer = null;
+                                    setState(
+                                        () => _isEmptyStateDismissed = true);
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(8),
+                                    child: Icon(
+                                      Icons.close,
+                                      size: 18,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'No listings here yet 👀',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                  SizedBox(height: 6),
+                                  Text(
+                                    'Listings in this area are coming soon.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF475569),
+                                    ),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'Be the first to add a property.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF0FAD97),
+                                    ),
+                                  ),
+                                  if (_isViewportFetching) ...[
+                                    SizedBox(height: 10),
+                                    Text(
+                                      'Checking this area…',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
-            ),
-          if (selectedPlot != null)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Padding(
-                padding: EdgeInsets.only(bottom: bottomPanelInset),
-                child: () {
-                  final isIndividualPlot =
-                      (selectedPlot.individualPlotsId?.trim().isNotEmpty ??
-                              false) &&
-                          (selectedPlot.layoutId == null ||
-                              selectedPlot.layoutId!.trim().isEmpty);
-                  return PlotDetailsPanel(
-                    plot: selectedPlot,
-                    isSold: _isSoldPlot(selectedPlot),
-                    areaLabel: _plotAreaLabel(selectedPlot),
-                    tags: _plotTags(selectedPlot),
-                    onClose: _closePlotPanel,
-                    contactNumbers: _layoutContactNumbersForPlot(selectedPlot),
-                    detailsLabel:
-                        isIndividualPlot ? 'Property Details →' : null,
-                    onLayoutDetails: () {
-                      if (isIndividualPlot) {
-                        final ipId = selectedPlot.individualPlotsId!.trim();
-                        final feature = _propertyByFeatureId[ipId];
-                        if (feature == null) {
+                  );
+                },
+              ),
+            if (selectedPlot != null)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: bottomPanelInset),
+                  child: () {
+                    final isIndividualPlot =
+                        (selectedPlot.individualPlotsId?.trim().isNotEmpty ??
+                                false) &&
+                            (selectedPlot.layoutId == null ||
+                                selectedPlot.layoutId!.trim().isEmpty);
+                    return PlotDetailsPanel(
+                      plot: selectedPlot,
+                      isSold: _isSoldPlot(selectedPlot),
+                      areaLabel: _plotAreaLabel(selectedPlot),
+                      tags: _plotTags(selectedPlot),
+                      onClose: _closePlotPanel,
+                      contactNumbers:
+                          _layoutContactNumbersForPlot(selectedPlot),
+                      detailsLabel:
+                          isIndividualPlot ? 'Property Details →' : null,
+                      onLayoutDetails: () {
+                        if (isIndividualPlot) {
+                          final ipId = selectedPlot.individualPlotsId!.trim();
+                          final feature = _propertyByFeatureId[ipId];
+                          if (feature == null) {
+                            ToastMessage.show(
+                              context,
+                              'Property details not available',
+                            );
+                            return;
+                          }
+                          _dismissKeyboard();
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => PropertyDetailScreen(
+                                feature: feature,
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+                        final layoutId = selectedPlot.layoutId;
+                        if (layoutId == null || layoutId.trim().isEmpty) {
                           ToastMessage.show(
                             context,
-                            'Property details not available',
+                            'Layout details not available',
                           );
                           return;
                         }
                         _dismissKeyboard();
+                        final feature = _propertyByFeatureId[layoutId.trim()];
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => PropertyDetailScreen(
-                              feature: feature,
+                            builder: (_) => LayoutDetailScreen(
+                              layoutId: layoutId.trim(),
+                              fallbackFeature: feature,
                             ),
                           ),
                         );
-                        return;
-                      }
-                      final layoutId = selectedPlot.layoutId;
-                      if (layoutId == null || layoutId.trim().isEmpty) {
-                        ToastMessage.show(
-                          context,
-                          'Layout details not available',
-                        );
-                        return;
-                      }
-                      _dismissKeyboard();
-                      final feature = _propertyByFeatureId[layoutId.trim()];
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => LayoutDetailScreen(
-                            layoutId: layoutId.trim(),
-                            fallbackFeature: feature,
-                          ),
-                        ),
-                      );
-                    },
-                    onUpdateStatus: () {
-                      final isAuthenticated =
-                          AuthScope.of(context).isAuthenticated;
-                      final layoutId = selectedPlot.layoutId?.trim();
-                      final canEditStatus = isAuthenticated &&
-                          layoutId != null &&
-                          layoutId.isNotEmpty &&
-                          _ownedLayoutIds.contains(layoutId);
+                      },
+                      onUpdateStatus: () {
+                        final isAuthenticated =
+                            AuthScope.of(context).isAuthenticated;
+                        final layoutId = selectedPlot.layoutId?.trim();
+                        final canEditStatus = isAuthenticated &&
+                            layoutId != null &&
+                            layoutId.isNotEmpty &&
+                            _ownedLayoutIds.contains(layoutId);
 
-                      if (!canEditStatus) {
-                        return null;
-                      }
-                      return (status) =>
-                          _updatePlotStatus(selectedPlot, status);
-                    }(),
-                  );
-                }(),
+                        if (!canEditStatus) {
+                          return null;
+                        }
+                        return (status) =>
+                            _updatePlotStatus(selectedPlot, status);
+                      }(),
+                    );
+                  }(),
+                ),
               ),
-            ),
-          if (selectedPlot == null && _selectedProperty != null)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Padding(
-                padding: EdgeInsets.only(bottom: bottomPanelInset),
-                // All non-Layout property types use carousel panel
-                child: _selectedProperty!.propertyType.trim() == 'Layout'
-                    ? PropertyDetailsPanel(
-                        feature: _selectedProperty!,
-                        imageUrls: _selectedPropertyMediaUrls,
-                        isLoadingImages: _isSelectedPropertyMediaLoading,
-                        imagesError: _selectedPropertyMediaError,
-                        isSaved: _isFeatureSaved(_selectedProperty!),
-                        isSaving: _isFeatureSaving(_selectedProperty!),
-                        onToggleSaved: () => unawaited(
-                          _toggleFeatureSaved(_selectedProperty!),
-                        ),
-                        onOpenDetails: () =>
-                            _openPropertyDetails(_selectedProperty!),
-                        onClose: _closePropertyPanel,
-                      )
-                    : _buildIndependentHouseCarouselPanel(),
+            if (selectedPlot == null && _selectedProperty != null)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: bottomPanelInset),
+                  // All non-Layout property types use carousel panel
+                  child: _selectedProperty!.propertyType.trim() == 'Layout'
+                      ? PropertyDetailsPanel(
+                          feature: _selectedProperty!,
+                          imageUrls: _selectedPropertyMediaUrls,
+                          isLoadingImages: _isSelectedPropertyMediaLoading,
+                          imagesError: _selectedPropertyMediaError,
+                          isSaved: _isFeatureSaved(_selectedProperty!),
+                          isSaving: _isFeatureSaving(_selectedProperty!),
+                          onToggleSaved: () => unawaited(
+                            _toggleFeatureSaved(_selectedProperty!),
+                          ),
+                          onOpenDetails: () =>
+                              _openPropertyDetails(_selectedProperty!),
+                          onClose: _closePropertyPanel,
+                        )
+                      : _buildIndependentHouseCarouselPanel(),
+                ),
               ),
-            ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
