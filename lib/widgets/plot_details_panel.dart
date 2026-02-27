@@ -394,130 +394,53 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                             padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
                             child: Row(
                               children: [
-                                const Flexible(
-                                  flex: 2,
-                                  child: Text(
-                                    'Update Status',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: Color(0xFF111827),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 0.6,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
                                 Expanded(
-                                  flex: 3,
-                                  child: SizedBox(
-                                    height: 40,
-                                    child: DropdownButtonFormField<String>(
-                                      value: _statusValue,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Color(0xFF111827),
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      items: const [
-                                        DropdownMenuItem(
-                                          value: 'Available',
-                                          child: Padding(
-                                            padding: EdgeInsets.only(left: 8),
-                                            child: Text('Available'),
-                                          ),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: 'Booked',
-                                          child: Padding(
-                                            padding: EdgeInsets.only(left: 8),
-                                            child: Text('Booked'),
-                                          ),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: 'Sold',
-                                          child: Padding(
-                                            padding: EdgeInsets.only(left: 8),
-                                            child: Text('Sold'),
-                                          ),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: 'Blocked',
-                                          child: Padding(
-                                            padding: EdgeInsets.only(left: 8),
-                                            child: Text('Blocked'),
-                                          ),
-                                        ),
-                                      ],
-                                      onChanged: (widget.onUpdateStatus ==
-                                                  null ||
-                                              _isUpdatingStatus)
-                                          ? null
-                                          : (v) async {
-                                              if (v == null) return;
+                                  child: _StatusSegmentedButton(
+                                    value: _statusValue,
+                                    enabled: widget.onUpdateStatus != null &&
+                                        !_isUpdatingStatus,
+                                    isUpdating: _isUpdatingStatus,
+                                    onChanged: (v) async {
+                                      _dismissKeyboard();
 
-                                              _dismissKeyboard();
+                                      final previous = _statusValue;
+                                      final messenger =
+                                          ScaffoldMessenger.of(context);
+                                      setState(() {
+                                        _statusValue = v;
+                                        _isUpdatingStatus = true;
+                                      });
 
-                                              final previous = _statusValue;
-                                              final messenger =
-                                                  ScaffoldMessenger.of(context);
-                                              setState(() {
-                                                _statusValue = v;
-                                                _isUpdatingStatus = true;
-                                              });
+                                      try {
+                                        await widget.onUpdateStatus?.call(v);
+                                      } catch (e) {
+                                        debugPrint(
+                                            'Failed to update plot status: $e');
+                                        if (mounted) {
+                                          setState(() {
+                                            _statusValue = previous;
+                                          });
+                                        }
 
-                                              try {
-                                                await widget.onUpdateStatus
-                                                    ?.call(v);
-                                              } catch (e) {
-                                                debugPrint(
-                                                    'Failed to update plot status: $e');
-                                                if (mounted) {
-                                                  setState(() {
-                                                    _statusValue = previous;
-                                                  });
-                                                }
-
-                                                final message =
-                                                    e.toString().trim();
-                                                messenger.showSnackBar(
-                                                  SnackBar(
-                                                    content: Text(
-                                                      message.isEmpty
-                                                          ? 'Failed to update status. Please try again.'
-                                                          : message,
-                                                    ),
-                                                  ),
-                                                );
-                                              } finally {
-                                                _dismissKeyboard();
-                                                if (mounted) {
-                                                  setState(() {
-                                                    _isUpdatingStatus = false;
-                                                  });
-                                                }
-                                              }
-                                            },
-                                      decoration: InputDecoration(
-                                        isDense: true,
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                          vertical: 10,
-                                        ),
-                                        border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                        ),
-                                        enabledBorder: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                          borderSide: const BorderSide(
-                                            color: Color(0xFFD1D5DB),
+                                        final message = e.toString().trim();
+                                        messenger.showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              message.isEmpty
+                                                  ? 'Failed to update status. Please try again.'
+                                                  : message,
+                                            ),
                                           ),
-                                        ),
-                                      ),
-                                    ),
+                                        );
+                                      } finally {
+                                        _dismissKeyboard();
+                                        if (mounted) {
+                                          setState(() {
+                                            _isUpdatingStatus = false;
+                                          });
+                                        }
+                                      }
+                                    },
                                   ),
                                 ),
                               ],
@@ -899,5 +822,108 @@ class _PlotSketchPainter extends CustomPainter {
     return oldDelegate.borderColor != borderColor ||
         oldDelegate.dimensions != dimensions ||
         oldDelegate.boundaryRing != boundaryRing;
+  }
+}
+
+/// Segmented pill-toggle for plot status.
+class _StatusSegmentedButton extends StatelessWidget {
+  const _StatusSegmentedButton({
+    required this.value,
+    required this.enabled,
+    required this.isUpdating,
+    required this.onChanged,
+  });
+
+  final String value;
+  final bool enabled;
+  final bool isUpdating;
+  final ValueChanged<String> onChanged;
+
+  static const _statuses = ['Available', 'Booked', 'Sold', 'Blocked'];
+
+  static Color _bgColor(String status, bool selected) {
+    if (!selected) return Colors.transparent;
+    switch (status) {
+      case 'Available':
+        return const Color(0xFF0D9488);
+      case 'Booked':
+        return const Color(0xFFF4B400);
+      case 'Sold':
+        return const Color(0xFFC0392B);
+      case 'Blocked':
+        return const Color(0xFF6B7280);
+      default:
+        return const Color(0xFF0D9488);
+    }
+  }
+
+  static Color _textColor(String status, bool selected) {
+    if (!selected) return const Color(0xFF6B7280);
+    if (status == 'Booked') return const Color(0xFF111827);
+    return Colors.white;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 36,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Row(
+        children: _statuses.map((status) {
+          final selected = value == status;
+          return Expanded(
+            child: GestureDetector(
+              onTap: (!enabled || selected) ? null : () => onChanged(status),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                alignment: Alignment.center,
+                margin: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: _bgColor(status, selected),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: selected
+                      ? [
+                          BoxShadow(
+                            color: _bgColor(status, true).withOpacity(0.3),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: isUpdating && selected
+                    ? SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            _textColor(status, selected),
+                          ),
+                        ),
+                      )
+                    : Text(
+                        status,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight:
+                              selected ? FontWeight.w700 : FontWeight.w500,
+                          color: _textColor(status, selected),
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
   }
 }
