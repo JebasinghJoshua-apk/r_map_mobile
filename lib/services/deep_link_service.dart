@@ -316,8 +316,7 @@ class DeepLinkService {
     final feature = MapPropertyFeature(
       propertyId: summary['propertyId'] as String? ?? '',
       featureId: summary['featureId'] as String? ?? fallbackFeatureId,
-      propertyType:
-          summary['propertyType'] as String? ?? fallbackPropertyType,
+      propertyType: summary['propertyType'] as String? ?? fallbackPropertyType,
       name: summary['title'] as String? ?? 'Property',
       isOwnedByCurrentUser: false,
       listingType: null,
