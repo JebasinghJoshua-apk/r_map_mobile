@@ -1,11 +1,22 @@
 part of '../home_map_screen.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Nearby Layouts — close-reason enum
+// ─────────────────────────────────────────────────────────────────────────────
+
 enum _NearbyLayoutsDialogCloseReason {
   manual,
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Extension: formatting helpers, data loading, popup, & preview polygons
+// ─────────────────────────────────────────────────────────────────────────────
+
 extension _HomeMapNearbyLayouts on _HomeMapScreenState {
   static const double _nearbyLayoutsAutoRadiusKm = 50.0;
+
+  // ── Formatting helpers ──────────────────────────────────────────────────
+
   String _formatNearbyDate(DateTime dt) {
     final d = dt.toLocal();
     return '${d.day}/${d.month}/${d.year}';
@@ -37,6 +48,28 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
     return now.difference(createdAt).abs() <=
         _HomeMapScreenState._nearbyNewThreshold;
   }
+
+  /// Haversine distance between anchor and item in km.
+  String _distanceLabel(LatLng anchor, NearbyPropertyCard item) {
+    const R = 6371.0; // Earth radius in km
+    final dLat = _deg2rad(item.latitude - anchor.latitude);
+    final dLng = _deg2rad(item.longitude - anchor.longitude);
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_deg2rad(anchor.latitude)) *
+            math.cos(_deg2rad(item.latitude)) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    final d = R * c;
+    if (d < 1) {
+      return '${(d * 1000).round()} m';
+    }
+    return '${d.toStringAsFixed(1)} km';
+  }
+
+  static double _deg2rad(double deg) => deg * (math.pi / 180);
+
+  // ── API / data loading ──────────────────────────────────────────────────
 
   Future<void> _loadNearbyLayouts(
     LatLng anchor, {
@@ -74,15 +107,14 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
     }
   }
 
+  // ── Popup orchestration ─────────────────────────────────────────────────
+
   Future<void> _openNearbyLayoutsPopup({
     required LatLng anchor,
     bool showWhenEmpty = false,
     bool isManualOpen = false,
   }) async {
     if (_isNearbyLayoutsDialogOpen) {
-      // Close any existing dialog via the root navigator.
-      // Using a stored dialog BuildContext can crash during teardown
-      // (Flutter framework assertion about dependencies being empty).
       final nav = Navigator.of(context, rootNavigator: true);
       if (nav.canPop()) {
         nav.pop();
@@ -94,23 +126,13 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
     _dismissKeyboard();
     _closeAnyPanel();
 
-    // Manual open should behave like auto-open by default:
-    // show nearest 15 layouts within 50km.
     const baseRadiusKm = _nearbyLayoutsAutoRadiusKm;
     const limit = 15;
     final effectiveShowWhenEmpty = showWhenEmpty || isManualOpen;
 
-    Future<void> load() async {
-      await _loadNearbyLayouts(
-        anchor,
-        limit: limit,
-        radiusKm: baseRadiusKm,
-      );
-    }
-
-    // Fetch first; only show the popup after we have a response.
-    await load();
+    await _loadNearbyLayouts(anchor, limit: limit, radiusKm: baseRadiusKm);
     if (!mounted) return;
+
     final initialError = _nearbyLayoutsError;
     if (initialError != null && initialError.trim().isNotEmpty) {
       ToastMessage.show(context, initialError);
@@ -119,23 +141,25 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
 
     final initialItems = _nearbyLayouts ?? const <NearbyPropertyCard>[];
     if (initialItems.isEmpty && !effectiveShowWhenEmpty) {
-      // No records → panel won't open. Show pending coachmarks immediately.
       _activatePendingCoachmarks();
       return;
     }
 
     _NearbyLayoutsDialogCloseReason? closeReason;
+    var modalItems = _nearbyLayouts ?? const <NearbyPropertyCard>[];
+    var modalError = _nearbyLayoutsError;
+    var modalLoading = false;
+    var activeRequestId = 0;
+
     try {
       _isNearbyLayoutsDialogOpen = true;
-      closeReason = await showDialog<_NearbyLayoutsDialogCloseReason>(
+      closeReason = await showModalBottomSheet<_NearbyLayoutsDialogCloseReason>(
         context: context,
-        barrierDismissible: true,
-        builder: (dialogContext) {
-          var modalItems = _nearbyLayouts ?? const <NearbyPropertyCard>[];
-          var modalError = _nearbyLayoutsError;
-          var modalLoading = false;
-          var activeRequestId = 0;
-
+        isScrollControlled: true,
+        isDismissible: true,
+        enableDrag: true,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) {
           return StatefulBuilder(
             builder: (context, setModalState) {
               Future<void> refetchForQuery(String query) async {
@@ -187,47 +211,20 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
                 }
               }
 
-              return _NearbyLayoutsDialog(
+              return _NearbyLayoutsSheet(
                 items: modalItems,
                 error: modalError,
                 isLoading: modalLoading,
+                anchor: anchor,
                 onQueryChanged: refetchForQuery,
                 onCloseManual: () =>
                     Navigator.of(context, rootNavigator: true).pop(
                   _NearbyLayoutsDialogCloseReason.manual,
                 ),
                 onFocus: (item) async {
-                  Navigator.of(dialogContext, rootNavigator: true).pop();
-
-                  // Clear property type filter if it would exclude the
-                  // selected layout from viewport results.
-                  final currentFilter = _selectedPropertyType?.trim();
-                  if (currentFilter != null &&
-                      currentFilter.isNotEmpty &&
-                      currentFilter != 'Layout') {
-                    _updateState(() {
-                      _selectedPropertyType = null;
-                    });
-                    // Force a fresh viewport fetch.
-                    _lastViewportSignature = null;
-                  }
-
-                  // Use boundary from nearby response if available (no extra API call)
-                  _drawLayoutPreviewPolygonIfAvailable(
-                    item.id,
-                    item.boundaryGeoJson,
-                  );
-                  final zoom = item.focusZoomLevel ?? _layoutFocusZoomTarget;
-                  await _focusPropertyOnMap(
-                    target: LatLng(item.latitude, item.longitude),
-                    zoom: zoom,
-                  );
+                  Navigator.of(sheetContext, rootNavigator: true).pop();
+                  _onNearbyLayoutFocused(item, anchor);
                 },
-                isNearbyNew: _isNearbyNew,
-                formatNearbyDate: _formatNearbyDate,
-                layoutLocationLabel: _layoutLocationLabel,
-                layoutPlotsLabel: _layoutPlotsLabel,
-                layoutAreaLabel: _layoutAreaLabel,
               );
             },
           );
@@ -241,14 +238,36 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
       _triggerNearbyLayoutsReopenHint();
     }
 
-    // Panel was shown and closed → show coachmarks if pending.
     _activatePendingCoachmarks();
+  }
+
+  /// Handle user tapping a layout card in the nearby sheet.
+  Future<void> _onNearbyLayoutFocused(
+    NearbyPropertyCard item,
+    LatLng anchor,
+  ) async {
+    // Clear property type filter if it would exclude the selected layout.
+    final currentFilter = _selectedPropertyType?.trim();
+    if (currentFilter != null &&
+        currentFilter.isNotEmpty &&
+        currentFilter != 'Layout') {
+      _updateState(() {
+        _selectedPropertyType = null;
+      });
+      _lastViewportSignature = null;
+    }
+
+    _drawLayoutPreviewPolygonIfAvailable(item.id, item.boundaryGeoJson);
+    final zoom = item.focusZoomLevel ?? _layoutFocusZoomTarget;
+    await _focusPropertyOnMap(
+      target: LatLng(item.latitude, item.longitude),
+      zoom: zoom,
+    );
   }
 
   void _triggerNearbyLayoutsReopenHint() {
     _nearbyLayoutsReopenHintTimer?.cancel();
 
-    // Single slow blink (on, then off).
     _updateState(() {
       _isNearbyLayoutsReopenHintOn = true;
     });
@@ -263,6 +282,8 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
     });
   }
 
+  // ── Layout preview polygons ─────────────────────────────────────────────
+
   /// Draw layout preview polygon using boundary from nearby response.
   /// If boundaryGeoJson is null/empty, falls back to API call.
   void _drawLayoutPreviewPolygonIfAvailable(
@@ -272,15 +293,12 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
     if (boundaryGeoJson != null && boundaryGeoJson.trim().isNotEmpty) {
       _drawLayoutPreviewPolygonFromGeoJson(layoutId, boundaryGeoJson);
     } else {
-      // Fallback: fetch boundary from API if not provided
       _fetchAndDrawLayoutPreviewPolygon(layoutId);
     }
   }
 
   /// Fetch layout boundary from API and draw preview polygon.
-  /// Same approach as web: calls the boundary API instead of using nearby DTO.
   void _fetchAndDrawLayoutPreviewPolygon(String layoutId) {
-    // Fire-and-forget async call (same pattern as web)
     () async {
       try {
         final preview = await _mapApi.getLayoutBoundaryPreview(
@@ -296,30 +314,24 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
 
         _drawLayoutPreviewPolygonFromGeoJson(layoutId, boundaryGeoJson);
       } catch (_) {
-        // Silently ignore - preview is optional
+        // Silently ignore – preview is optional.
       }
     }();
   }
 
   /// Draw a preview polygon from GeoJSON string.
-  /// The preview is cleared automatically when viewport data arrives.
   void _drawLayoutPreviewPolygonFromGeoJson(
     String layoutId,
     String boundaryGeoJson,
   ) {
-    // Skip if layout is already rendered on the map (user selected same layout twice)
     final layoutPrefix = 'layout:$layoutId:';
     final alreadyRendered = _layoutPolygons.any(
       (p) => p.polygonId.value.startsWith(layoutPrefix),
     );
-    if (alreadyRendered) {
-      return;
-    }
+    if (alreadyRendered) return;
 
     final polygons = GeoJson.tryParsePolygons(boundaryGeoJson);
-    if (polygons.isEmpty) {
-      return;
-    }
+    if (polygons.isEmpty) return;
 
     final previewSet = <Polygon>{};
     for (var i = 0; i < polygons.length; i++) {
@@ -356,39 +368,34 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
   }
 }
 
-class _NearbyLayoutsDialog extends StatefulWidget {
-  const _NearbyLayoutsDialog({
+// ─────────────────────────────────────────────────────────────────────────────
+// Widget: _NearbyLayoutsSheet (bottom-sheet root)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _NearbyLayoutsSheet extends StatefulWidget {
+  const _NearbyLayoutsSheet({
     required this.items,
     required this.error,
     required this.isLoading,
+    required this.anchor,
     required this.onQueryChanged,
     required this.onCloseManual,
     required this.onFocus,
-    required this.isNearbyNew,
-    required this.formatNearbyDate,
-    required this.layoutLocationLabel,
-    required this.layoutPlotsLabel,
-    required this.layoutAreaLabel,
   });
 
   final List<NearbyPropertyCard> items;
   final String? error;
   final bool isLoading;
+  final LatLng anchor;
   final Future<void> Function(String query) onQueryChanged;
   final VoidCallback onCloseManual;
   final Future<void> Function(NearbyPropertyCard item) onFocus;
 
-  final bool Function(DateTime createdAt) isNearbyNew;
-  final String Function(DateTime dt) formatNearbyDate;
-  final String? Function(NearbyPropertyCard item) layoutLocationLabel;
-  final String? Function(NearbyPropertyCard item) layoutPlotsLabel;
-  final String? Function(NearbyPropertyCard item) layoutAreaLabel;
-
   @override
-  State<_NearbyLayoutsDialog> createState() => _NearbyLayoutsDialogState();
+  State<_NearbyLayoutsSheet> createState() => _NearbyLayoutsSheetState();
 }
 
-class _NearbyLayoutsDialogState extends State<_NearbyLayoutsDialog> {
+class _NearbyLayoutsSheetState extends State<_NearbyLayoutsSheet> {
   late final TextEditingController _searchController;
   String _searchQuery = '';
   Timer? _debounce;
@@ -414,448 +421,530 @@ class _NearbyLayoutsDialogState extends State<_NearbyLayoutsDialog> {
     });
   }
 
+  List<NearbyPropertyCard> _filterLocally(
+    List<NearbyPropertyCard> items,
+    String query,
+  ) {
+    if (query.isEmpty) return items;
+    return items.where((item) {
+      final name = item.name.trim().toLowerCase();
+      final addr = item.address.trim().toLowerCase();
+      final city = item.city.trim().toLowerCase();
+      final area = (item.area ?? '').trim().toLowerCase();
+      return name.contains(query) ||
+          addr.contains(query) ||
+          city.contains(query) ||
+          area.contains(query);
+    }).toList(growable: false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final q = _searchQuery.trim().toLowerCase();
     final items = widget.items;
-    final shownItems = q.isEmpty
-        ? items
-        : items.where((item) {
-            final name = item.name.trim().toLowerCase();
-            final addr = item.address.trim().toLowerCase();
-            final city = item.city.trim().toLowerCase();
-            final area = (item.area ?? '').trim().toLowerCase();
-            return name.contains(q) ||
-                addr.contains(q) ||
-                city.contains(q) ||
-                area.contains(q);
-          }).toList(growable: false);
+    final shownItems = _filterLocally(items, q);
 
-    Widget metaChip(IconData icon, String text) {
-      return Row(
+    final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: keyboardHeight),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: DraggableScrollableSheet(
+          initialChildSize: 0.50,
+          minChildSize: 0.30,
+          maxChildSize: 0.92,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                _buildDragHandle(),
+                _buildHeader(),
+                _buildSearchField(q),
+                _buildStatusIndicator(context),
+                _buildBody(
+                  items: items,
+                  shownItems: shownItems,
+                  query: q,
+                  scrollController: scrollController,
+                  bottomPadding: bottomPadding,
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  // ── Sheet sub-sections ────────────────────────────────────────────────
+
+  Widget _buildDragHandle() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10, bottom: 6),
+      child: Container(
+        width: 36,
+        height: 4,
+        decoration: BoxDecoration(
+          color: const Color(0xFFCBD5E1),
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 2, 8, 0),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'Nearby Layouts',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Close',
+            onPressed: widget.onCloseManual,
+            icon: const Icon(Icons.close, size: 22),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchField(String query) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: TextField(
+        controller: _searchController,
+        onChanged: (value) {
+          setState(() {
+            _searchQuery = value;
+          });
+          _scheduleServerSearch(value);
+        },
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          isDense: true,
+          filled: true,
+          fillColor: const Color(0xFFF8FAFC),
+          hintText: 'Search layouts anywhere...',
+          hintStyle: const TextStyle(
+            color: Color(0xFF94A3B8),
+            fontWeight: FontWeight.w500,
+          ),
+          prefixIcon: const Icon(Icons.search, size: 22),
+          suffixIcon: query.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: 'Clear search',
+                  onPressed: () {
+                    setState(() {
+                      _searchController.clear();
+                      _searchQuery = '';
+                    });
+                    _scheduleServerSearch('');
+                  },
+                  icon: const Icon(Icons.close, size: 20),
+                ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusIndicator(BuildContext context) {
+    if (widget.isLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: LinearProgressIndicator(minHeight: 2),
+      );
+    }
+    if (widget.error != null && widget.error!.trim().isNotEmpty) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        child: Text(
+          widget.error!,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.error,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildBody({
+    required List<NearbyPropertyCard> items,
+    required List<NearbyPropertyCard> shownItems,
+    required String query,
+    required ScrollController scrollController,
+    required double bottomPadding,
+  }) {
+    if (items.isEmpty) {
+      return Expanded(
+        child: _NearbyEmptyState(hasQuery: query.isNotEmpty),
+      );
+    }
+    if (shownItems.isEmpty) {
+      return const Expanded(
+        child: _NearbyEmptyState(hasQuery: true, localFilterOnly: true),
+      );
+    }
+    return Expanded(
+      child: ListView.separated(
+        controller: scrollController,
+        padding: EdgeInsets.fromLTRB(16, 8, 16, 16 + bottomPadding),
+        itemCount: shownItems.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (_, index) {
+          final item = shownItems[index];
+          return _NearbyLayoutCardItem(
+            item: item,
+            onTap: () => widget.onFocus(item),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Widget: _NearbyEmptyState
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _NearbyEmptyState extends StatelessWidget {
+  const _NearbyEmptyState({
+    required this.hasQuery,
+    this.localFilterOnly = false,
+  });
+
+  /// Whether a search query is active.
+  final bool hasQuery;
+
+  /// True when server returned results but local filter excluded them all.
+  final bool localFilterOnly;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            icon,
-            size: 14,
-            color: const Color(0xFF64748B),
+            hasQuery ? Icons.search_off_outlined : Icons.explore_outlined,
+            size: 48,
+            color: const Color(0xFFCBD5E1),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(height: 12),
           Text(
-            text,
+            hasQuery ? 'No matches' : 'No layouts nearby (within 50 km)',
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: 15,
               fontWeight: FontWeight.w600,
               color: Color(0xFF475569),
             ),
+            textAlign: TextAlign.center,
           ),
+          if (!hasQuery && !localFilterOnly) ...[
+            const SizedBox(height: 6),
+            const Text(
+              'Search to see layouts from anywhere',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF94A3B8),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ],
-      );
-    }
-
-    final size = MediaQuery.of(context).size;
-    final maxWidth = size.width - 24;
-    final dialogWidth = maxWidth < 460 ? maxWidth : 460.0;
-    const maxVisibleItems = 4;
-    const cardHeight = 92.0;
-    const cardGap = 8.0;
-    const listPaddingVertical = 12.0 + 16.0;
-    // Search row + paddings.
-    const headerHeight = 98.0;
-    const dividerHeight = 1.0;
-
-    final visibleCount = math.min(shownItems.length, maxVisibleItems);
-    final listHeight = visibleCount == 0
-        ? 140.0
-        : (visibleCount * cardHeight) +
-            (math.max(0, visibleCount - 1) * cardGap) +
-            listPaddingVertical;
-    final targetHeight = headerHeight + dividerHeight + listHeight;
-    final dialogHeight = math.min(targetHeight, size.height * 0.98);
-
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
       ),
-      child: SizedBox(
-        width: dialogWidth,
-        height: dialogHeight,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      onChanged: (value) {
-                        setState(() {
-                          _searchQuery = value;
-                        });
+    );
+  }
+}
 
-                        // Server-side behavior:
-                        // - non-empty query => omit radiusKm and send query
-                        // - empty query => restore 50km radius and clear query
-                        _scheduleServerSearch(value);
-                      },
-                      textInputAction: TextInputAction.search,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        filled: true,
-                        fillColor: const Color(0xFFF8FAFC),
-                        hintText: 'Search layouts',
-                        prefixIcon: const Icon(Icons.search),
-                        suffixIcon: q.isEmpty
-                            ? null
-                            : IconButton(
-                                tooltip: 'Clear search',
-                                onPressed: () {
-                                  setState(() {
-                                    _searchController.clear();
-                                    _searchQuery = '';
-                                  });
-                                  _scheduleServerSearch('');
-                                },
-                                icon: const Icon(Icons.close),
-                              ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFE2E8F0),
-                          ),
+// ─────────────────────────────────────────────────────────────────────────────
+// Widget: _NearbyLayoutCardItem (individual list row)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _NearbyLayoutCardItem extends StatelessWidget {
+  const _NearbyLayoutCardItem({
+    required this.item,
+    required this.onTap,
+  });
+
+  final NearbyPropertyCard item;
+  final VoidCallback onTap;
+
+  // ── Formatting helpers (pure, no dependency on parent state) ───────────
+
+  static const Duration _newThreshold = Duration(days: 7);
+
+  static String _formatDate(DateTime dt) {
+    final d = dt.toLocal();
+    return '${d.day}/${d.month}/${d.year}';
+  }
+
+  static String? _locationLabel(NearbyPropertyCard item) {
+    final addr = item.address.trim();
+    final city = item.city.trim();
+    if (addr.isNotEmpty) return addr;
+    if (city.isNotEmpty) return city;
+    return null;
+  }
+
+  static String? _areaLabel(NearbyPropertyCard item) {
+    final area = item.area?.trim();
+    if (area != null && area.isNotEmpty) return area;
+    return null;
+  }
+
+  static String? _plotsLabel(NearbyPropertyCard item) {
+    final count = item.plotsCount;
+    if (count == null) return null;
+    return '$count plots';
+  }
+
+  static bool _isNew(DateTime createdAt) {
+    return DateTime.now().difference(createdAt).abs() <= _newThreshold;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isNew = _isNew(item.createdAt);
+    final locationMissing = !item.hasLocation;
+    final name = item.name.trim().isEmpty ? 'Layout' : item.name.trim();
+    final locationLabel = _locationLabel(item);
+    final plotsLabel = _plotsLabel(item);
+    final areaLabel = _areaLabel(item);
+    final dateLabel = _formatDate(item.createdAt);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0A000000),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Row(
+              children: [
+                // ── Left accent strip ──
+                Container(
+                  width: 4,
+                  constraints: const BoxConstraints(minHeight: 80),
+                  color:
+                      isNew ? const Color(0xFF34D399) : const Color(0xFF0D9488),
+                ),
+                // ── Content ──
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildTitleRow(name, isNew),
+                        const SizedBox(height: 6),
+                        _buildLocationRow(locationLabel, locationMissing),
+                        const SizedBox(height: 8),
+                        _buildMetaChips(
+                          plotsLabel: plotsLabel,
+                          areaLabel: areaLabel,
+                          dateLabel: dateLabel,
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFE2E8F0),
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
-                            color: Theme.of(context).colorScheme.primary,
+                      ],
+                    ),
+                  ),
+                ),
+                // ── Navigate chevron ──
+                const Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    size: 24,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Card sub-sections ─────────────────────────────────────────────────
+
+  Widget _buildTitleRow(String name, bool isNew) {
+    const titleStyle = TextStyle(
+      fontSize: 15,
+      fontWeight: FontWeight.w700,
+      color: Color(0xFF0F766E),
+    );
+
+    final titleWidget = isNew
+        ? Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: name),
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFECFDF5),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFF34D399)),
+                      ),
+                      child: const Padding(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        child: Text(
+                          'NEW',
+                          style: TextStyle(
+                            color: Color(0xFF059669),
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    tooltip: 'Close',
-                    onPressed: widget.onCloseManual,
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-            ),
-            if (widget.isLoading)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: LinearProgressIndicator(minHeight: 2),
-              )
-            else if (widget.error != null && widget.error!.trim().isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Text(
-                  widget.error!,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.error,
-                    fontWeight: FontWeight.w600,
-                  ),
                 ),
-              )
-            else
-              const Divider(height: 1),
-            Expanded(
-              child: items.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            q.isEmpty
-                                ? 'No layouts nearby (within 50 km)'
-                                : 'No matches',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF475569),
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          if (q.isEmpty) ...[
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Search to see layouts from anywhere',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF94A3B8),
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ],
-                      ),
-                    )
-                  : shownItems.isEmpty
-                      ? Center(
-                          child: Text(
-                            'No matches',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF475569),
-                            ),
-                          ),
-                        )
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                          itemCount: shownItems.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            final item = shownItems[index];
-                            final isNew = widget.isNearbyNew(item.createdAt);
-                            final locationMissing = !item.hasLocation;
-
-                            final name = item.name.trim().isEmpty
-                                ? 'Layout'
-                                : item.name.trim();
-                            final locationLabel =
-                                widget.layoutLocationLabel(item);
-                            final plotsLabel = widget.layoutPlotsLabel(item);
-                            final areaLabel = widget.layoutAreaLabel(item);
-                            final dateLabel =
-                                widget.formatNearbyDate(item.createdAt);
-
-                            Future<void> focus() => widget.onFocus(item);
-
-                            return Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(10),
-                                onTap: focus,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: const Color(0xFFE2E8F0),
-                                    ),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: Color(0x14000000),
-                                        blurRadius: 10,
-                                        offset: Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 12,
-                                    ),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: isNew
-                                                        ? Text.rich(
-                                                            TextSpan(
-                                                              children: [
-                                                                TextSpan(
-                                                                    text: name),
-                                                                WidgetSpan(
-                                                                  alignment:
-                                                                      PlaceholderAlignment
-                                                                          .middle,
-                                                                  child:
-                                                                      Padding(
-                                                                    padding: const EdgeInsets
-                                                                        .only(
-                                                                        left:
-                                                                            8),
-                                                                    child:
-                                                                        DecoratedBox(
-                                                                      decoration:
-                                                                          BoxDecoration(
-                                                                        color: const Color(
-                                                                            0xFFECFDF5),
-                                                                        borderRadius:
-                                                                            BorderRadius.circular(6),
-                                                                        border:
-                                                                            Border.all(
-                                                                          color:
-                                                                              const Color(0xFF34D399),
-                                                                        ),
-                                                                      ),
-                                                                      child:
-                                                                          const Padding(
-                                                                        padding:
-                                                                            EdgeInsets.symmetric(
-                                                                          horizontal:
-                                                                              8,
-                                                                          vertical:
-                                                                              2,
-                                                                        ),
-                                                                        child:
-                                                                            Text(
-                                                                          'NEW',
-                                                                          style:
-                                                                              TextStyle(
-                                                                            color:
-                                                                                Color(0xFF059669),
-                                                                            fontSize:
-                                                                                10,
-                                                                            fontWeight:
-                                                                                FontWeight.w800,
-                                                                          ),
-                                                                        ),
-                                                                      ),
-                                                                    ),
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                            maxLines: 1,
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                            style:
-                                                                const TextStyle(
-                                                              fontSize: 15,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w700,
-                                                              color: Color(
-                                                                  0xFF0F766E),
-                                                            ),
-                                                          )
-                                                        : Text(
-                                                            name,
-                                                            maxLines: 1,
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                            style:
-                                                                const TextStyle(
-                                                              fontSize: 15,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w700,
-                                                              color: Color(
-                                                                  0xFF0F766E),
-                                                            ),
-                                                          ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.location_on_outlined,
-                                                    size: 16,
-                                                    color: locationMissing
-                                                        ? const Color(
-                                                            0xFFDC2626)
-                                                        : const Color(
-                                                            0xFF64748B),
-                                                  ),
-                                                  const SizedBox(width: 6),
-                                                  Expanded(
-                                                    child: Text(
-                                                      locationLabel ??
-                                                          'Location not added',
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: TextStyle(
-                                                        fontSize: 13,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        color: locationMissing
-                                                            ? const Color(
-                                                                0xFFDC2626)
-                                                            : const Color(
-                                                                0xFF475569),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 10),
-                                              Wrap(
-                                                spacing: 14,
-                                                runSpacing: 8,
-                                                children: [
-                                                  if (plotsLabel != null)
-                                                    metaChip(
-                                                      Icons.grid_on_outlined,
-                                                      plotsLabel,
-                                                    ),
-                                                  if (areaLabel != null)
-                                                    metaChip(
-                                                      Icons.straighten_outlined,
-                                                      areaLabel,
-                                                    ),
-                                                  metaChip(
-                                                    Icons.schedule,
-                                                    dateLabel,
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Material(
-                                          color: const Color(0xFFF8FAFC),
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                          child: InkWell(
-                                            borderRadius:
-                                                BorderRadius.circular(10),
-                                            onTap: focus,
-                                            child: Container(
-                                              width: 36,
-                                              height: 36,
-                                              decoration: BoxDecoration(
-                                                borderRadius:
-                                                    BorderRadius.circular(10),
-                                                border: Border.all(
-                                                  color:
-                                                      const Color(0xFFE2E8F0),
-                                                ),
-                                              ),
-                                              child: const Icon(
-                                                Icons.near_me_outlined,
-                                                size: 18,
-                                                color: Color(0xFF64748B),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+              ],
             ),
-          ],
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: titleStyle,
+          )
+        : Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: titleStyle,
+          );
+
+    return Row(
+      children: [
+        Expanded(child: titleWidget),
+      ],
+    );
+  }
+
+  Widget _buildLocationRow(String? locationLabel, bool locationMissing) {
+    final color =
+        locationMissing ? const Color(0xFFDC2626) : const Color(0xFF64748B);
+    return Row(
+      children: [
+        Icon(Icons.location_on_outlined, size: 15, color: color),
+        const SizedBox(width: 5),
+        Expanded(
+          child: Text(
+            locationLabel ?? 'Location not added',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: color,
+            ),
+          ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildMetaChips({
+    required String? plotsLabel,
+    required String? areaLabel,
+    required String dateLabel,
+  }) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      children: [
+        if (plotsLabel != null)
+          _NearbyMetaChip(icon: Icons.grid_on_outlined, label: plotsLabel),
+        if (areaLabel != null)
+          _NearbyMetaChip(icon: Icons.straighten_outlined, label: areaLabel),
+        _NearbyMetaChip(icon: Icons.schedule, label: dateLabel),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Widget: _NearbyMetaChip (small icon + text badge)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _NearbyMetaChip extends StatelessWidget {
+  const _NearbyMetaChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: const Color(0xFF64748B)),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF475569),
+            ),
+          ),
+        ],
       ),
     );
   }
