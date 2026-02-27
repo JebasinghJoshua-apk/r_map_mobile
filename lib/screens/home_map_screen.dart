@@ -149,6 +149,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   /// When false, a blurred overlay blocks map pan/zoom until the user selects a place.
   bool _hasSelectedPlace = false;
 
+  /// Camera position when the user last selected a place from search/shortlist.
+  /// Used to re-focus on back press if the user has panned away.
+  CameraPosition? _lastSelectedPlacePosition;
+
+  /// True when the user has manually panned/zoomed away from the last selected place.
+  bool _userPannedFromPlace = false;
+
   final LinkedHashMap<String, _ViewportRenderCacheEntry> _viewportCache =
       LinkedHashMap<String, _ViewportRenderCacheEntry>();
 
@@ -1217,7 +1224,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       ..._amenityLabelMarkers,
     };
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _handleBackPress();
+      },
+      child: Scaffold(
       body: Stack(
         children: [
           GoogleMap(
@@ -1658,6 +1671,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
               ),
             ),
         ],
+      ),
       ),
     );
   }

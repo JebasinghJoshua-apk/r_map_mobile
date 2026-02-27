@@ -245,6 +245,10 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _hasSelectedPlace = true;
     });
 
+    // Store the selected place position for back-button re-focus.
+    _lastSelectedPlacePosition = CameraPosition(target: target, zoom: zoom);
+    _userPannedFromPlace = false;
+
     // Reset viewport result flag so the "No listings here yet" empty-state
     // does not flash while we wait for the viewport response at the new
     // location.
@@ -278,6 +282,10 @@ extension _HomeMapSelection on _HomeMapScreenState {
     _safeSetState(() {
       _hasSelectedPlace = true;
     });
+
+    // Store the selected place position for back-button re-focus.
+    _lastSelectedPlacePosition = CameraPosition(target: target, zoom: zoom);
+    _userPannedFromPlace = false;
 
     // Reset so the empty-state popup does not flash before the viewport
     // response arrives at the new location.
@@ -549,6 +557,11 @@ extension _HomeMapSelection on _HomeMapScreenState {
 
     // User manually panned/zoomed — hide the "No listings" empty state.
     _triggeredByPlaceSearch = false;
+
+    // Track that the user has panned away from the last selected place.
+    if (_hasSelectedPlace && _lastSelectedPlacePosition != null) {
+      _userPannedFromPlace = true;
+    }
 
     if (_selectedProperty == null) return;
     if (_cameraBeforePropertyFocus == null) return;
@@ -1212,5 +1225,75 @@ extension _HomeMapSelection on _HomeMapScreenState {
       debugPrint('[DeepLink] layout fetch error: $e');
     }
     return null;
+  }
+
+  // ── Back button handling ──────────────────────────────────────────────
+
+  /// Handles the Android system/nav bar back button press.
+  ///
+  /// Priority order:
+  /// 1. If a bottom card (plot/property) is open → close it.
+  /// 2. If user panned away from the selected place → re-focus to it.
+  /// 3. Otherwise → show exit confirmation dialog.
+  void _handleBackPress() {
+    // 1. Close any open bottom panel first.
+    if (_selectedPlot != null || _selectedProperty != null) {
+      _closeAnyPanel();
+      return;
+    }
+
+    // 2. If user has panned/zoomed away, re-focus to the last selected place.
+    if (_userPannedFromPlace && _lastSelectedPlacePosition != null) {
+      _userPannedFromPlace = false;
+      unawaited(
+        _animateCamera(
+          CameraUpdate.newCameraPosition(_lastSelectedPlacePosition!),
+        ),
+      );
+      return;
+    }
+
+    // 3. Show exit confirmation.
+    _showExitConfirmationDialog();
+  }
+
+  Future<void> _showExitConfirmationDialog() async {
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text(
+          'Exit R Map?',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
+        content: const Text(
+          'Are you sure you want to exit the app?',
+          style: TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFC0392B),
+            ),
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldExit == true) {
+      SystemNavigator.pop();
+    }
   }
 }
