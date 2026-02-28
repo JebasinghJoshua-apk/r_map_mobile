@@ -99,7 +99,8 @@ class _AuthDialogState extends State<AuthDialog> {
   final FocusNode _phoneFocusNode = FocusNode();
   final FocusNode _otpFocusNode = FocusNode();
 
-  Future<void> _focusField(FocusNode focusNode, {bool keepKeyboard = false}) async {
+  Future<void> _focusField(FocusNode focusNode,
+      {bool keepKeyboard = false}) async {
     if (!mounted) return;
 
     if (keepKeyboard) {
