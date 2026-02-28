@@ -1,8 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:pinput/pinput.dart';
+import 'package:smart_auth/smart_auth.dart';
 
 import '../services/mobile_bff_auth_api.dart';
 import '../state/auth_scope.dart';
+
+/// SMS auto-read implementation for Pinput.
+class _SmsRetrieverImpl implements SmsRetriever {
+  final SmartAuth smartAuth;
+
+  const _SmsRetrieverImpl(this.smartAuth);
+
+  @override
+  Future<String?> getSmsCode() async {
+    final res = await smartAuth.getSmsCode(
+      useUserConsentApi: true,
+    );
+    if (res.succeed && res.codeFound) {
+      return res.code;
+    }
+    return null;
+  }
+
+  @override
+  Future<void> dispose() => smartAuth.removeSmsListener();
+
+  @override
+  bool get listenForMultipleSms => false;
+}
 
 enum AuthMode {
   otpPhone, // Enter phone to send OTP (primary)
@@ -73,8 +99,14 @@ class _AuthDialogState extends State<AuthDialog> {
   final FocusNode _phoneFocusNode = FocusNode();
   final FocusNode _otpFocusNode = FocusNode();
 
-  Future<void> _focusField(FocusNode focusNode) async {
+  Future<void> _focusField(FocusNode focusNode, {bool keepKeyboard = false}) async {
     if (!mounted) return;
+
+    if (keepKeyboard) {
+      // Just move focus without hiding/showing the keyboard
+      FocusScope.of(context).requestFocus(focusNode);
+      return;
+    }
 
     // Fully reset the input connection; some Android keyboards otherwise keep
     // the previous layout (e.g. phone keypad) even after focus changes.
@@ -170,7 +202,7 @@ class _AuthDialogState extends State<AuthDialog> {
       });
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _focusField(_otpFocusNode);
+        if (mounted) _focusField(_otpFocusNode, keepKeyboard: true);
       });
     } on AuthApiException catch (e) {
       setState(() => _error = e.message);
@@ -491,33 +523,56 @@ class _AuthDialogState extends State<AuthDialog> {
 
                       // OTP Verify Mode
                       if (_mode == AuthMode.otpVerify) ...[
-                        if (_otpChannel != null)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Text(
-                              'OTP sent via ${_otpChannel == 'whatsapp' ? 'WhatsApp' : 'SMS'} to $_verifiedPhone',
-                              style: const TextStyle(color: Colors.grey),
+                        const Center(child: Text('Enter OTP')),
+                        const SizedBox(height: 16),
+                        Center(
+                          child: Pinput(
+                            length: 4,
+                            controller: _otpController,
+                            focusNode: _otpFocusNode,
+                            autofocus: true,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            smsRetriever: _SmsRetrieverImpl(SmartAuth()),
+                            defaultPinTheme: PinTheme(
+                              width: 48,
+                              height: 48,
+                              textStyle: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF0B6B63),
+                              ),
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: Color(0xFFBDBDBD),
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
-                        const Text('Enter OTP'),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          key: const ValueKey('otp_code_field'),
-                          controller: _otpController,
-                          focusNode: _otpFocusNode,
-                          keyboardType: TextInputType.number,
-                          textInputAction: TextInputAction.done,
-                          maxLength: 4,
-                          decoration: const InputDecoration(
-                            hintText: 'Enter 4-digit OTP',
-                            hintStyle: TextStyle(color: Colors.black45),
-                            prefixIcon: Icon(Icons.lock_outline),
-                            border: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
+                            focusedPinTheme: PinTheme(
+                              width: 48,
+                              height: 48,
+                              textStyle: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF0B6B63),
+                              ),
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: Color(0xFF0B6B63),
+                                    width: 2.5,
+                                  ),
+                                ),
+                              ),
                             ),
-                            isDense: true,
-                            counterText: '',
+                            separatorBuilder: (index) =>
+                                const SizedBox(width: 16),
+                            onCompleted: (pin) => _verifyOtp(),
                           ),
                         ),
                         const SizedBox(height: 14),
