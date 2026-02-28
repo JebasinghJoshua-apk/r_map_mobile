@@ -507,9 +507,9 @@ class _AuthDialogState extends State<AuthDialog> {
                           focusNode: _otpFocusNode,
                           keyboardType: TextInputType.number,
                           textInputAction: TextInputAction.done,
-                          maxLength: 6,
+                          maxLength: 4,
                           decoration: const InputDecoration(
-                            hintText: 'Enter 6-digit OTP',
+                            hintText: 'Enter 4-digit OTP',
                             hintStyle: TextStyle(color: Colors.black45),
                             prefixIcon: Icon(Icons.lock_outline),
                             border: OutlineInputBorder(
