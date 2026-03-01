@@ -114,6 +114,10 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
     bool showWhenEmpty = false,
     bool isManualOpen = false,
   }) async {
+    // If the panel is already open and this is an automatic (non-manual) call,
+    // skip to avoid duplicating the bottom sheet.
+    if (_isNearbyLayoutsDialogOpen && !isManualOpen) return;
+
     if (_isNearbyLayoutsDialogOpen) {
       final nav = Navigator.of(context, rootNavigator: true);
       if (nav.canPop()) {
