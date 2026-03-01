@@ -177,6 +177,11 @@ class DeepLinkService {
         shortCode: segments[1],
       );
     }
+    // /launch - just open the app (used by the web install banner)
+    if (segments.isNotEmpty && segments[0] == 'launch') {
+      debugPrint('[DeepLink] /launch → opening home screen');
+      return null; // null = no navigation, app just opens to home
+    }
     return null;
   }
 

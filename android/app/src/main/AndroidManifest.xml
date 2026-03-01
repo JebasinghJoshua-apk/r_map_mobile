@@ -35,6 +35,16 @@
 
             <!-- Deep Links: open shared property/share URLs in the app -->
             <!-- rmap.in domain -->
+            <!-- /launch - used by the web banner to simply open the app -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="rmap.in"
+                    android:pathPrefix="/launch" />
+            </intent-filter>
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
