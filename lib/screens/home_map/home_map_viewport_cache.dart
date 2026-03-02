@@ -708,6 +708,8 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
   }) {
     final propertyByFeatureId = <String, MapPropertyFeature>{};
     final ownedLayoutIds = <String>{};
+    // Map from layout featureId → opacity level (1-5) for darkening child elements.
+    final layoutOpacityMap = <String, int>{};
     final nextLayoutPolygons = <Polygon>{};
     final nextPropertyPolygons = <Polygon>{};
     final styleZoom = zoom;
@@ -721,11 +723,23 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
         propertyByFeatureId[id] = feature;
       }
 
-      if (feature.propertyType.trim() == 'Layout' &&
-          feature.isOwnedByCurrentUser) {
-        final layoutId = feature.featureId.trim();
-        if (layoutId.isNotEmpty) {
-          ownedLayoutIds.add(layoutId);
+      if (feature.propertyType.trim() == 'Layout') {
+        if (feature.isOwnedByCurrentUser) {
+          final layoutId = feature.featureId.trim();
+          if (layoutId.isNotEmpty) {
+            ownedLayoutIds.add(layoutId);
+          }
+        }
+        // Collect boundary opacity level for child element darkening.
+        final boRaw = feature.metadata['boundaryOpacity'];
+        if (boRaw != null) {
+          final boLevel = int.tryParse(boRaw);
+          if (boLevel != null &&
+              boLevel >= 1 &&
+              boLevel <= 5 &&
+              id.isNotEmpty) {
+            layoutOpacityMap[id] = boLevel;
+          }
         }
       }
 
@@ -733,9 +747,8 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
       final isLayout = normalizedType == 'layout';
       if (isLayout) {
         layoutFeatureCount++;
-        final opacityLevel = feature.metadata['boundaryOpacity'];
-        final baseFillOpacity = _boundaryOpacityFromLevel(opacityLevel);
-        final fillOpacity = zoom >= _layoutFillHideZoom ? 0.0 : baseFillOpacity;
+        final fillOpacity =
+            zoom >= _layoutFillHideZoom ? 0.0 : _layoutBoundaryFillOpacity;
         final polygons = GeoJson.tryParsePolygons(feature.boundaryGeoJson);
         for (var i = 0; i < polygons.length; i++) {
           final points = polygons[i];
@@ -850,12 +863,8 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
           fill = _layoutBoundaryFill;
           strokeWidth = _layoutBoundaryStrokeWidth;
           strokeOpacity = _layoutBoundaryStrokeOpacity;
-          // Look up parent layout's boundaryOpacity from metadata.
-          final parentFeature =
-              plot.layoutId != null ? propertyByFeatureId[plot.layoutId] : null;
-          final opLevel = parentFeature?.metadata['boundaryOpacity'];
-          final baseBoundaryFill = _boundaryOpacityFromLevel(opLevel);
-          fillOpacity = zoom >= _layoutFillHideZoom ? 0.0 : baseBoundaryFill;
+          fillOpacity =
+              zoom >= _layoutFillHideZoom ? 0.0 : _layoutBoundaryFillOpacity;
           zIndex = 45;
         } else if (isSold) {
           stroke = _soldPlotStroke;
@@ -878,6 +887,17 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
           strokeOpacity = _plotStrokeOpacity;
           fillOpacity = _plotFillOpacity;
           zIndex = 60;
+        }
+
+        // Apply parent layout's opacity override to darken child elements
+        // (plots, in-layout roads) and hide stale satellite imagery.
+        if (kind != 'boundary' && plot.layoutId != null) {
+          final opLevel = layoutOpacityMap[plot.layoutId];
+          if (opLevel != null) {
+            fillOpacity = kind == 'road'
+                ? _roadOpacityFromLevel(opLevel.toString())
+                : _boundaryOpacityFromLevel(opLevel.toString());
+          }
         }
 
         // If this plot is focused from a deep link, apply highlight style.
@@ -909,6 +929,11 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
 
       for (final amenity in response.amenities) {
         final polygons = GeoJson.tryParsePolygons(amenity.boundaryGeoJson);
+        // Apply parent layout's opacity override to amenities.
+        final amenityOpLevel = layoutOpacityMap[amenity.layoutId];
+        final amenityFillOpacity = amenityOpLevel != null
+            ? _boundaryOpacityFromLevel(amenityOpLevel.toString())
+            : _amenityFillOpacity;
         for (var i = 0; i < polygons.length; i++) {
           final points = polygons[i];
           if (points.length < 3) continue;
@@ -918,7 +943,7 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
               points: points,
               strokeWidth: _amenityStrokeWidth,
               strokeColor: _amenityStroke.withOpacity(_amenityStrokeOpacity),
-              fillColor: _amenityFill.withOpacity(_amenityFillOpacity),
+              fillColor: _amenityFill.withOpacity(amenityFillOpacity),
               consumeTapEvents: false,
               zIndex: 64,
             ),
@@ -929,6 +954,13 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
 
     if (shouldShowRoads) {
       for (final road in response.roads) {
+        // Apply parent layout's opacity override to roads.
+        final roadOpLevel =
+            road.layoutId != null ? layoutOpacityMap[road.layoutId] : null;
+        final roadFillOp = roadOpLevel != null
+            ? _roadOpacityFromLevel(roadOpLevel.toString())
+            : _roadFillOpacity;
+
         final lines = GeoJson.tryParseLineStrings(road.roadGeoJson);
 
         if (lines.isNotEmpty) {
@@ -964,7 +996,7 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
               points: points,
               strokeWidth: _roadStrokeWidth,
               strokeColor: _roadStroke.withOpacity(_roadStrokeOpacity),
-              fillColor: _roadFill.withOpacity(_roadFillOpacity),
+              fillColor: _roadFill.withOpacity(roadFillOp),
               consumeTapEvents: false,
             ),
           );

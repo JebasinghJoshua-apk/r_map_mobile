@@ -33,6 +33,27 @@ double _boundaryOpacityFromLevel(String? raw) {
   }
 }
 
+/// Road-specific opacity — slightly darker than plots at every level.
+double _roadOpacityFromLevel(String? raw) {
+  if (raw == null) return _roadFillOpacity;
+  final level = int.tryParse(raw);
+  if (level == null) return _roadFillOpacity;
+  switch (level) {
+    case 1:
+      return 0.25;
+    case 2:
+      return 0.40;
+    case 3:
+      return 0.60;
+    case 4:
+      return 0.80;
+    case 5:
+      return 0.92;
+    default:
+      return _roadFillOpacity;
+  }
+}
+
 // Layout preview polygon (shown while full data loads from nearby dialog).
 // Teal colors match web: strokeColor #0d9488 (teal-600), fillColor #99f6e4 (teal-200).
 const Color _layoutPreviewStroke = Color(0xFF0D9488);
