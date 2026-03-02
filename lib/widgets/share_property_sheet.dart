@@ -204,13 +204,31 @@ class _SharePropertySheetState extends State<_SharePropertySheet> {
   }
 
   Future<void> _shareViaWhatsApp() async {
-    final text = '$_shareText\n$_shareUrl';
-    final encoded = Uri.encodeComponent(text);
+    final fullText = '$_shareText\n\nView details:\n$_shareUrl';
+
+    // If we already have the preview image bytes, share with the image so
+    // WhatsApp (and other apps) can display it inline.
+    if (_heroBytes != null && _heroBytes!.isNotEmpty) {
+      try {
+        final dir = await getTemporaryDirectory();
+        final file = File('${dir.path}/share_wa_property.jpg');
+        await file.writeAsBytes(_heroBytes!);
+        await Share.shareXFiles(
+          [XFile(file.path, mimeType: 'image/jpeg')],
+          text: fullText,
+        );
+        return;
+      } catch (_) {
+        // Image write/share failed – fall through to text-only.
+      }
+    }
+
+    // Fallback: text-only via wa.me deep link.
+    final encoded = Uri.encodeComponent(fullText);
     final uri = Uri.parse('https://wa.me/?text=$encoded');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
-      // Fallback: native share
       await _nativeShare();
     }
   }
