@@ -733,8 +733,10 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
       final isLayout = normalizedType == 'layout';
       if (isLayout) {
         layoutFeatureCount++;
+        final opacityLevel = feature.metadata['boundaryOpacity'];
+        final baseFillOpacity = _boundaryOpacityFromLevel(opacityLevel);
         final fillOpacity =
-            zoom >= _layoutFillHideZoom ? 0.0 : _layoutBoundaryFillOpacity;
+            zoom >= _layoutFillHideZoom ? 0.0 : baseFillOpacity;
         final polygons = GeoJson.tryParsePolygons(feature.boundaryGeoJson);
         for (var i = 0; i < polygons.length; i++) {
           final points = polygons[i];
@@ -849,8 +851,14 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
           fill = _layoutBoundaryFill;
           strokeWidth = _layoutBoundaryStrokeWidth;
           strokeOpacity = _layoutBoundaryStrokeOpacity;
+          // Look up parent layout's boundaryOpacity from metadata.
+          final parentFeature = plot.layoutId != null
+              ? propertyByFeatureId[plot.layoutId]
+              : null;
+          final opLevel = parentFeature?.metadata['boundaryOpacity'];
+          final baseBoundaryFill = _boundaryOpacityFromLevel(opLevel);
           fillOpacity =
-              zoom >= _layoutFillHideZoom ? 0.0 : _layoutBoundaryFillOpacity;
+              zoom >= _layoutFillHideZoom ? 0.0 : baseBoundaryFill;
           zIndex = 45;
         } else if (isSold) {
           stroke = _soldPlotStroke;

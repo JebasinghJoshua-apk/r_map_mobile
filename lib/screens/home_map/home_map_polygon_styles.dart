@@ -11,6 +11,28 @@ const double _layoutBoundaryStrokeOpacity = 1.0;
 const double _layoutBoundaryFillOpacity = 0.12;
 const int _layoutBoundaryStrokeWidth = 2;
 
+/// Convert a boundary-opacity level (1-5, from metadata) to a fill opacity
+/// value. Null or out-of-range means use the default [_layoutBoundaryFillOpacity].
+double _boundaryOpacityFromLevel(String? raw) {
+  if (raw == null) return _layoutBoundaryFillOpacity;
+  final level = int.tryParse(raw);
+  if (level == null) return _layoutBoundaryFillOpacity;
+  switch (level) {
+    case 1:
+      return 0.15;
+    case 2:
+      return 0.30;
+    case 3:
+      return 0.50;
+    case 4:
+      return 0.70;
+    case 5:
+      return 0.85;
+    default:
+      return _layoutBoundaryFillOpacity;
+  }
+}
+
 // Layout preview polygon (shown while full data loads from nearby dialog).
 // Teal colors match web: strokeColor #0d9488 (teal-600), fillColor #99f6e4 (teal-200).
 const Color _layoutPreviewStroke = Color(0xFF0D9488);
