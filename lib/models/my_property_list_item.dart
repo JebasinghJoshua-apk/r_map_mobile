@@ -19,6 +19,7 @@ class MyPropertyListItem {
     required this.createdAt,
     required this.updatedAt,
     this.shortCode,
+    this.isAssignedOnly = false,
   });
 
   final String id;
@@ -28,6 +29,11 @@ class MyPropertyListItem {
 
   /// Short code for QR URLs (e.g., "A3x9Kp" → rmap.in/s/A3x9Kp)
   final String? shortCode;
+
+  /// True when this property is in the user's list only because they are
+  /// the assigned owner (not the actual property owner). The UI should hide
+  /// Edit/Delete for these items.
+  final bool isAssignedOnly;
 
   final String address;
   final String city;
@@ -88,6 +94,7 @@ class MyPropertyListItem {
       createdAt: parseDate(json['createdAt']),
       updatedAt: parseDate(json['updatedAt']),
       shortCode: json['shortCode'] as String?,
+      isAssignedOnly: json['isAssignedOnly'] == true,
     );
   }
 }

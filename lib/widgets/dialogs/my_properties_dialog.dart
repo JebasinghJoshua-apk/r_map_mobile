@@ -479,6 +479,32 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
     );
   }
 
+  Widget _assignedBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFF93C5FD)),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.person_outline, size: 12, color: Color(0xFF2563EB)),
+          SizedBox(width: 4),
+          Text(
+            'Assigned to you',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF2563EB),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -722,7 +748,8 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                               normalizedCompact == 'plot' && plotsCount > 1;
                           final isLayoutProperty =
                               normalizedType.contains('layout');
-                          final isEditableProperty = const <String>{
+                          final isEditableProperty = !item.isAssignedOnly &&
+                              const <String>{
                                 'plot',
                                 'apartment',
                                 'independenthouse',
@@ -731,6 +758,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                               }.contains(normalizedCompact) &&
                               !hasMultiplePlots;
                           final canDeleteProperty = !isDeleting &&
+                              !item.isAssignedOnly &&
                               isEditableProperty &&
                               !isLayoutProperty;
                           final deleteDisabledReason = canDeleteProperty
@@ -982,105 +1010,111 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                                                 ),
                                                 _approvalStatusChip(
                                                     item.approvalStatus),
+                                                if (item.isAssignedOnly)
+                                                  _assignedBadge(),
                                               ],
                                             ),
                                           ],
                                         ),
                                       ),
                                       const SizedBox(width: 8),
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          // QR code icon for Layout-type properties (admin only)
-                                          if (isLayoutProperty &&
-                                              widget.userRole == UserRole.admin)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                right: 6,
+                                      if (!item.isAssignedOnly)
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            // QR code icon for Layout-type properties (admin only)
+                                            if (isLayoutProperty &&
+                                                widget.userRole ==
+                                                    UserRole.admin)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                  right: 6,
+                                                ),
+                                                child: _actionIcon(
+                                                  icon: Icons.qr_code_2,
+                                                  tooltip: 'Generate QR Code',
+                                                  onTap: () {
+                                                    final base = ApiConstants
+                                                        .webBaseUrl
+                                                        .replaceAll(
+                                                      RegExp(r'/$'),
+                                                      '',
+                                                    );
+                                                    // Use short URL if available for cleaner QR codes
+                                                    final shareUrl = item
+                                                                    .shortCode !=
+                                                                null &&
+                                                            item.shortCode!
+                                                                .isNotEmpty
+                                                        ? '$base/s/${item.shortCode}'
+                                                        : '$base/property/Layout/${item.id}';
+                                                    showModalBottomSheet<void>(
+                                                      context: context,
+                                                      isScrollControlled: true,
+                                                      backgroundColor:
+                                                          Colors.transparent,
+                                                      builder: (_) =>
+                                                          LayoutQrCodeSheet(
+                                                        layoutId: item.id,
+                                                        layoutName:
+                                                            item.name.isNotEmpty
+                                                                ? item.name
+                                                                : 'Layout',
+                                                        shareUrl: shareUrl,
+                                                      ),
+                                                    );
+                                                  },
+                                                  iconColor:
+                                                      const Color(0xFF0FAD97),
+                                                  borderColor:
+                                                      const Color(0xFFD1FAE5),
+                                                ),
                                               ),
-                                              child: _actionIcon(
-                                                icon: Icons.qr_code_2,
-                                                tooltip: 'Generate QR Code',
-                                                onTap: () {
-                                                  final base = ApiConstants
-                                                      .webBaseUrl
-                                                      .replaceAll(
-                                                    RegExp(r'/$'),
-                                                    '',
-                                                  );
-                                                  // Use short URL if available for cleaner QR codes
-                                                  final shareUrl = item
-                                                                  .shortCode !=
-                                                              null &&
-                                                          item.shortCode!
-                                                              .isNotEmpty
-                                                      ? '$base/s/${item.shortCode}'
-                                                      : '$base/property/Layout/${item.id}';
-                                                  showModalBottomSheet<void>(
-                                                    context: context,
-                                                    isScrollControlled: true,
-                                                    backgroundColor:
-                                                        Colors.transparent,
-                                                    builder: (_) =>
-                                                        LayoutQrCodeSheet(
-                                                      layoutId: item.id,
-                                                      layoutName:
-                                                          item.name.isNotEmpty
-                                                              ? item.name
-                                                              : 'Layout',
-                                                      shareUrl: shareUrl,
-                                                    ),
-                                                  );
-                                                },
-                                                iconColor:
-                                                    const Color(0xFF0FAD97),
-                                                borderColor:
-                                                    const Color(0xFFD1FAE5),
-                                              ),
+                                            _actionIcon(
+                                              icon: Icons.edit_outlined,
+                                              tooltip: isEditableProperty &&
+                                                      !isLayoutProperty
+                                                  ? 'Edit'
+                                                  : (hasMultiplePlots
+                                                      ? 'Edit disabled'
+                                                      : 'Edit (web only)'),
+                                              onTap: isEditableProperty &&
+                                                      !isLayoutProperty
+                                                  ? () => unawaited(edit())
+                                                  : () =>
+                                                      ToastMessage.showAbove(
+                                                        context,
+                                                        hasMultiplePlots
+                                                            ? 'Only single-plot properties can be edited on mobile.'
+                                                            : 'Layout editable only in web screen.',
+                                                      ),
+                                              enabled: isEditableProperty &&
+                                                  !isLayoutProperty,
                                             ),
-                                          _actionIcon(
-                                            icon: Icons.edit_outlined,
-                                            tooltip: isEditableProperty &&
-                                                    !isLayoutProperty
-                                                ? 'Edit'
-                                                : (hasMultiplePlots
-                                                    ? 'Edit disabled'
-                                                    : 'Edit (web only)'),
-                                            onTap: isEditableProperty &&
-                                                    !isLayoutProperty
-                                                ? () => unawaited(edit())
-                                                : () => ToastMessage.showAbove(
-                                                      context,
-                                                      hasMultiplePlots
-                                                          ? 'Only single-plot properties can be edited on mobile.'
-                                                          : 'Layout editable only in web screen.',
-                                                    ),
-                                            enabled: isEditableProperty &&
-                                                !isLayoutProperty,
-                                          ),
-                                          const SizedBox(width: 6),
-                                          _actionIcon(
-                                            icon: Icons.delete_outline,
-                                            tooltip: deleteDisabledReason,
-                                            onTap: canDeleteProperty
-                                                ? () =>
-                                                    unawaited(deleteProperty())
-                                                : (isDeleting
-                                                    ? null
-                                                    : () =>
-                                                        ToastMessage.showAbove(
-                                                          context,
-                                                          hasMultiplePlots
-                                                              ? 'Only single-plot properties can be deleted on mobile.'
-                                                              : 'Layout deletions are available on the web screen.',
-                                                        )),
-                                            enabled: canDeleteProperty,
-                                            iconColor: const Color(0xFFDC2626),
-                                            borderColor:
-                                                const Color(0xFFFEE2E2),
-                                          ),
-                                        ],
-                                      ),
+                                            const SizedBox(width: 6),
+                                            _actionIcon(
+                                              icon: Icons.delete_outline,
+                                              tooltip: deleteDisabledReason,
+                                              onTap: canDeleteProperty
+                                                  ? () => unawaited(
+                                                      deleteProperty())
+                                                  : (isDeleting
+                                                      ? null
+                                                      : () => ToastMessage
+                                                              .showAbove(
+                                                            context,
+                                                            hasMultiplePlots
+                                                                ? 'Only single-plot properties can be deleted on mobile.'
+                                                                : 'Layout deletions are available on the web screen.',
+                                                          )),
+                                              enabled: canDeleteProperty,
+                                              iconColor:
+                                                  const Color(0xFFDC2626),
+                                              borderColor:
+                                                  const Color(0xFFFEE2E2),
+                                            ),
+                                          ],
+                                        ),
                                     ],
                                   ),
                                 ),
