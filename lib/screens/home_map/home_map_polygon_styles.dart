@@ -19,13 +19,13 @@ double _boundaryOpacityFromLevel(String? raw) {
   if (level == null) return _layoutBoundaryFillOpacity;
   switch (level) {
     case 1:
-      return 0.15;
-    case 2:
-      return 0.30;
-    case 3:
       return 0.50;
+    case 2:
+      return 0.59;
+    case 3:
+      return 0.68;
     case 4:
-      return 0.70;
+      return 0.76;
     case 5:
       return 0.85;
     default:
@@ -40,13 +40,13 @@ double _roadOpacityFromLevel(String? raw) {
   if (level == null) return _roadFillOpacity;
   switch (level) {
     case 1:
-      return 0.25;
-    case 2:
-      return 0.40;
-    case 3:
       return 0.60;
+    case 2:
+      return 0.68;
+    case 3:
+      return 0.76;
     case 4:
-      return 0.80;
+      return 0.84;
     case 5:
       return 0.92;
     default:
