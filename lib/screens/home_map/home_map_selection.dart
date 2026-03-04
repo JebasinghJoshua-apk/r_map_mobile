@@ -558,6 +558,16 @@ extension _HomeMapSelection on _HomeMapScreenState {
     // User manually panned/zoomed — hide the "No listings" empty state.
     _triggeredByPlaceSearch = false;
 
+    // Dismiss filter coachmark on pan to avoid flicker during map rebuilds.
+    if (_showFilterCoachmark) {
+      _dismissFilterCoachmark();
+    }
+
+    // Dismiss nearby coachmark on pan to avoid flicker during map rebuilds.
+    if (_showNearbyCoachmark) {
+      _dismissNearbyCoachmark();
+    }
+
     // Track that the user has panned away from the last selected place.
     if (_hasSelectedPlace && _lastSelectedPlacePosition != null) {
       _userPannedFromPlace = true;
