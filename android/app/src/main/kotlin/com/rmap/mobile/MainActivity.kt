@@ -27,8 +27,11 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Stash the deep-link URI BEFORE super.onCreate, which triggers
+        // configureFlutterEngine.  If we wait, handleIntent sees channel!=null
+        // and tries invokeMethod("onNewLink") before Dart is ready → lost.
+        initialLink = intent?.data?.toString()
         super.onCreate(savedInstanceState)
-        handleIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
