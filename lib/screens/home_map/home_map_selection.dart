@@ -249,6 +249,9 @@ extension _HomeMapSelection on _HomeMapScreenState {
     _lastSelectedPlacePosition = CameraPosition(target: target, zoom: zoom);
     _userPannedFromPlace = false;
 
+    // Save selected place for push-notification "near you" radius.
+    _saveLastSearchedPlace(target.latitude, target.longitude);
+
     // Reset viewport result flag so the "No listings here yet" empty-state
     // does not flash while we wait for the viewport response at the new
     // location.
@@ -286,6 +289,9 @@ extension _HomeMapSelection on _HomeMapScreenState {
     // Store the selected place position for back-button re-focus.
     _lastSelectedPlacePosition = CameraPosition(target: target, zoom: zoom);
     _userPannedFromPlace = false;
+
+    // Save selected place for push-notification "near you" radius.
+    _saveLastSearchedPlace(target.latitude, target.longitude);
 
     // Reset so the empty-state popup does not flash before the viewport
     // response arrives at the new location.
@@ -548,6 +554,15 @@ extension _HomeMapSelection on _HomeMapScreenState {
     if (_selectedProperty?.propertyType.trim() == 'IndependentHouse') {
       _scheduleIndependentHouseCarouselRefresh();
     }
+  }
+
+  /// Persist a lat/lng to SharedPreferences for push-notification
+  /// device-registration ("new property near you" radius).
+  void _saveLastSearchedPlace(double lat, double lng) {
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setDouble('last_map_lat', lat);
+      prefs.setDouble('last_map_lng', lng);
+    });
   }
 
   void _onCameraMoveStarted() {

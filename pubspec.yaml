@@ -46,6 +46,7 @@ dependencies:
   firebase_analytics: ^11.4.4
   firebase_crashlytics: ^4.3.4
   firebase_performance: ^0.10.1+4
+  firebase_messaging: ^15.2.4
   share_plus: ^10.1.4
   path_provider: ^2.1.5
   location: ^5.0.3

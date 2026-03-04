@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import 'models/map_viewport_models.dart';
+import 'screens/property_detail_screen.dart';
 import 'screens/splash_screen.dart';
 import 'services/analytics_service.dart';
 import 'services/deep_link_service.dart';
+import 'services/push_notification_service.dart';
 import 'state/auth_scope.dart';
 import 'state/auth_state.dart';
 import 'utils/route_observer.dart';
@@ -33,10 +36,14 @@ class _RMapAppState extends State<RMapApp> {
 
     deepLinkService = DeepLinkService(navigatorKey: appNavigatorKey);
     deepLinkService.initialize();
+
+    // Handle push notification taps → navigate to property.
+    PushNotificationService.instance.onNotificationTap = _onNotificationTap;
   }
 
   @override
   void dispose() {
+    PushNotificationService.instance.onNotificationTap = null;
     deepLinkService.dispose();
     _authState.dispose();
     super.dispose();
@@ -98,6 +105,37 @@ class _RMapAppState extends State<RMapApp> {
           ),
         );
       },
+    );
+  }
+
+  /// Navigate to the property detail screen when a push notification is tapped.
+  void _onNotificationTap(Map<String, dynamic> data) {
+    final propertyId = data['propertyId'] as String?;
+    final propertyType = data['propertyType'] as String?;
+    if (propertyId == null || propertyId.isEmpty) return;
+
+    final nav = appNavigatorKey.currentState;
+    if (nav == null) return;
+
+    final feature = MapPropertyFeature(
+      propertyId: propertyId,
+      featureId: propertyId,
+      propertyType: propertyType ?? 'IndependentHouse',
+      name: 'Property',
+      isOwnedByCurrentUser: false,
+      listingType: null,
+      boundaryGeoJson: null,
+      centerGeoJson: null,
+      metadata: const {},
+    );
+
+    nav.push(
+      MaterialPageRoute(
+        builder: (_) => PropertyDetailScreen(
+          feature: feature,
+          fromDeepLink: true,
+        ),
+      ),
     );
   }
 }

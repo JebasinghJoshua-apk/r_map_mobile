@@ -5,7 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/auth_session.dart';
 import '../services/analytics_service.dart';
+import '../services/ip_geolocation_service.dart';
 import '../services/mobile_bff_auth_api.dart';
+import '../services/push_notification_service.dart';
 
 class AuthState extends ChangeNotifier {
   AuthState({MobileBffAuthApi? api}) : _api = api ?? MobileBffAuthApi();
@@ -41,6 +43,16 @@ class AuthState extends ChangeNotifier {
       _session = null;
     }
 
+    // Re-register device on app start if authenticated.
+    if (isAuthenticated) {
+      _registerDeviceInBackground();
+    }
+
+    // Re-register when FCM token refreshes.
+    PushNotificationService.instance.onTokenRefresh = (_) {
+      if (isAuthenticated) _registerDeviceInBackground();
+    };
+
     notifyListeners();
   }
 
@@ -54,6 +66,7 @@ class AuthState extends ChangeNotifier {
     _session = session;
     AnalyticsService.instance.setUserId(session.user.id);
     AnalyticsService.instance.logLogin();
+    _registerDeviceInBackground();
     notifyListeners();
   }
 
@@ -73,10 +86,16 @@ class AuthState extends ChangeNotifier {
     _session = session;
     AnalyticsService.instance.setUserId(session.user.id);
     AnalyticsService.instance.logSignUp();
+    _registerDeviceInBackground();
     notifyListeners();
   }
 
   Future<void> logout() async {
+    // Unregister device before clearing the session.
+    if (_session != null && _session!.token.isNotEmpty) {
+      await PushNotificationService.instance
+          .unregisterDevice(authToken: _session!.token);
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userKey);
@@ -112,6 +131,7 @@ class AuthState extends ChangeNotifier {
       _session = result.session;
       AnalyticsService.instance.setUserId(result.session!.user.id);
       AnalyticsService.instance.logLogin();
+      _registerDeviceInBackground();
       notifyListeners();
     }
 
@@ -133,6 +153,7 @@ class AuthState extends ChangeNotifier {
     _session = session;
     AnalyticsService.instance.setUserId(session.user.id);
     AnalyticsService.instance.logSignUp();
+    _registerDeviceInBackground();
     notifyListeners();
   }
 
@@ -140,5 +161,52 @@ class AuthState extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, session.token);
     await prefs.setString(_userKey, jsonEncode(session.user.toJson()));
+  }
+
+  /// Register FCM device token with the backend (fire-and-forget).
+  /// Uses the last map center (from SharedPreferences) for coordinates,
+  /// falling back to IP-based geolocation if the user hasn't opened the map yet.
+  void _registerDeviceInBackground() {
+    final token = _session?.token;
+    if (token == null || token.isEmpty) return;
+
+    () async {
+      try {
+        final geo = await _getLastMapCenter() ?? await _getApproximateLocation();
+
+        await PushNotificationService.instance.registerDevice(
+          authToken: token,
+          latitude: geo?.$1,
+          longitude: geo?.$2,
+        );
+      } catch (e) {
+        debugPrint('[Auth] Device registration failed: $e');
+      }
+    }();
+  }
+
+  /// Returns (lat, lng) from the last map camera position the user viewed.
+  static Future<(double, double)?> _getLastMapCenter() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lat = prefs.getDouble('last_map_lat');
+      final lng = prefs.getDouble('last_map_lng');
+      if (lat != null && lng != null) {
+        return (lat, lng);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Returns (lat, lng) from IP geolocation, or null.
+  static Future<(double, double)?> _getApproximateLocation() async {
+    try {
+      final result =
+          await IpGeolocationService.getLocation();
+      if (result != null) {
+        return (result.latitude, result.longitude);
+      }
+    } catch (_) {}
+    return null;
   }
 }

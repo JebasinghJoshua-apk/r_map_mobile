@@ -9,6 +9,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'app.dart';
 import 'services/firebase_perf_service.dart';
 import 'services/performance_logger.dart';
+import 'services/push_notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +24,9 @@ Future<void> main() async {
   // Crashlytics: collect reports only in profile/release builds.
   await FirebaseCrashlytics.instance
       .setCrashlyticsCollectionEnabled(!kDebugMode);
+
+  // Initialize push notifications (requests permission, gets FCM token).
+  await PushNotificationService.instance.initialize();
 
   // Forward Flutter framework errors to Crashlytics.
   FlutterError.onError = (FlutterErrorDetails details) {
