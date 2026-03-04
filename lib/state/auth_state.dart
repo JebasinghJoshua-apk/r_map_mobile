@@ -172,8 +172,8 @@ class AuthState extends ChangeNotifier {
 
     () async {
       try {
-        final geo =
-            await _getLastMapCenter() ?? await _getApproximateLocation();
+        final mapCenter = await _getLastMapCenter();
+        final geo = mapCenter ?? await _getApproximateLocation();
 
         await PushNotificationService.instance.registerDevice(
           authToken: token,

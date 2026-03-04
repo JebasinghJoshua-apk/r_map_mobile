@@ -83,6 +83,12 @@ class PushNotificationService {
     if (_fcmToken == null) return;
 
     final uri = _bffUri('/mobile/devices/register');
+    final bodyMap = {
+      'fcmToken': _fcmToken,
+      'platform': Platform.isIOS ? 'ios' : 'android',
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+    };
     try {
       final response = await http
           .post(
@@ -91,19 +97,15 @@ class PushNotificationService {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $authToken',
             },
-            body: jsonEncode({
-              'fcmToken': _fcmToken,
-              'platform': Platform.isIOS ? 'ios' : 'android',
-              if (latitude != null) 'latitude': latitude,
-              if (longitude != null) 'longitude': longitude,
-            }),
+            body: jsonEncode(bodyMap),
           )
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         debugPrint('[Push] Device registered successfully');
       } else {
-        debugPrint('[Push] Device registration failed: ${response.statusCode}');
+        debugPrint(
+            '[Push] Device registration failed: ${response.statusCode} ${response.body}');
       }
     } catch (e) {
       debugPrint('[Push] Device registration error: $e');
