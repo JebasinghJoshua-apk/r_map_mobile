@@ -172,7 +172,8 @@ class AuthState extends ChangeNotifier {
 
     () async {
       try {
-        final geo = await _getLastMapCenter() ?? await _getApproximateLocation();
+        final geo =
+            await _getLastMapCenter() ?? await _getApproximateLocation();
 
         await PushNotificationService.instance.registerDevice(
           authToken: token,
@@ -201,8 +202,7 @@ class AuthState extends ChangeNotifier {
   /// Returns (lat, lng) from IP geolocation, or null.
   static Future<(double, double)?> _getApproximateLocation() async {
     try {
-      final result =
-          await IpGeolocationService.getLocation();
+      final result = await IpGeolocationService.getLocation();
       if (result != null) {
         return (result.latitude, result.longitude);
       }
