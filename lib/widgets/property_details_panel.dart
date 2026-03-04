@@ -458,67 +458,79 @@ class PropertyDetailsPanel extends StatelessWidget {
       );
     }
 
-    return Material(
-      color: Colors.transparent,
-      child: Padding(
-        padding: outerPadding,
-        child: Align(
-          alignment: Alignment.bottomCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 440),
-            child: DecoratedBox(
-              decoration: const BoxDecoration(
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0x1F000000),
-                    blurRadius: 16,
-                    offset: Offset(0, -6),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: const BorderRadius.all(Radius.circular(14)),
-                child: Material(
-                  color: Colors.white,
-                  child: InkWell(
-                    onTap: canOpenDetails ? onOpenDetails : null,
-                    child: SafeArea(
-                      top: false,
-                      bottom: false,
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          // The panel itself is width-constrained; keep the left/right
-                          // layout for typical phone widths and only stack on very
-                          // small widths.
-                          final isNarrow = constraints.maxWidth < 340;
+    // Cap text scaling inside the compact card to prevent overflow on phones
+    // with large font-size settings. The detail screen uses full scaling.
+    final textScaler = MediaQuery.textScalerOf(context);
+    final cappedScaler = textScaler.clamp(
+      minScaleFactor: 1.0,
+      maxScaleFactor: 1.15,
+    );
 
-                          return Padding(
-                            padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
-                            child: isNarrow
-                                ? Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      // Slightly taller than 16:9 to give the panel
-                                      // more presence without adding extra padding.
-                                      imagePanel(3 / 2),
-                                      const SizedBox(height: 8),
-                                      detailsPanel(),
-                                    ],
-                                  )
-                                : Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      // Make the side thumbnail a bit taller.
-                                      Expanded(child: imagePanel(5 / 4)),
-                                      const SizedBox(width: 10),
-                                      Expanded(child: detailsPanel()),
-                                    ],
-                                  ),
-                          );
-                        },
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(textScaler: cappedScaler),
+      child: Material(
+        color: Colors.transparent,
+        child: Padding(
+          padding: outerPadding,
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: DecoratedBox(
+                decoration: const BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0x1F000000),
+                      blurRadius: 16,
+                      offset: Offset(0, -6),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.all(Radius.circular(14)),
+                  child: Material(
+                    color: Colors.white,
+                    child: InkWell(
+                      onTap: canOpenDetails ? onOpenDetails : null,
+                      child: SafeArea(
+                        top: false,
+                        bottom: false,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            // The panel itself is width-constrained; keep the left/right
+                            // layout for typical phone widths and only stack on very
+                            // small widths.
+                            final isNarrow = constraints.maxWidth < 340;
+
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(10, 10, 12, 10),
+                              child: isNarrow
+                                  ? Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        // Slightly taller than 16:9 to give the panel
+                                        // more presence without adding extra padding.
+                                        imagePanel(3 / 2),
+                                        const SizedBox(height: 8),
+                                        detailsPanel(),
+                                      ],
+                                    )
+                                  : Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        // Make the side thumbnail a bit taller.
+                                        Expanded(child: imagePanel(5 / 4)),
+                                        const SizedBox(width: 10),
+                                        Expanded(child: detailsPanel()),
+                                      ],
+                                    ),
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),

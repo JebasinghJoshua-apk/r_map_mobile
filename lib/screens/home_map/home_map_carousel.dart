@@ -230,9 +230,13 @@ extension _HomeMapCarousel on _HomeMapScreenState {
   }
 
   /// Height for the carousel panel.
+  /// Scales with the device text-scale factor so larger font settings don't
+  /// cause content to overflow the fixed-height card.
   double _propertyCarouselHeight(BuildContext context) {
     final h = MediaQuery.of(context).size.height;
-    return (h * 0.24).clamp(190.0, 250.0);
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+    final scaleFactor = textScale.clamp(1.0, 1.6);
+    return (h * 0.24 * scaleFactor).clamp(190.0, 340.0);
   }
 
   /// Build the carousel panel widget.

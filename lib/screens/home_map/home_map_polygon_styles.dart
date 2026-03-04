@@ -40,13 +40,13 @@ double _roadOpacityFromLevel(String? raw) {
   if (level == null) return _roadFillOpacity;
   switch (level) {
     case 1:
-      return 0.60;
-    case 2:
       return 0.68;
+    case 2:
+      return 0.74;
     case 3:
-      return 0.76;
+      return 0.80;
     case 4:
-      return 0.84;
+      return 0.86;
     case 5:
       return 0.92;
     default:
