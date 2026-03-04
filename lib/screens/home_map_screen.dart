@@ -778,7 +778,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       _isNearbyLayoutsReopenHintOn = false;
     });
 
-    _isNearbyLoading = true;
+    _updateState(() => _isNearbyLoading = true);
     try {
       final anchor = _lastCameraPosition.target;
       await _openNearbyLayoutsPopup(
@@ -787,7 +787,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         isManualOpen: true,
       );
     } finally {
-      _isNearbyLoading = false;
+      _updateState(() => _isNearbyLoading = false);
     }
   }
 
@@ -1438,6 +1438,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                         tooltip: 'Nearby layouts',
                         highlight: _isNearbyLayoutsReopenHintOn,
                         onPressed: _onNearbyButtonTapped,
+                        isLoading: _isNearbyLoading,
                         backgroundColor: Colors.white,
                         iconColor: const Color(0xFF0D9488),
                         glowColor: const Color(0xFF14B8A6),
