@@ -1,7 +1,13 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:http/http.dart' as http;
 
+import 'constants/api_constants.dart';
 import 'models/map_viewport_models.dart';
+import 'screens/layout_detail_screen.dart';
 import 'screens/property_detail_screen.dart';
 import 'screens/splash_screen.dart';
 import 'services/analytics_service.dart';
@@ -110,17 +116,143 @@ class _RMapAppState extends State<RMapApp> {
 
   /// Navigate to the property detail screen when a push notification is tapped.
   void _onNotificationTap(Map<String, dynamic> data) {
+    debugPrint('[Push] _onNotificationTap called with data: $data');
     final propertyId = data['propertyId'] as String?;
     final propertyType = data['propertyType'] as String?;
-    if (propertyId == null || propertyId.isEmpty) return;
+    if (propertyId == null || propertyId.isEmpty) {
+      debugPrint('[Push] Missing propertyId, aborting');
+      return;
+    }
+    if (propertyType == null || propertyType.isEmpty) {
+      debugPrint('[Push] Missing propertyType, aborting');
+      return;
+    }
 
-    final nav = appNavigatorKey.currentState;
-    if (nav == null) return;
+    debugPrint('[Push] Navigating to $propertyType / $propertyId');
+    unawaited(_navigateToPropertyFromNotification(propertyId, propertyType));
+  }
 
+  Future<void> _navigateToPropertyFromNotification(
+    String propertyId,
+    String propertyType,
+  ) async {
+    // Wait for navigator to be ready (cold start: splash → home).
+    NavigatorState? nav;
+    for (var i = 0; i < 20; i++) {
+      nav = appNavigatorKey.currentState;
+      if (nav != null) break;
+      await Future.delayed(const Duration(milliseconds: 200));
+    }
+    if (nav == null) {
+      debugPrint('[Push] Navigator not ready after 4s, aborting');
+      return;
+    }
+
+    debugPrint('[Push] Navigator ready, route stack:');
+    nav.popUntil((route) {
+      debugPrint('[Push]   route: ${route.settings.name ?? route.runtimeType}');
+      return true; // don't pop, just log
+    });
+
+    // Capture context before async gap.
+    final navContext = nav.context;
+
+    // Show loading overlay while fetching property details.
+    // ignore: use_build_context_synchronously
+    _showLoadingOverlay(navContext);
+    debugPrint('[Push] Loading overlay shown');
+
+    try {
+      debugPrint('[Push] Fetching share summary: $propertyType / $propertyId');
+      final summary = await _fetchShareSummary(propertyType, propertyId);
+      debugPrint(
+          '[Push] Share summary result: ${summary != null ? "OK (keys: ${summary.keys.join(", ")})" : "NULL (404 or error)"}');
+
+      // Dismiss loading overlay.
+      if (nav.canPop()) {
+        nav.pop();
+        debugPrint('[Push] Loading overlay dismissed');
+      }
+
+      if (summary == null) {
+        debugPrint('[Push] Falling back to minimal feature');
+        _navigateWithMinimalFeature(nav, propertyId, propertyType);
+        return;
+      }
+
+      final featureId = summary['featureId'] as String? ?? propertyId;
+      final name = summary['title'] as String? ?? 'Property';
+      final resolvedType = summary['propertyType'] as String? ?? propertyType;
+
+      debugPrint(
+          '[Push] Resolved: featureId=$featureId, name=$name, type=$resolvedType');
+
+      // Build center GeoJSON from coordinates if available.
+      String? centerGeoJson;
+      final lat = summary['centerLatitude'];
+      final lng = summary['centerLongitude'];
+      if (lat is num && lng is num) {
+        centerGeoJson = '{"type":"Point","coordinates":[$lng,$lat]}';
+      }
+
+      // Handle Layout type separately.
+      if (resolvedType.toLowerCase() == 'layout') {
+        debugPrint('[Push] Pushing LayoutDetailScreen');
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => LayoutDetailScreen(
+              layoutId: featureId,
+              fromDeepLink: true,
+            ),
+          ),
+        );
+        return;
+      }
+
+      final feature = MapPropertyFeature(
+        propertyId: propertyId,
+        featureId: featureId,
+        propertyType: resolvedType,
+        name: name,
+        isOwnedByCurrentUser: false,
+        listingType: null,
+        boundaryGeoJson: null,
+        centerGeoJson: centerGeoJson,
+        metadata: _buildMetadataFromSummary(summary),
+      );
+
+      debugPrint(
+          '[Push] Pushing PropertyDetailScreen (featureId=$featureId, type=$resolvedType)');
+      nav.push(
+        MaterialPageRoute(
+          builder: (_) => PropertyDetailScreen(
+            feature: feature,
+            fromDeepLink: true,
+          ),
+        ),
+      );
+      debugPrint('[Push] PropertyDetailScreen pushed successfully');
+    } catch (e, stack) {
+      // Dismiss loading overlay on error.
+      if (nav.canPop()) nav.pop();
+      debugPrint('[Push] Navigation error: $e');
+      debugPrint('[Push] Stack trace: $stack');
+      // Fallback: navigate with minimal data.
+      _navigateWithMinimalFeature(nav, propertyId, propertyType);
+    }
+  }
+
+  void _navigateWithMinimalFeature(
+    NavigatorState nav,
+    String propertyId,
+    String propertyType,
+  ) {
+    debugPrint(
+        '[Push] _navigateWithMinimalFeature: $propertyType / $propertyId');
     final feature = MapPropertyFeature(
       propertyId: propertyId,
       featureId: propertyId,
-      propertyType: propertyType ?? 'IndependentHouse',
+      propertyType: propertyType,
       name: 'Property',
       isOwnedByCurrentUser: false,
       listingType: null,
@@ -134,6 +266,73 @@ class _RMapAppState extends State<RMapApp> {
         builder: (_) => PropertyDetailScreen(
           feature: feature,
           fromDeepLink: true,
+        ),
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>?> _fetchShareSummary(
+    String propertyType,
+    String featureId,
+  ) async {
+    final baseUrl = ApiConstants.apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final url = '$baseUrl/api/share/property/'
+        '${Uri.encodeComponent(propertyType)}/$featureId';
+
+    debugPrint('[Push] _fetchShareSummary URL: $url');
+
+    try {
+      final response =
+          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+
+      debugPrint('[Push] Share summary HTTP ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        debugPrint('[Push] Share summary body keys: ${body.keys.join(", ")}');
+        return body;
+      } else {
+        debugPrint(
+            '[Push] Share summary non-200 body: ${response.body.length > 200 ? response.body.substring(0, 200) : response.body}');
+      }
+    } catch (e) {
+      debugPrint('[Push] Share summary fetch error: $e');
+    }
+    return null;
+  }
+
+  Map<String, String?> _buildMetadataFromSummary(Map<String, dynamic> s) {
+    return <String, String?>{
+      if (s['location'] != null) 'location': s['location'] as String?,
+      if (s['priceLabel'] != null) 'price': s['priceLabel'] as String?,
+      if (s['areaLabel'] != null) 'area': s['areaLabel'] as String?,
+      if (s['bedroomsLabel'] != null) 'bedrooms': s['bedroomsLabel'] as String?,
+      if (s['listingLabel'] != null) 'listing': s['listingLabel'] as String?,
+      if (s['subtitle'] != null) 'subtitle': s['subtitle'] as String?,
+      if (s['heroImageUrl'] != null)
+        'heroImageUrl': s['heroImageUrl'] as String?,
+    };
+  }
+
+  void _showLoadingOverlay(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Opening property…'),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

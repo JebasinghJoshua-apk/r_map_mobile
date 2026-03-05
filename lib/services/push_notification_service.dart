@@ -160,8 +160,22 @@ class PushNotificationService {
     // notification manually.
   }
 
+  /// Track the last tapped message ID to prevent duplicates
+  /// (getInitialMessage and onMessageOpenedApp can both fire on cold start).
+  String? _lastTappedMessageId;
+
   void _handleNotificationTap(RemoteMessage message) {
-    debugPrint('[Push] Notification tapped: ${message.data}');
+    final msgId = message.messageId ?? '${message.data}';
+    debugPrint(
+        '[Push] _handleNotificationTap called: msgId=$msgId, data=${message.data}');
+
+    // Deduplicate: prevent processing the same message twice.
+    if (_lastTappedMessageId != null && _lastTappedMessageId == msgId) {
+      debugPrint('[Push] Duplicate tap ignored (msgId=$msgId)');
+      return;
+    }
+    _lastTappedMessageId = msgId;
+
     onNotificationTap?.call(message.data);
   }
 
