@@ -252,9 +252,10 @@ class _CommercialSpaceDetailScreenState
                                 value: contactName ?? '-',
                               ),
                               const SizedBox(height: 10),
-                              KeyValueRow(
+                              CallablePhoneRow(
                                 label: 'Phone',
-                                value: phoneNumber ?? '-',
+                                rawValue: phoneNumber,
+                                onCall: callPhoneNumber,
                               ),
                             ],
                           ),

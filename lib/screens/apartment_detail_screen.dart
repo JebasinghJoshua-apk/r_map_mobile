@@ -272,9 +272,10 @@ class _ApartmentDetailScreenState
                                 value: labelOrDash(contactName),
                               ),
                               const SizedBox(height: 10),
-                              KeyValueRow(
+                              CallablePhoneRow(
                                 label: 'Phone',
-                                value: labelOrDash(phoneNumber),
+                                rawValue: phoneNumber,
+                                onCall: callPhoneNumber,
                               ),
                             ],
                           ),

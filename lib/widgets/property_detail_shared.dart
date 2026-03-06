@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/map_viewport_models.dart';
 import '../services/analytics_service.dart';
@@ -51,6 +52,57 @@ mixin PropertyDetailHelpers<T extends StatefulWidget> on State<T> {
 
   String labelOrDash(String? value) =>
       (value ?? '').trim().isEmpty ? '—' : (value ?? '').trim();
+
+  /// Extract the first valid phone number from a raw contact string.
+  String? extractPrimaryPhoneNumber(String? raw) {
+    final trimmed = raw?.trim();
+    if (trimmed == null ||
+        trimmed.isEmpty ||
+        trimmed == '—' ||
+        trimmed == '-') {
+      return null;
+    }
+    final match = RegExp(r'\+?\d[\d\s\-()]{6,}').firstMatch(trimmed)?.group(0);
+    final candidate = (match ?? trimmed).trim();
+    if (candidate.isEmpty) return null;
+    final normalized = candidate
+        .replaceAll(RegExp(r'(?!^)\+'), '')
+        .replaceAll(RegExp(r'[^\d+]'), '');
+    final digits = normalized.replaceAll('+', '');
+    if (digits.length < 7) return null;
+    return normalized;
+  }
+
+  /// Split a raw contact string into individual phone numbers.
+  List<String> splitContactNumbers(String? raw) {
+    final trimmed = raw?.trim();
+    if (trimmed == null ||
+        trimmed.isEmpty ||
+        trimmed == '—' ||
+        trimmed == '-') {
+      return [];
+    }
+    return trimmed
+        .split(RegExp(r'[,;/\n]+'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty && s != '—' && s != '-')
+        .toList();
+  }
+
+  /// Launch the phone dialer for the given raw phone string.
+  Future<void> callPhoneNumber(String? raw) async {
+    final number = extractPrimaryPhoneNumber(raw);
+    if (number == null) {
+      if (!mounted) return;
+      ToastMessage.show(context, 'No valid phone number');
+      return;
+    }
+    final uri = Uri(scheme: 'tel', path: number);
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      ToastMessage.show(context, 'Unable to open dialer');
+    }
+  }
 }
 
 /// Base class for property detail screens with shared state management.
@@ -907,6 +959,100 @@ class KeyValueRow extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A key-value row where phone numbers are tappable to initiate a call.
+class CallablePhoneRow extends StatelessWidget {
+  const CallablePhoneRow({
+    super.key,
+    required this.label,
+    required this.rawValue,
+    required this.onCall,
+  });
+
+  final String label;
+  final String? rawValue;
+  final void Function(String number) onCall;
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmed = rawValue?.trim();
+    final hasValue = trimmed != null &&
+        trimmed.isNotEmpty &&
+        trimmed != '—' &&
+        trimmed != '-';
+
+    // Split into individual numbers for multi-number contacts.
+    final numbers = hasValue
+        ? trimmed
+            .split(RegExp(r'[,;/\n]+'))
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty && s != '—' && s != '-')
+            .toList()
+        : <String>[];
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: numbers.isEmpty
+              ? const Text(
+                  '—',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                )
+              : Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 12,
+                  runSpacing: 6,
+                  children: [
+                    for (final number in numbers)
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => onCall(number),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.phone,
+                              size: 14,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              number,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                decoration: TextDecoration.underline,
+                                decorationThickness: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
         ),
       ],
     );

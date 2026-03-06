@@ -192,9 +192,10 @@ class _PlotDetailScreenState
                                 if (contactName != null && phoneNumber != null)
                                   const SizedBox(height: 10),
                                 if (phoneNumber != null)
-                                  KeyValueRow(
+                                  CallablePhoneRow(
                                     label: 'Phone',
-                                    value: phoneNumber,
+                                    rawValue: phoneNumber,
+                                    onCall: callPhoneNumber,
                                   ),
                               ],
                             ),
