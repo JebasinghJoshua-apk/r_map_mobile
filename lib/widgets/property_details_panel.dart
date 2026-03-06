@@ -499,8 +499,11 @@ class PropertyDetailsPanel extends StatelessWidget {
                           builder: (context, constraints) {
                             // The panel itself is width-constrained; keep the left/right
                             // layout for typical phone widths and only stack on very
-                            // small widths.
-                            final isNarrow = constraints.maxWidth < 340;
+                            // small widths (e.g. foldable inner screens in compact mode).
+                            // Most phones are ≥ 320dp wide; using 300 ensures the Row
+                            // layout is used on all standard devices (even with
+                            // viewportFraction < 1 in carousels).
+                            final isNarrow = constraints.maxWidth < 300;
 
                             return Padding(
                               padding:
