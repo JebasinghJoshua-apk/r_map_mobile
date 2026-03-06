@@ -24,6 +24,18 @@ final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 /// Singleton deep-link service initialised at app startup.
 late final DeepLinkService deepLinkService;
 
+/// Completes when [HomeMapScreen] has initialised and the splash-to-home
+/// transition is done.  Push-notification navigation awaits this so it
+/// doesn't race with the splash screen's [pushReplacement].
+Completer<void> homeScreenReadyCompleter = Completer<void>();
+
+/// Call from [HomeMapScreen.initState] to signal readiness.
+void markHomeScreenReady() {
+  if (!homeScreenReadyCompleter.isCompleted) {
+    homeScreenReadyCompleter.complete();
+  }
+}
+
 class RMapApp extends StatefulWidget {
   const RMapApp({super.key});
 
@@ -136,15 +148,18 @@ class _RMapAppState extends State<RMapApp> {
     String propertyId,
     String propertyType,
   ) async {
-    // Wait for navigator to be ready (cold start: splash → home).
-    NavigatorState? nav;
-    for (var i = 0; i < 20; i++) {
-      nav = appNavigatorKey.currentState;
-      if (nav != null) break;
-      await Future.delayed(const Duration(milliseconds: 200));
+    // Wait for the home screen to be ready (splash → home replacement done)
+    // so that pushReplacement in SplashScreen doesn't clobber our route.
+    try {
+      await homeScreenReadyCompleter.future.timeout(const Duration(seconds: 6));
+    } catch (_) {
+      debugPrint('[Push] HomeScreen not ready after 6s, aborting');
+      return;
     }
+
+    final nav = appNavigatorKey.currentState;
     if (nav == null) {
-      debugPrint('[Push] Navigator not ready after 4s, aborting');
+      debugPrint('[Push] Navigator not available, aborting');
       return;
     }
 
@@ -215,7 +230,7 @@ class _RMapAppState extends State<RMapApp> {
         propertyType: resolvedType,
         name: name,
         isOwnedByCurrentUser: false,
-        listingType: null,
+        listingType: summary['listingLabel'] as String?,
         boundaryGeoJson: null,
         centerGeoJson: centerGeoJson,
         metadata: _buildMetadataFromSummary(summary),
@@ -310,6 +325,14 @@ class _RMapAppState extends State<RMapApp> {
       if (s['subtitle'] != null) 'subtitle': s['subtitle'] as String?,
       if (s['heroImageUrl'] != null)
         'heroImageUrl': s['heroImageUrl'] as String?,
+      if (s['contactName'] != null) 'contactName': s['contactName'] as String?,
+      if (s['contactNumbers'] != null)
+        'contactNumbers': s['contactNumbers'] as String?,
+      if (s['buildingAgeLabel'] != null)
+        'buildingAgeYears': s['buildingAgeLabel'] as String?,
+      if (s['floorsLabel'] != null) 'floors': s['floorsLabel'] as String?,
+      if (s['facingLabel'] != null) 'facing': s['facingLabel'] as String?,
+      if (s['shortCode'] != null) 'shortCode': s['shortCode'] as String?,
     };
   }
 

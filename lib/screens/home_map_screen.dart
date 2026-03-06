@@ -395,6 +395,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     _initFeatureCoachmarks();
     // Signal that the navigator is ready for deep-link navigation.
     deepLinkService.markHomeReady();
+    // Signal that the home screen is ready for push-notification navigation.
+    markHomeScreenReady();
 
     // Check for pending deep link selections after a short delay.
     // This handles cold-start deep links where didPopNext() isn't triggered.
