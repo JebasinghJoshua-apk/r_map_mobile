@@ -243,8 +243,7 @@ class _CommercialSpaceDetailScreenState
                           ),
                         ],
                         const SizedBox(height: 14),
-                        SectionCard(
-                          title: 'CONTACT DETAILS',
+                        AuthGatedContactSection(
                           child: Column(
                             children: [
                               KeyValueRow(

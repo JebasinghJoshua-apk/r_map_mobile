@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -961,6 +962,60 @@ class KeyValueRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Contact details section gated behind authentication.
+///
+/// When the user is not logged in the content is blurred and a prominent
+/// "Login to View" button is shown on top.  Once authenticated the content
+/// is rendered normally.
+class AuthGatedContactSection extends StatelessWidget {
+  const AuthGatedContactSection({
+    super.key,
+    required this.child,
+  });
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final isAuthenticated = AuthScope.of(context).isAuthenticated;
+
+    return SectionCard(
+      title: 'CONTACT DETAILS',
+      child: isAuthenticated
+          ? child
+          : Stack(
+              children: [
+                // Render the real content so the section has a natural height.
+                child,
+                // Blur + login overlay.
+                Positioned.fill(
+                  child: ClipRect(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                      child: Container(
+                        color: Colors.white.withOpacity(0.35),
+                        alignment: Alignment.center,
+                        child: TextButton.icon(
+                          onPressed: () => AuthDialog.showLogin(context),
+                          icon: const Icon(Icons.lock_outline, size: 18),
+                          label: const Text(
+                            'Login to View Contact Details',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }

@@ -197,8 +197,7 @@ class _IndividualPlotsDetailScreenState
                         ],
                         if (contactName != null || phoneNumber != null) ...[
                           const SizedBox(height: 14),
-                          SectionCard(
-                            title: 'CONTACT DETAILS',
+                          AuthGatedContactSection(
                             child: Column(
                               children: [
                                 if (contactName != null)
