@@ -14,6 +14,12 @@ import 'services/push_notification_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Lock orientation to portrait only.
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+
   // Initialize Firebase (analytics is auto-enabled, zero UI-thread cost).
   await Firebase.initializeApp();
 
