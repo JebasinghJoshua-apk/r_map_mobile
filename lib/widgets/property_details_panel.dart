@@ -505,6 +505,25 @@ class PropertyDetailsPanel extends StatelessWidget {
                             // viewportFraction < 1 in carousels).
                             final isNarrow = constraints.maxWidth < 300;
 
+                            // When height is bounded (carousel PageView) AND the
+                            // layout is narrow, use a hero-image card: image fills
+                            // the entire panel with key info overlaid.
+                            final isHeightConstrained =
+                                constraints.maxHeight.isFinite;
+
+                            if (isNarrow && isHeightConstrained) {
+                              // ─── Hero-image compact card ───
+                              // Image fills background; title, price, controls
+                              // overlaid on a gradient at the bottom.
+                              return _buildHeroImageCard(
+                                imagePanelChild: imagePanelChild(),
+                                title: title,
+                                price: price,
+                                canOpenDetails: canOpenDetails,
+                                canToggleSaved: onToggleSaved != null,
+                              );
+                            }
+
                             return Padding(
                               padding:
                                   const EdgeInsets.fromLTRB(10, 10, 12, 10),
@@ -514,8 +533,6 @@ class PropertyDetailsPanel extends StatelessWidget {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        // Slightly taller than 16:9 to give the panel
-                                        // more presence without adding extra padding.
                                         imagePanel(3 / 2),
                                         const SizedBox(height: 8),
                                         detailsPanel(),
@@ -542,6 +559,200 @@ class PropertyDetailsPanel extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// Hero-image compact card for narrow + height-constrained contexts
+  /// (e.g. carousel at highest Android display-size).
+  /// Image with white border padding; title on line 1, price + "View details"
+  /// on line 2. Heart top-left, close top-right.
+  Widget _buildHeroImageCard({
+    required Widget imagePanelChild,
+    required String title,
+    required String? price,
+    required bool canOpenDetails,
+    required bool canToggleSaved,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.all(6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Image with white border ──
+          Expanded(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Background image
+                      Positioned.fill(child: imagePanelChild),
+
+                      // ── Heart icon (top-left) ──
+                      if (canToggleSaved)
+                        Positioned(
+                          top: 2,
+                          left: 2,
+                          child: Material(
+                            type: MaterialType.transparency,
+                            child: InkWell(
+                              onTap: isSaving ? null : onToggleSaved,
+                              borderRadius: BorderRadius.circular(999),
+                              child: Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: isSaving
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation(
+                                              Colors.white),
+                                        ),
+                                      )
+                                    : ((isSaved ?? false)
+                                        ? const Stack(
+                                            alignment: Alignment.center,
+                                            children: [
+                                              Icon(Icons.favorite,
+                                                  size: 26,
+                                                  color: Colors.white54,
+                                                  shadows: [
+                                                    Shadow(
+                                                        color: Colors.white54,
+                                                        blurRadius: 7)
+                                                  ]),
+                                              Icon(Icons.favorite,
+                                                  size: 22,
+                                                  color: Color(0xFFE11D48),
+                                                  shadows: [
+                                                    Shadow(
+                                                        color:
+                                                            Color(0x80000000),
+                                                        blurRadius: 6)
+                                                  ]),
+                                            ],
+                                          )
+                                        : Stack(
+                                            alignment: Alignment.center,
+                                            children: [
+                                              Icon(Icons.favorite,
+                                                  size: 22,
+                                                  color: const Color(0xFF0F172A)
+                                                      .withOpacity(0.18)),
+                                              const Icon(Icons.favorite_border,
+                                                  size: 21,
+                                                  color: Colors.white,
+                                                  shadows: [
+                                                    Shadow(
+                                                        color:
+                                                            Color(0x80000000),
+                                                        blurRadius: 6)
+                                                  ]),
+                                            ],
+                                          )),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                      // ── Close button (top-right) ──
+                      Positioned(
+                        top: 2,
+                        right: 2,
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: InkWell(
+                            onTap: onClose,
+                            borderRadius: BorderRadius.circular(999),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: const Color(0x66000000),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: const Icon(Icons.close,
+                                  size: 16, color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 6),
+
+          // ── Line 1: Title ──
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 2),
+
+          // ── Line 2: Price (left) + View details (right) ──
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Row(
+              children: [
+                // Price
+                if (price != null) ...[
+                  const Icon(Icons.currency_rupee,
+                      size: 10, color: Color(0xFF64748B)),
+                  const SizedBox(width: 2),
+                  Expanded(
+                    child: Text(
+                      price,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                  ),
+                ] else
+                  const Spacer(),
+                // View details
+                if (canOpenDetails)
+                  GestureDetector(
+                    onTap: onOpenDetails,
+                    child: const Text(
+                      'View details →',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF2563EB),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

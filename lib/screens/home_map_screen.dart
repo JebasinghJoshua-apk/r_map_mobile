@@ -364,7 +364,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     }
 
     final parts = raw
-        .split(RegExp(r'[\n,;/|]+'))
+        .split(RegExp(r'[\n,;/.|]+'))
         .map((v) => v.trim())
         .where((v) => v.isNotEmpty)
         .toList();

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -1274,9 +1275,11 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       try {
         final existingCount = _existingPhotos.length;
         final shouldMakePrimary = existingCount == 0 && i == 0;
+        // Convert HEIC/HEIF to JPEG before uploading
+        final fileToUpload = await _ensureUploadableFormat(File(picked.path));
         await _api.uploadPropertyImage(
           propertyId: propertyId,
-          file: File(picked.path),
+          file: fileToUpload,
           bearerToken: token,
           isPrimary: shouldMakePrimary,
           displayOrder: existingCount + i + 1,
@@ -1289,6 +1292,38 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       }
     }
     return failedUploads;
+  }
+
+  /// Converts HEIC/HEIF images to JPEG so the API can accept them.
+  /// Uses Flutter's built-in image codec which supports HEIC on iOS/Android.
+  /// Returns the original file if it's already an allowed format.
+  Future<File> _ensureUploadableFormat(File file) async {
+    final ext = file.path.split('.').last.toLowerCase();
+    if (ext != 'heic' && ext != 'heif') return file;
+
+    try {
+      final bytes = await file.readAsBytes();
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      final image = frame.image;
+      final byteData = await image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+      image.dispose();
+      codec.dispose();
+
+      if (byteData == null) return file;
+
+      // Write as .png in the same directory (API accepts PNG)
+      final pngPath =
+          '${file.path.substring(0, file.path.lastIndexOf('.'))}.png';
+      final pngFile = File(pngPath);
+      await pngFile.writeAsBytes(byteData.buffer.asUint8List());
+      return pngFile;
+    } catch (e) {
+      debugPrint('HEIC conversion failed: $e');
+      return file; // Fall back to original if conversion fails
+    }
   }
 
   Future<void> _showSuccessDialog(String toastMessage) async {

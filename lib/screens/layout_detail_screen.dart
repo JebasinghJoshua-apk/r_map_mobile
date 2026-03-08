@@ -97,7 +97,7 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
     }
 
     // Common separators we see in free-form contact strings.
-    final parts = trimmed.split(RegExp(r'[,;/\n]'));
+    final parts = trimmed.split(RegExp(r'[,;/.\n]'));
     final cleaned = parts.map((p) => p.trim()).where((p) => p.isNotEmpty);
 
     // De-dupe while preserving order.
