@@ -875,8 +875,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         // If the backend already includes unit, show as-is.
         return raw;
       }
-      final rounded = value.round();
-      return '$rounded sqft';
+      // Show decimal only when needed (e.g. 1270.69 → "1270.69", 1300.0 → "1300")
+      final display = value == value.roundToDouble()
+          ? value.toInt().toString()
+          : value.toStringAsFixed(2);
+      return '$display sqft';
     }
     return null;
   }
