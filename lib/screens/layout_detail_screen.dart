@@ -138,7 +138,9 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
     if (hasToken && normalized != _lastSeenToken) {
       _lastSeenToken = normalized;
 
-      if (_detail == null && !_loading) {
+      // Re-fetch when the token arrives — the initial anonymous load may have
+      // returned partial data (e.g. missing contact numbers).
+      if (!_loading) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           _load();

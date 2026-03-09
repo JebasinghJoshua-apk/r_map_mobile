@@ -17,6 +17,7 @@ import '../app.dart';
 import '../constants/api_constants.dart';
 import '../constants/search_constants.dart';
 import '../services/firebase_perf_service.dart';
+import '../services/in_app_update_service.dart';
 import '../services/mobile_bff_map_api.dart';
 import '../services/mobile_bff_plots_api.dart';
 import '../services/performance_logger.dart';
@@ -397,6 +398,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     deepLinkService.markHomeReady();
     // Signal that the home screen is ready for push-notification navigation.
     markHomeScreenReady();
+
+    // Check for in-app updates from Play Store (non-blocking).
+    InAppUpdateService.instance.checkForUpdate();
 
     // Check for pending deep link selections after a short delay.
     // This handles cold-start deep links where didPopNext() isn't triggered.
