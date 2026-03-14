@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:in_app_update/in_app_update.dart';
 
@@ -18,7 +20,9 @@ class InAppUpdateService {
 
   /// Check for an available update and prompt accordingly.
   /// Safe to call multiple times – only runs once per app session.
+  /// No-op on iOS (in_app_update is Android/Play Store only).
   Future<void> checkForUpdate() async {
+    if (!Platform.isAndroid) return;
     if (_checked) return;
     _checked = true;
 

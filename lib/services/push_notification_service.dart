@@ -44,10 +44,6 @@ class PushNotificationService {
       return;
     }
 
-    // Get current token.
-    _fcmToken = await _messaging.getToken();
-    debugPrint('[Push] FCM token: ${_fcmToken?.substring(0, 20)}...');
-
     // Listen for token refreshes.
     _tokenRefreshSub = _messaging.onTokenRefresh.listen((newToken) {
       debugPrint('[Push] FCM token refreshed');
@@ -70,6 +66,23 @@ class PushNotificationService {
       Future.delayed(const Duration(milliseconds: 500), () {
         _handleNotificationTap(initialMessage);
       });
+    }
+
+    try {
+      if (Platform.isIOS) {
+        final apnsToken = await _messaging.getAPNSToken();
+        if (apnsToken == null) {
+          debugPrint(
+            '[Push] APNS token not available yet; skipping FCM token fetch.',
+          );
+          return;
+        }
+      }
+
+      _fcmToken = await _messaging.getToken();
+      debugPrint('[Push] FCM token: ${_fcmToken?.substring(0, 20)}...');
+    } catch (e) {
+      debugPrint('[Push] Unable to fetch FCM token: $e');
     }
   }
 

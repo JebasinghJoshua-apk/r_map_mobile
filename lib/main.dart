@@ -7,6 +7,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 import 'app.dart';
+import 'firebase_options.dart';
 import 'services/firebase_perf_service.dart';
 import 'services/performance_logger.dart';
 import 'services/push_notification_service.dart';
@@ -20,8 +21,16 @@ Future<void> main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Initialize Firebase (analytics is auto-enabled, zero UI-thread cost).
-  await Firebase.initializeApp();
+  // Initialize Firebase.
+  if (kIsWeb ||
+      (defaultTargetPlatform != TargetPlatform.android &&
+          defaultTargetPlatform != TargetPlatform.iOS)) {
+    await Firebase.initializeApp();
+  } else {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
 
   final startupTrace = await FirebasePerfService.startTrace(
     'app_startup_init_to_first_frame',
