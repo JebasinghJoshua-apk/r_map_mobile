@@ -1,6 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../constants/api_constants.dart';
@@ -10,6 +9,7 @@ import '../services/mobile_bff_layouts_api.dart';
 import '../state/auth_scope.dart';
 import '../utils/pending_layout_focus.dart';
 import '../widgets/delimited_bullet_list.dart';
+import '../widgets/property_detail_shared.dart';
 import '../widgets/share_property_sheet.dart';
 import '../widgets/toast_message.dart';
 
@@ -85,28 +85,6 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
     if (!ok && mounted) {
       ToastMessage.show(context, 'Unable to open dialer');
     }
-  }
-
-  List<String> _splitContactNumbers(String? raw) {
-    final trimmed = raw?.trim();
-    if (trimmed == null ||
-        trimmed.isEmpty ||
-        trimmed == '—' ||
-        trimmed == '-') {
-      return const <String>[];
-    }
-
-    // Common separators we see in free-form contact strings.
-    final parts = trimmed.split(RegExp(r'[,;/.\n]'));
-    final cleaned = parts.map((p) => p.trim()).where((p) => p.isNotEmpty);
-
-    // De-dupe while preserving order.
-    final seen = <String>{};
-    final result = <String>[];
-    for (final item in cleaned) {
-      if (seen.add(item)) result.add(item);
-    }
-    return result;
   }
 
   @override
@@ -453,82 +431,19 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
                                 label: 'Location',
                                 value: location ?? '—',
                               ),
-                              if (contactNumbers != null) ...[
-                                const SizedBox(height: 10),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Expanded(
-                                      child: Text(
-                                        'Contact',
-                                        style: TextStyle(
-                                          color: Color(0xFF64748B),
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Builder(
-                                        builder: (context) {
-                                          final numbers = _splitContactNumbers(
-                                              contactNumbers);
-                                          if (numbers.isEmpty) {
-                                            return const Text(
-                                              '—',
-                                              textAlign: TextAlign.right,
-                                              style: TextStyle(
-                                                color: Color(0xFF0F172A),
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w800,
-                                              ),
-                                            );
-                                          }
-
-                                          return Align(
-                                            alignment: Alignment.centerRight,
-                                            child: Wrap(
-                                              alignment: WrapAlignment.end,
-                                              spacing: 12,
-                                              runSpacing: 6,
-                                              children: [
-                                                for (final number in numbers)
-                                                  GestureDetector(
-                                                    behavior:
-                                                        HitTestBehavior.opaque,
-                                                    onTap: () =>
-                                                        _callPhoneNumber(
-                                                            number),
-                                                    child: Text(
-                                                      number,
-                                                      style: TextStyle(
-                                                        color: Theme.of(context)
-                                                            .colorScheme
-                                                            .primary,
-                                                        fontSize: 13,
-                                                        fontWeight:
-                                                            FontWeight.w800,
-                                                        decoration:
-                                                            TextDecoration
-                                                                .underline,
-                                                        decorationThickness:
-                                                            1.5,
-                                                      ),
-                                                    ),
-                                                  ),
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
                             ],
                           ),
                         ),
+                        if (contactNumbers != null) ...[
+                          const SizedBox(height: 14),
+                          AuthGatedContactSection(
+                            child: CallablePhoneRow(
+                              label: 'Phone',
+                              rawValue: contactNumbers,
+                              onCall: _callPhoneNumber,
+                            ),
+                          ),
+                        ],
                         if (additionalInfo != null) ...[
                           const SizedBox(height: 14),
                           _SectionCard(
