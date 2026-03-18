@@ -710,6 +710,7 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
     final ownedLayoutIds = <String>{};
     // Map from layout featureId → opacity level (1-5) for darkening child elements.
     final layoutOpacityMap = <String, int>{};
+    final layoutRoadColorMap = <String, Color>{};
     final nextLayoutPolygons = <Polygon>{};
     final nextPropertyPolygons = <Polygon>{};
     final styleZoom = zoom;
@@ -739,6 +740,14 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
               boLevel <= 5 &&
               id.isNotEmpty) {
             layoutOpacityMap[id] = boLevel;
+          }
+        }
+        // Collect per-layout road color override.
+        final rcRaw = feature.metadata['roadColor'];
+        if (rcRaw != null && id.isNotEmpty) {
+          final parsed = _parseHexColor(rcRaw);
+          if (parsed != null) {
+            layoutRoadColorMap[id] = parsed;
           }
         }
       }
@@ -900,6 +909,15 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
           }
         }
 
+        // Apply per-layout road color override for road-kind sub-plots.
+        if (kind == 'road' && plot.layoutId != null) {
+          final customColor = layoutRoadColorMap[plot.layoutId];
+          if (customColor != null) {
+            stroke = customColor;
+            fill = customColor;
+          }
+        }
+
         // If this plot is focused from a deep link, apply highlight style.
         final focusedId = _focusedPlotIdFromDeepLink;
         final isFocused = focusedId != null && focusedId == plot.plotId;
@@ -961,6 +979,11 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
             ? _roadOpacityFromLevel(roadOpLevel.toString())
             : _roadFillOpacity;
 
+        // Per-layout road color override.
+        final customRoadColor = road.layoutId != null
+            ? layoutRoadColorMap[road.layoutId]
+            : null;
+
         final lines = GeoJson.tryParseLineStrings(road.roadGeoJson);
 
         if (lines.isNotEmpty) {
@@ -977,7 +1000,8 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
                 polylineId: PolylineId('road:${road.roadId}:$i'),
                 points: points,
                 width: width,
-                color: _roadLineStroke.withOpacity(_roadLineStrokeOpacity),
+                color: (customRoadColor ?? _roadLineStroke)
+                    .withOpacity(_roadLineStrokeOpacity),
                 geodesic: true,
               ),
             );
@@ -995,8 +1019,10 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
               polygonId: PolygonId('roadpoly:${road.roadId}:$i'),
               points: points,
               strokeWidth: _roadStrokeWidth,
-              strokeColor: _roadStroke.withOpacity(_roadStrokeOpacity),
-              fillColor: _roadFill.withOpacity(roadFillOp),
+              strokeColor: (customRoadColor ?? _roadStroke)
+                  .withOpacity(_roadStrokeOpacity),
+              fillColor: (customRoadColor ?? _roadFill)
+                  .withOpacity(roadFillOp),
               consumeTapEvents: false,
             ),
           );

@@ -54,6 +54,23 @@ double _roadOpacityFromLevel(String? raw) {
   }
 }
 
+/// Parse a CSS hex color (#RGB or #RRGGBB) into a Flutter [Color].
+/// Returns null if the string is not valid.
+Color? _parseHexColor(String? hex) {
+  if (hex == null || hex.isEmpty) return null;
+  final h = hex.startsWith('#') ? hex.substring(1) : hex;
+  if (h.length == 3) {
+    final r = int.tryParse('${h[0]}${h[0]}', radix: 16);
+    final g = int.tryParse('${h[1]}${h[1]}', radix: 16);
+    final b = int.tryParse('${h[2]}${h[2]}', radix: 16);
+    if (r != null && g != null && b != null) return Color.fromARGB(255, r, g, b);
+  } else if (h.length == 6) {
+    final value = int.tryParse(h, radix: 16);
+    if (value != null) return Color(0xFF000000 | value);
+  }
+  return null;
+}
+
 // Layout preview polygon (shown while full data loads from nearby dialog).
 // Teal colors match web: strokeColor #0d9488 (teal-600), fillColor #99f6e4 (teal-200).
 const Color _layoutPreviewStroke = Color(0xFF0D9488);
