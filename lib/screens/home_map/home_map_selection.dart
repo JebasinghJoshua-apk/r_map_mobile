@@ -187,7 +187,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
         }
         focusCenter ??= effectiveFeature.centerPoint ?? center;
         focusZoom = isLayout
-            ? _layoutFocusZoomTarget
+            ? _layoutFocusZoomFromMetadata(effectiveFeature.metadata)
             : _priceBadgeFocusZoomTarget(type);
       }
 
@@ -489,7 +489,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
         }
         focusCenter ??= effectiveFeature.centerPoint ?? center;
         focusZoom = isLayout
-            ? _layoutFocusZoomTarget
+            ? _layoutFocusZoomFromMetadata(effectiveFeature.metadata)
             : _priceBadgeFocusZoomTarget(type);
       }
 

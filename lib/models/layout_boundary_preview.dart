@@ -10,6 +10,7 @@ class LayoutBoundaryPreview {
     this.centerLatitude,
     this.centerLongitude,
     this.focusZoomLevel,
+    this.mobileFocusZoomLevel,
     this.plotCount = 0,
     this.area,
     this.location,
@@ -23,6 +24,7 @@ class LayoutBoundaryPreview {
   final double? centerLatitude;
   final double? centerLongitude;
   final double? focusZoomLevel;
+  final double? mobileFocusZoomLevel;
   final int plotCount;
   final String? area;
   final String? location;
@@ -50,6 +52,7 @@ class LayoutBoundaryPreview {
       centerLatitude: asDouble(json['centerLatitude']),
       centerLongitude: asDouble(json['centerLongitude']),
       focusZoomLevel: asDouble(json['focusZoomLevel']),
+      mobileFocusZoomLevel: asDouble(json['mobileFocusZoomLevel']),
       plotCount: asInt(json['plotCount']),
       area: json['area']?.toString(),
       location: json['location']?.toString(),

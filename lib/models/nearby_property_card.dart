@@ -12,6 +12,7 @@ class NearbyPropertyCard {
     required this.area,
     required this.plotsCount,
     required this.focusZoomLevel,
+    required this.mobileFocusZoomLevel,
     required this.boundaryGeoJson,
     required this.latitude,
     required this.longitude,
@@ -29,6 +30,7 @@ class NearbyPropertyCard {
   final String? area;
   final int? plotsCount;
   final double? focusZoomLevel;
+  final double? mobileFocusZoomLevel;
   final String? boundaryGeoJson;
   final double latitude;
   final double longitude;
@@ -68,6 +70,7 @@ class NearbyPropertyCard {
       area: json['area']?.toString(),
       plotsCount: asInt(json['plotsCount']),
       focusZoomLevel: asDouble(json['focusZoomLevel']),
+      mobileFocusZoomLevel: asDouble(json['mobileFocusZoomLevel']),
       boundaryGeoJson: json['boundaryGeoJson']?.toString(),
       latitude: asDouble(json['latitude']) ?? 0,
       longitude: asDouble(json['longitude']) ?? 0,

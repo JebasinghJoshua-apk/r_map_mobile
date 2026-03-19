@@ -262,7 +262,7 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
     }
 
     _drawLayoutPreviewPolygonIfAvailable(item.id, item.boundaryGeoJson);
-    final zoom = item.focusZoomLevel ?? _layoutFocusZoomTarget;
+    final zoom = item.mobileFocusZoomLevel ?? item.focusZoomLevel ?? _layoutFocusZoomTarget;
     await _focusPropertyOnMap(
       target: LatLng(item.latitude, item.longitude),
       zoom: zoom,

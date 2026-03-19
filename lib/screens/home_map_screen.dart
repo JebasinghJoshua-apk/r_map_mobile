@@ -990,7 +990,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         }
         focusCenter ??= center;
         focusZoom = isLayout
-            ? _layoutFocusZoomTarget
+            ? _layoutFocusZoomFromMetadata(feature.metadata)
             : _priceBadgeFocusZoomTarget(feature.propertyType);
       }
 
@@ -1684,6 +1684,27 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                       : _buildIndependentHouseCarouselPanel(),
                 ),
               ),
+            // Debug: zoom level overlay
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 8,
+              left: 8,
+              child: IgnorePointer(
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _zoomNotifier,
+                  builder: (_, zoom, __) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black87,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'Z: ${zoom.toStringAsFixed(1)}',
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
