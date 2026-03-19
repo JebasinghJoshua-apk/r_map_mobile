@@ -8,7 +8,8 @@
     <application
         android:label="R Map"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:extractNativeLibs="false">
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyCY-mEvaGFsjSCLSNruAE2jNtfEKOYmgTU" />
