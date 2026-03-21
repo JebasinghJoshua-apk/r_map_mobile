@@ -121,6 +121,9 @@ extension _HomeMapControls on _HomeMapScreenState {
           ToastMessage.show(context, 'Location permission permanently denied');
         return;
       }
+      if (!_myLocationEnabled) {
+        _updateState(() => _myLocationEnabled = true);
+      }
       final locationData = await location.getLocation();
       if (locationData.latitude != null && locationData.longitude != null) {
         await _mapController?.animateCamera(

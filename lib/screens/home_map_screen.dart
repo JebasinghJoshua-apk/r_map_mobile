@@ -137,6 +137,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   bool _isViewportLoading = false;
   Timer? _viewportLoadingTimer;
   bool _isLocating = false;
+  bool _myLocationEnabled = false;
   bool _hasViewportResult = false;
   bool _isViewportFetching = false;
   DateTime? _viewportFetchingStartedAt;
@@ -1291,7 +1292,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
               rotateGesturesEnabled: false,
               tiltGesturesEnabled: false,
               compassEnabled: false,
-              myLocationEnabled: true,
+              myLocationEnabled: _myLocationEnabled,
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,
               // Disable pan/zoom gestures until a place is selected.

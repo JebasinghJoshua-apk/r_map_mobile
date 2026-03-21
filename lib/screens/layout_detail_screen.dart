@@ -694,6 +694,9 @@ class _FullScreenImageGallery extends StatefulWidget {
 class _FullScreenImageGalleryState extends State<_FullScreenImageGallery> {
   late final PageController _controller;
   late int _activeIndex;
+  final TransformationController _transformController =
+      TransformationController();
+  bool _isZoomed = false;
 
   @override
   void initState() {
@@ -701,10 +704,21 @@ class _FullScreenImageGalleryState extends State<_FullScreenImageGallery> {
     final safeInitial = widget.initialIndex.clamp(0, widget.images.length - 1);
     _activeIndex = safeInitial;
     _controller = PageController(initialPage: safeInitial);
+    _transformController.addListener(_onTransformChanged);
+  }
+
+  void _onTransformChanged() {
+    final scale = _transformController.value.getMaxScaleOnAxis();
+    final zoomed = scale > 1.01;
+    if (zoomed != _isZoomed) {
+      setState(() => _isZoomed = zoomed);
+    }
   }
 
   @override
   void dispose() {
+    _transformController.removeListener(_onTransformChanged);
+    _transformController.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -722,13 +736,20 @@ class _FullScreenImageGalleryState extends State<_FullScreenImageGallery> {
               child: PageView.builder(
                 controller: _controller,
                 itemCount: total,
-                onPageChanged: (idx) => setState(() => _activeIndex = idx),
+                physics: _isZoomed
+                    ? const NeverScrollableScrollPhysics()
+                    : null,
+                onPageChanged: (idx) {
+                  _transformController.value = Matrix4.identity();
+                  setState(() => _activeIndex = idx);
+                },
                 itemBuilder: (context, index) {
                   final img = widget.images[index];
                   return Center(
                     child: Hero(
                       tag: 'layout_image_${img.url}',
                       child: InteractiveViewer(
+                        transformationController: _transformController,
                         minScale: 1,
                         maxScale: 4,
                         child: CachedNetworkImage(
