@@ -2,6 +2,7 @@ enum UserRole {
   admin,
   promoter,
   user,
+  layoutDigitizer,
   unknown,
 }
 
@@ -23,6 +24,8 @@ UserRole parseUserRole(String? raw) {
       return UserRole.promoter;
     case 'user':
       return UserRole.user;
+    case 'layoutdigitizer':
+      return UserRole.layoutDigitizer;
   }
 
   // Numeric enum values (string) from upstream.
@@ -33,6 +36,8 @@ UserRole parseUserRole(String? raw) {
       return UserRole.promoter;
     case '3':
       return UserRole.user;
+    case '4':
+      return UserRole.layoutDigitizer;
   }
 
   return UserRole.unknown;
@@ -46,6 +51,8 @@ String userRoleName(UserRole role) {
       return 'Promoter';
     case UserRole.user:
       return 'User';
+    case UserRole.layoutDigitizer:
+      return 'Layout Digitizer';
     case UserRole.unknown:
       return 'Unknown';
   }
