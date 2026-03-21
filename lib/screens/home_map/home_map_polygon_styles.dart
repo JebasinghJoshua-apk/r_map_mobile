@@ -8,7 +8,7 @@ const double _layoutFillHideZoom = 17.0;
 const Color _layoutBoundaryStroke = Color(0xFF1D4ED8);
 const Color _layoutBoundaryFill = Color(0xFF2563EB);
 const double _layoutBoundaryStrokeOpacity = 1.0;
-const double _layoutBoundaryFillOpacity = 0.12;
+const double _layoutBoundaryFillOpacity = 0.28;
 const int _layoutBoundaryStrokeWidth = 2;
 
 /// Convert a boundary-opacity level (1-5, from metadata) to a fill opacity
