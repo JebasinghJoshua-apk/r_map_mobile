@@ -281,7 +281,10 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
         if (didPop && widget.fromDeepLink) {
           // Schedule pending focus so HomeMapScreen can focus this layout
           // when it becomes visible again.
-          PendingLayoutFocus.set(widget.layoutId);
+          PendingLayoutFocus.set(
+            widget.layoutId,
+            boundaryGeoJson: widget.fallbackFeature?.boundaryGeoJson,
+          );
         }
       },
       child: Scaffold(
@@ -395,7 +398,11 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
                             const SizedBox(width: 12),
                             GestureDetector(
                               onTap: () {
-                                PendingLayoutFocus.set(widget.layoutId);
+                                PendingLayoutFocus.set(
+                                  widget.layoutId,
+                                  boundaryGeoJson:
+                                      widget.fallbackFeature?.boundaryGeoJson,
+                                );
                                 Navigator.of(context).pop();
                               },
                               child: Container(

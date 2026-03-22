@@ -478,7 +478,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     // Handle layout focus from deep link.
     final pendingLayoutFocus = PendingLayoutFocus.take();
     if (pendingLayoutFocus != null) {
-      unawaited(_focusLayoutFromDeepLink(pendingLayoutFocus));
+      unawaited(_focusLayoutFromDeepLink(
+        pendingLayoutFocus.layoutId,
+        boundaryGeoJson: pendingLayoutFocus.boundaryGeoJson,
+      ));
     }
   }
 

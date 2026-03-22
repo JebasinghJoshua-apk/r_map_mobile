@@ -1196,7 +1196,10 @@ extension _HomeMapSelection on _HomeMapScreenState {
   ///
   /// This fetches the layout boundary from the share API and animates
   /// the camera to focus on the layout.
-  Future<void> _focusLayoutFromDeepLink(String layoutId) async {
+  Future<void> _focusLayoutFromDeepLink(
+    String layoutId, {
+    String? boundaryGeoJson,
+  }) async {
     if (!mounted) return;
 
     _safeSetState(() {
@@ -1206,25 +1209,38 @@ extension _HomeMapSelection on _HomeMapScreenState {
     // Contract search overlay to see the map.
     _searchOverlayKey.currentState?.contract();
 
+    // Draw pre-loaded boundary immediately if available.
+    if (boundaryGeoJson != null && boundaryGeoJson.isNotEmpty) {
+      _drawLayoutPreviewPolygonIfAvailable(layoutId, boundaryGeoJson);
+    }
+
     // Fetch the layout share summary to get coordinates and boundary.
     final summary = await _fetchLayoutShareSummary(layoutId);
     if (summary == null) {
       return;
     }
 
-    // Draw preview boundary if available.
-    final boundaryGeoJson = summary['boundaryGeoJson'] as String?;
-    if (boundaryGeoJson != null && boundaryGeoJson.isNotEmpty) {
-      _drawLayoutPreviewPolygonIfAvailable(layoutId, boundaryGeoJson);
+    // Draw boundary from API if we didn't already have it.
+    if (boundaryGeoJson == null || boundaryGeoJson.isEmpty) {
+      final apiBoundary = summary['boundaryGeoJson'] as String?;
+      if (apiBoundary != null && apiBoundary.isNotEmpty) {
+        _drawLayoutPreviewPolygonIfAvailable(layoutId, apiBoundary);
+      }
     }
 
     // Focus camera on the layout center.
     final lat = summary['centerLatitude'] as double?;
     final lng = summary['centerLongitude'] as double?;
     if (lat != null && lng != null) {
+      // Use the same zoom-level resolution as layout badge marker tap:
+      // mobileFocusZoomLevel → focusZoomLevel → default 18.5
+      final mobileZoom = (summary['mobileFocusZoomLevel'] as num?)?.toDouble();
+      final webZoom = (summary['focusZoomLevel'] as num?)?.toDouble();
+      final zoom = mobileZoom ?? webZoom ?? _layoutFocusZoomTarget;
+
       await _focusPropertyOnMap(
         target: LatLng(lat, lng),
-        zoom: _layoutFocusZoomTarget,
+        zoom: zoom,
       );
     }
 

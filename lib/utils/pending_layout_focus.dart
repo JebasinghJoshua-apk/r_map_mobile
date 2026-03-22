@@ -6,15 +6,20 @@ class PendingLayoutFocus {
   PendingLayoutFocus._();
 
   static String? _pendingLayoutId;
+  static String? _pendingBoundaryGeoJson;
 
-  static void set(String layoutId) {
+  static void set(String layoutId, {String? boundaryGeoJson}) {
     _pendingLayoutId = layoutId;
+    _pendingBoundaryGeoJson = boundaryGeoJson;
   }
 
-  static String? take() {
-    final next = _pendingLayoutId;
+  static ({String layoutId, String? boundaryGeoJson})? take() {
+    final id = _pendingLayoutId;
+    if (id == null) return null;
+    final boundary = _pendingBoundaryGeoJson;
     _pendingLayoutId = null;
-    return next;
+    _pendingBoundaryGeoJson = null;
+    return (layoutId: id, boundaryGeoJson: boundary);
   }
 
   static bool get hasPending => _pendingLayoutId != null;
