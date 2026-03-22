@@ -318,6 +318,7 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
               },
               icon: const Icon(Icons.share_outlined),
             ),
+            const SizedBox(width: 6),
           ],
         ),
         body: Builder(
@@ -349,42 +350,77 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                        if (location != null) ...[
-                          const SizedBox(height: 10),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Padding(
-                                padding: EdgeInsets.only(top: 2),
-                                child: Icon(
-                                  Icons.location_on_outlined,
-                                  size: 18,
-                                  color: Color(0xFF94A3B8),
-                                ),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    title,
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                  if (location != null) ...[
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.location_on_outlined,
+                                          size: 18,
+                                          color: Color(0xFF94A3B8),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Expanded(
+                                          child: Text(
+                                            location,
+                                            style: const TextStyle(
+                                              color: Color(0xFF64748B),
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              height: 1.35,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
                               ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  location,
-                                  style: const TextStyle(
-                                    color: Color(0xFF64748B),
+                            ),
+                            const SizedBox(width: 12),
+                            GestureDetector(
+                              onTap: () {
+                                PendingLayoutFocus.set(widget.layoutId);
+                                Navigator.of(context).pop();
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0D9488),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Text(
+                                  'View\non Map',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
                                     fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    height: 1.35,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                    height: 1.3,
                                   ),
                                 ),
                               ),
-                            ],
-                          ),
-                        ],
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 16),
                         Row(
                           children: [
