@@ -114,7 +114,7 @@ class _ApartmentDetailScreenState
                                   Text(
                                     title,
                                     style: const TextStyle(
-                                      fontSize: 24,
+                                      fontSize: 20,
                                       fontWeight: FontWeight.w800,
                                       color: Color(0xFF0F172A),
                                     ),
