@@ -503,6 +503,20 @@ class _PropertyPolygonEditorScreenState
 
   bool get _canFinish => _points.length >= 3;
 
+  Future<void> _handleNext() async {
+    if (!_canFinish) return;
+    final navigator = Navigator.of(context);
+    if (widget.onNext != null) {
+      await widget.onNext!(_points);
+      if (!mounted) return;
+      if (widget.popOnNext) {
+        navigator.pop(_points);
+      }
+      return;
+    }
+    navigator.pop(_points);
+  }
+
   Future<void> _zoomIn() async {
     _closeSearchSuggestions(dismissKeyboard: true);
     await _controller?.animateCamera(CameraUpdate.zoomIn());
@@ -1172,20 +1186,7 @@ class _PropertyPolygonEditorScreenState
           Padding(
             padding: EdgeInsets.only(right: 10.w),
             child: FilledButton(
-              onPressed: _canFinish
-                  ? () async {
-                      final navigator = Navigator.of(context);
-                      if (widget.onNext != null) {
-                        await widget.onNext!(_points);
-                        if (!mounted) return;
-                        if (widget.popOnNext) {
-                          navigator.pop(_points);
-                        }
-                        return;
-                      }
-                      navigator.pop(_points);
-                    }
-                  : null,
+              onPressed: _canFinish ? () => unawaited(_handleNext()) : null,
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF0FAD97),
                 padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
@@ -1312,57 +1313,97 @@ class _PropertyPolygonEditorScreenState
                 Expanded(
                   child: Align(
                     alignment: Alignment.bottomCenter,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: 240.w),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12.r),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x14000000),
-                              blurRadius: 10,
-                              offset: Offset(0, 4),
-                            )
-                          ],
-                        ),
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(minHeight: 36.h),
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 12.w,
-                              vertical: 10.h,
+                    child: _canFinish
+                        ? TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.easeOutBack,
+                            builder: (context, value, child) => Transform.scale(
+                              scale: value,
+                              child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.touch_app_outlined,
-                                  size: 16.sp,
-                                  color: const Color(0xFF64748B),
-                                ),
-                                SizedBox(width: 8.w),
-                                Flexible(
-                                  child: Text(
-                                    _canFinish
-                                        ? 'Press Next to continue'
-                                        : 'Tap map to add points (${_points.length}/3).',
-                                    textAlign: TextAlign.center,
-                                    softWrap: true,
-                                    style: TextStyle(
-                                      fontSize: 12.sp,
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF475569),
-                                    ),
+                            child: Container(
+                              width: 220.w,
+                              height: 42.h,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8.r),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0x55FFFFFF),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
+                              ),
+                              child: FilledButton.icon(
+                                onPressed: () => unawaited(_handleNext()),
+                                icon: Icon(Icons.arrow_forward_rounded, size: 18.sp),
+                                label: Text(
+                                  'Next',
+                                  style: TextStyle(
+                                    fontSize: 15.sp,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                              ],
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: const Color(0xFF0FAD97),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8.r),
+                                  ),
+                                  elevation: 0,
+                                ),
+                              ),
+                            ),
+                          )
+                        : ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: 240.w),
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12.r),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0x14000000),
+                                    blurRadius: 10,
+                                    offset: Offset(0, 4),
+                                  )
+                                ],
+                              ),
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(minHeight: 36.h),
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 12.w,
+                                    vertical: 10.h,
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.touch_app_outlined,
+                                        size: 16.sp,
+                                        color: const Color(0xFF64748B),
+                                      ),
+                                      SizedBox(width: 8.w),
+                                      Flexible(
+                                        child: Text(
+                                          'Tap map to add points (${_points.length}/3).',
+                                          textAlign: TextAlign.center,
+                                          softWrap: true,
+                                          style: TextStyle(
+                                            fontSize: 12.sp,
+                                            fontWeight: FontWeight.w600,
+                                            color: const Color(0xFF475569),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    ),
                   ),
                 ),
                 SizedBox(width: 10.w),
