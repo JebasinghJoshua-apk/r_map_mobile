@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_place/google_place.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../constants/search_constants.dart';
 import '../models/auth_session.dart';
@@ -12,6 +13,7 @@ import '../models/my_property_list_item.dart';
 import '../models/recent_place.dart';
 import '../models/saved_property.dart';
 import '../services/analytics_service.dart';
+import '../services/app_settings_service.dart';
 import '../services/mobile_bff_map_api.dart';
 import '../services/mobile_bff_saved_properties_api.dart';
 import '../state/auth_scope.dart';
@@ -915,6 +917,7 @@ class _CompactProfileButton extends StatefulWidget {
 
 class _CompactProfileButtonState extends State<_CompactProfileButton> {
   final GlobalKey _buttonKey = GlobalKey();
+  final AppSettingsService _appSettingsService = AppSettingsService();
 
   Future<void> _handleTap() async {
     final auth = AuthScope.of(context);
@@ -928,11 +931,16 @@ class _CompactProfileButtonState extends State<_CompactProfileButton> {
     final offset = renderBox.localToGlobal(Offset.zero);
     final rect = offset & renderBox.size;
 
+    final appSettings = await _appSettingsService.getSettings();
+
+    if (!mounted) return;
+
     final selected = await _showProfileMenuPopover(
       context: context,
       anchorRect: rect,
       session: session,
       favoritesCount: widget.favoritesCount,
+      appSettings: appSettings,
     );
     if (!mounted || selected == null) {
       return;
@@ -1016,6 +1024,7 @@ Future<_ProfileMenuAction?> _showProfileMenuPopover({
   required Rect anchorRect,
   required AuthSession? session,
   int? favoritesCount,
+  AppSettings appSettings = AppSettings.empty,
 }) async {
   if (!context.mounted) return null;
 
@@ -1179,6 +1188,53 @@ Future<_ProfileMenuAction?> _showProfileMenuPopover({
                               action: _ProfileMenuAction.login,
                             ),
                           ],
+                          // ── Contact Us (always visible) ──
+                          if (appSettings.contactPhone.isNotEmpty ||
+                              appSettings.contactEmail.isNotEmpty ||
+                              appSettings.contactAddress.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            const Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: Color(0xFFE2E8F0),
+                            ),
+                            const SizedBox(height: 8),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 14),
+                              child: Text(
+                                'Contact Us',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                  color: Color(0xFF94A3B8),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            if (appSettings.contactPhone.isNotEmpty)
+                              _ContactRow(
+                                icon: Icons.phone_outlined,
+                                value: appSettings.contactPhone,
+                                onTap: () => launchUrl(
+                                  Uri(scheme: 'tel', path: appSettings.contactPhone),
+                                ),
+                              ),
+                            if (appSettings.contactEmail.isNotEmpty)
+                              _ContactRow(
+                                icon: Icons.email_outlined,
+                                value: appSettings.contactEmail,
+                                onTap: () => launchUrl(
+                                  Uri(scheme: 'mailto', path: appSettings.contactEmail),
+                                ),
+                              ),
+                            if (appSettings.contactAddress.isNotEmpty)
+                              _ContactRow(
+                                icon: Icons.location_on_outlined,
+                                value: appSettings.contactAddress,
+                              ),
+                            const SizedBox(height: 4),
+                          ],
                         ],
                       ),
                     ),
@@ -1256,5 +1312,44 @@ class _ProfilePopoverArrowPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _ProfilePopoverArrowPainter oldDelegate) {
     return oldDelegate.color != color;
+  }
+}
+
+class _ContactRow extends StatelessWidget {
+  const _ContactRow({
+    required this.icon,
+    required this.value,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String value;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 16, color: const Color(0xFF64748B)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF334155),
+                  height: 1.3,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
