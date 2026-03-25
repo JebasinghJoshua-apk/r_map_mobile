@@ -74,6 +74,7 @@ enum _ProfileMenuAction {
   myProperties,
   favorites,
   logout,
+  contactUs,
 }
 
 class SearchOverlayState extends State<SearchOverlay> {
@@ -969,6 +970,9 @@ class _CompactProfileButtonState extends State<_CompactProfileButton> {
           ToastMessage.show(context, 'Logout failed');
         });
         break;
+      case _ProfileMenuAction.contactUs:
+        _showContactUsDialog(context, appSettings);
+        break;
     }
   }
 
@@ -1189,52 +1193,11 @@ Future<_ProfileMenuAction?> _showProfileMenuPopover({
                             ),
                           ],
                           // ── Contact Us (always visible) ──
-                          if (appSettings.contactPhone.isNotEmpty ||
-                              appSettings.contactEmail.isNotEmpty ||
-                              appSettings.contactAddress.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            const Divider(
-                              height: 1,
-                              thickness: 1,
-                              color: Color(0xFFE2E8F0),
-                            ),
-                            const SizedBox(height: 8),
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 14),
-                              child: Text(
-                                'Contact Us',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                  color: Color(0xFF94A3B8),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            if (appSettings.contactPhone.isNotEmpty)
-                              _ContactRow(
-                                icon: Icons.phone_outlined,
-                                value: appSettings.contactPhone,
-                                onTap: () => launchUrl(
-                                  Uri(scheme: 'tel', path: appSettings.contactPhone),
-                                ),
-                              ),
-                            if (appSettings.contactEmail.isNotEmpty)
-                              _ContactRow(
-                                icon: Icons.email_outlined,
-                                value: appSettings.contactEmail,
-                                onTap: () => launchUrl(
-                                  Uri(scheme: 'mailto', path: appSettings.contactEmail),
-                                ),
-                              ),
-                            if (appSettings.contactAddress.isNotEmpty)
-                              _ContactRow(
-                                icon: Icons.location_on_outlined,
-                                value: appSettings.contactAddress,
-                              ),
-                            const SizedBox(height: 4),
-                          ],
+                          buildItem(
+                            icon: Icons.phone_outlined,
+                            label: 'Contact Us',
+                            action: _ProfileMenuAction.contactUs,
+                          ),
                         ],
                       ),
                     ),
@@ -1313,6 +1276,75 @@ class _ProfilePopoverArrowPainter extends CustomPainter {
   bool shouldRepaint(covariant _ProfilePopoverArrowPainter oldDelegate) {
     return oldDelegate.color != color;
   }
+}
+
+void _showContactUsDialog(BuildContext context, AppSettings settings) {
+  showDialog(
+    context: context,
+    builder: (context) => Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Contact Us',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (settings.contactPhone.isNotEmpty)
+              _ContactRow(
+                icon: Icons.phone_outlined,
+                value: settings.contactPhone,
+                onTap: () => launchUrl(
+                  Uri(scheme: 'tel', path: settings.contactPhone),
+                ),
+              ),
+            if (settings.contactEmail.isNotEmpty)
+              _ContactRow(
+                icon: Icons.email_outlined,
+                value: settings.contactEmail,
+                onTap: () => launchUrl(
+                  Uri(scheme: 'mailto', path: settings.contactEmail),
+                ),
+              ),
+            if (settings.contactAddress.isNotEmpty)
+              _ContactRow(
+                icon: Icons.location_on_outlined,
+                value: settings.contactAddress,
+              ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: TextButton.styleFrom(
+                  backgroundColor: const Color(0xFFF1F5F9),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: const Text(
+                  'Close',
+                  style: TextStyle(
+                    color: Color(0xFF475569),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _ContactRow extends StatelessWidget {
