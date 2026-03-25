@@ -1036,7 +1036,7 @@ Future<_ProfileMenuAction?> _showProfileMenuPopover({
   const arrowWidth = 18.0;
   const arrowHeight = 10.0;
   const arrowOverlapIntoPopup = 3.0;
-  const popupWidth = 220.0;
+  const popupWidth = 180.0;
   const popupGap = 9.0;
   const popupOverlapIntoAnchor = 0.0;
 
@@ -1289,13 +1289,26 @@ void _showContactUsDialog(BuildContext context, AppSettings settings) {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Contact Us',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1E293B),
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Contact Us',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: const Icon(
+                    Icons.close,
+                    size: 22,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             if (settings.contactPhone.isNotEmpty)
@@ -1319,22 +1332,28 @@ void _showContactUsDialog(BuildContext context, AppSettings settings) {
                 icon: Icons.location_on_outlined,
                 value: settings.contactAddress,
               ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.center,
               child: TextButton(
                 onPressed: () => Navigator.of(context).pop(),
                 style: TextButton.styleFrom(
-                  backgroundColor: const Color(0xFFF1F5F9),
+                  backgroundColor: const Color(0xFFE2E8F0),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
+                  ),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: const Text(
                   'Close',
                   style: TextStyle(
-                    color: Color(0xFF475569),
+                    fontSize: 12,
+                    color: Color(0xFF334155),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
