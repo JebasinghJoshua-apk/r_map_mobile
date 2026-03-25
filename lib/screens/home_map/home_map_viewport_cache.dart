@@ -952,6 +952,24 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
         final amenityFillOpacity = amenityOpLevel != null
             ? _boundaryOpacityFromLevel(amenityOpLevel.toString())
             : _amenityFillOpacity;
+
+        // Per-amenity-name colors.
+        final Color amenityStroke;
+        final Color amenityFill;
+        switch (amenity.name) {
+          case 'LB':
+            amenityStroke = _amenityLbStroke;
+            amenityFill = _amenityLbFill;
+            break;
+          case 'EB':
+            amenityStroke = _amenityEbStroke;
+            amenityFill = _amenityEbFill;
+            break;
+          default:
+            amenityStroke = _amenityStroke;
+            amenityFill = _amenityFill;
+        }
+
         for (var i = 0; i < polygons.length; i++) {
           final points = polygons[i];
           if (points.length < 3) continue;
@@ -960,8 +978,8 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
               polygonId: PolygonId('amenity:${amenity.amenityId}:$i'),
               points: points,
               strokeWidth: _amenityStrokeWidth,
-              strokeColor: _amenityStroke.withOpacity(_amenityStrokeOpacity),
-              fillColor: _amenityFill.withOpacity(amenityFillOpacity),
+              strokeColor: amenityStroke.withOpacity(_amenityStrokeOpacity),
+              fillColor: amenityFill.withOpacity(amenityFillOpacity),
               consumeTapEvents: false,
               zIndex: 64,
             ),

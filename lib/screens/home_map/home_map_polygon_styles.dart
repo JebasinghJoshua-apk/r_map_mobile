@@ -129,6 +129,12 @@ const double _selectedPlotMaxFocusZoom = 20.5;
 
 const Color _amenityStroke = Color(0xFF0F766E);
 const Color _amenityFill = Color(0xFF65A30D);
+
+// Per-amenity-name colors
+const Color _amenityLbStroke = Color(0xFFE11D48); // Rose 600
+const Color _amenityLbFill = Color(0xFFFB7185);   // Rose 400
+const Color _amenityEbStroke = Color(0xFF4338CA); // Indigo 700
+const Color _amenityEbFill = Color(0xFF6366F1);   // Indigo 500
 const double _amenityStrokeOpacity = 0.95;
 const double _amenityFillOpacity = 0.30;
 const int _amenityStrokeWidth = 1;
