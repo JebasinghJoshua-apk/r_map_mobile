@@ -1282,12 +1282,11 @@ void _showContactUsDialog(BuildContext context, AppSettings settings) {
   showDialog(
     context: context,
     builder: (context) => Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1304,47 +1303,90 @@ void _showContactUsDialog(BuildContext context, AppSettings settings) {
                   onTap: () => Navigator.of(context).pop(),
                   child: const Icon(
                     Icons.close,
-                    size: 22,
+                    size: 18,
                     color: Color(0xFF64748B),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
+            // Phone
             if (settings.contactPhone.isNotEmpty)
-              _ContactRow(
-                icon: Icons.phone_outlined,
-                value: settings.contactPhone,
+              GestureDetector(
                 onTap: () => launchUrl(
                   Uri(scheme: 'tel', path: settings.contactPhone),
                 ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.phone_outlined,
+                        size: 18,
+                        color: Color(0xFF64748B),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          settings.contactPhone,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF2563EB),
+                            fontWeight: FontWeight.w500,
+                            decoration: TextDecoration.underline,
+                            decorationColor: Color(0xFF2563EB),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
+            // Email
             if (settings.contactEmail.isNotEmpty)
-              _ContactRow(
-                icon: Icons.email_outlined,
-                value: settings.contactEmail,
+              GestureDetector(
                 onTap: () => launchUrl(
                   Uri(scheme: 'mailto', path: settings.contactEmail),
                 ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.email_outlined,
+                        size: 18,
+                        color: Color(0xFF64748B),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          settings.contactEmail,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF2563EB),
+                            fontWeight: FontWeight.w500,
+                            decoration: TextDecoration.underline,
+                            decorationColor: Color(0xFF2563EB),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            if (settings.contactAddress.isNotEmpty)
-              _ContactRow(
-                icon: Icons.location_on_outlined,
-                value: settings.contactAddress,
-              ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Align(
               alignment: Alignment.center,
               child: TextButton(
                 onPressed: () => Navigator.of(context).pop(),
                 style: TextButton.styleFrom(
-                  backgroundColor: const Color(0xFFE2E8F0),
+                  backgroundColor: const Color(0xFF0D9488),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 8,
+                    horizontal: 28,
+                    vertical: 10,
                   ),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1352,8 +1394,8 @@ void _showContactUsDialog(BuildContext context, AppSettings settings) {
                 child: const Text(
                   'Close',
                   style: TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF334155),
+                    fontSize: 13,
+                    color: Colors.white,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -1366,41 +1408,4 @@ void _showContactUsDialog(BuildContext context, AppSettings settings) {
   );
 }
 
-class _ContactRow extends StatelessWidget {
-  const _ContactRow({
-    required this.icon,
-    required this.value,
-    this.onTap,
-  });
 
-  final IconData icon;
-  final String value;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 16, color: const Color(0xFF64748B)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFF334155),
-                  height: 1.3,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

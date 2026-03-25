@@ -956,14 +956,17 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
         // Per-amenity-name colors.
         final Color amenityStroke;
         final Color amenityFill;
+        double effectiveFillOpacity = amenityFillOpacity;
         switch (amenity.name) {
           case 'LB':
             amenityStroke = _amenityLbStroke;
             amenityFill = _amenityLbFill;
+            if (amenityOpLevel == null) effectiveFillOpacity = 0.45;
             break;
           case 'EB':
             amenityStroke = _amenityEbStroke;
             amenityFill = _amenityEbFill;
+            if (amenityOpLevel == null) effectiveFillOpacity = 0.45;
             break;
           default:
             amenityStroke = _amenityStroke;
@@ -979,7 +982,7 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
               points: points,
               strokeWidth: _amenityStrokeWidth,
               strokeColor: amenityStroke.withOpacity(_amenityStrokeOpacity),
-              fillColor: amenityFill.withOpacity(amenityFillOpacity),
+              fillColor: amenityFill.withOpacity(effectiveFillOpacity),
               consumeTapEvents: false,
               zIndex: 64,
             ),
