@@ -1180,6 +1180,12 @@ Future<_ProfileMenuAction?> _showProfileMenuPopover({
                               action: _ProfileMenuAction.favorites,
                               badgeCount: favoritesCount,
                             ),
+                            // ── Contact Us (always visible) ──
+                            buildItem(
+                              icon: Icons.phone_outlined,
+                              label: 'Contact Us',
+                              action: _ProfileMenuAction.contactUs,
+                            ),
                             buildItem(
                               icon: Icons.logout,
                               label: 'Logout',
@@ -1191,13 +1197,13 @@ Future<_ProfileMenuAction?> _showProfileMenuPopover({
                               label: 'Login',
                               action: _ProfileMenuAction.login,
                             ),
+                            // ── Contact Us (always visible) ──
+                            buildItem(
+                              icon: Icons.phone_outlined,
+                              label: 'Contact Us',
+                              action: _ProfileMenuAction.contactUs,
+                            ),
                           ],
-                          // ── Contact Us (always visible) ──
-                          buildItem(
-                            icon: Icons.phone_outlined,
-                            label: 'Contact Us',
-                            action: _ProfileMenuAction.contactUs,
-                          ),
                         ],
                       ),
                     ),
