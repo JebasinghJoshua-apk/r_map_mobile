@@ -44,6 +44,15 @@ const int _badgeIconCacheMaxEntries = 2500;
 // Source of truth: r-map-ui/src/components/Map/utils/markerIcons.ts
 const double _layoutBadgeMaxZoom = 17.0;
 
+// Grid cell size (in degrees) used for layout badge clustering at each zoom.
+// Smaller cell = less aggressive clustering.
+double _layoutClusterCellSize(double zoom) {
+  if (zoom <= 13) return 0.012;
+  if (zoom <= 14) return 0.006;
+  if (zoom <= 15) return 0.003;
+  return 0.0015;
+}
+
 const Color _priceBadgeDefaultBackground = Color(0xFF0F766E);
 const Color _priceBadgeDefaultStroke = Color(0xFFFFFFFF);
 const Color _priceBadgeDefaultText = Color(0xFFF8FAFC);
@@ -691,6 +700,149 @@ class _HomeMapIconFactory {
       subtitlePainter.paint(
         canvas,
         ui.Offset(paddingX + (contentWidth - subtitlePainter.width) / 2, textY),
+      );
+    }
+
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(
+      (bubbleWidth * pixelRatio).ceil(),
+      (totalHeight * pixelRatio).ceil(),
+    );
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    final bytes = byteData?.buffer.asUint8List() ?? Uint8List(0);
+    final descriptor =
+        BitmapDescriptor.bytes(bytes, imagePixelRatio: pixelRatio);
+
+    if (_badgeIconCache.length >= _badgeIconCacheMaxEntries) {
+      _badgeIconCache.remove(_badgeIconCache.keys.first);
+    }
+    _badgeIconCache[cacheKey] = descriptor;
+    return descriptor;
+  }
+
+  /// Renders a cluster badge showing the number of grouped layouts.
+  Future<BitmapDescriptor> getLayoutClusterIcon({
+    required int count,
+    required String? subtitle,
+    required double zoom,
+    required double pixelRatio,
+  }) async {
+    final clampedZoom = zoom.clamp(12.0, 20.0);
+    final isBig = clampedZoom >= 16.8;
+
+    final titleFont = isBig ? 13.0 : 11.0;
+    final subtitleFont = isBig ? 10.0 : 9.0;
+    final paddingX = isBig ? 10.0 : 8.0;
+    final paddingY = isBig ? 7.0 : 6.0;
+    final radius = isBig ? 8.0 : 7.0;
+
+    final title = '$count Layouts';
+    final effectiveSubtitle = (subtitle ?? '').trim();
+    final hasSubtitle = effectiveSubtitle.isNotEmpty;
+
+    final cacheKey = [
+      'layout-cluster',
+      count.toString(),
+      effectiveSubtitle,
+      isBig ? '1' : '0',
+      clampedZoom.toStringAsFixed(2),
+      pixelRatio.toStringAsFixed(2),
+    ].join('|');
+
+    final cached = _badgeIconCache.remove(cacheKey);
+    if (cached != null) {
+      _badgeIconCache[cacheKey] = cached;
+      return cached;
+    }
+
+    final titlePainter = TextPainter(
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      ellipsis: '…',
+      text: TextSpan(
+        text: title,
+        style: TextStyle(
+          color: _layoutBadgeTitle,
+          fontSize: titleFont,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.2,
+        ),
+      ),
+    );
+
+    final subtitlePainter = TextPainter(
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      ellipsis: '…',
+      text: TextSpan(
+        text: hasSubtitle ? effectiveSubtitle : '',
+        style: TextStyle(
+          color: _layoutBadgeSubtitle,
+          fontSize: subtitleFont,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.1,
+        ),
+      ),
+    );
+
+    const maxTextWidth = 160.0;
+    titlePainter.layout(maxWidth: maxTextWidth);
+    if (hasSubtitle) {
+      subtitlePainter.layout(maxWidth: maxTextWidth);
+    }
+
+    final contentWidth =
+        math.max(titlePainter.width, hasSubtitle ? subtitlePainter.width : 0);
+    final bubbleWidth = contentWidth + paddingX * 2;
+
+    final contentHeight =
+        titlePainter.height + (hasSubtitle ? subtitlePainter.height + 2.0 : 0);
+    final bubbleHeight = contentHeight + paddingY * 2;
+
+    const pointerHeight = 7.0;
+    const pointerWidth = 16.0;
+    final totalHeight = bubbleHeight + pointerHeight;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+    canvas.scale(pixelRatio);
+
+    final bubble = ui.Path()
+      ..addRRect(
+        ui.RRect.fromRectAndRadius(
+          ui.Rect.fromLTWH(0, 0, bubbleWidth, bubbleHeight),
+          ui.Radius.circular(radius),
+        ),
+      )
+      ..moveTo((bubbleWidth - pointerWidth) / 2, bubbleHeight)
+      ..lineTo(bubbleWidth / 2, totalHeight)
+      ..lineTo((bubbleWidth + pointerWidth) / 2, bubbleHeight)
+      ..close();
+
+    canvas.drawShadow(bubble, _badgeShadowColor, 4.0, true);
+
+    // Use a slightly different background to distinguish clusters.
+    final fillPaint = ui.Paint()
+      ..style = ui.PaintingStyle.fill
+      ..color = const Color(0xFF312E81); // indigo-900
+    final strokePaint = ui.Paint()
+      ..style = ui.PaintingStyle.stroke
+      ..strokeWidth = isBig ? 1.2 : 1.0
+      ..color = _layoutBadgeStroke;
+
+    canvas.drawPath(bubble, fillPaint);
+    canvas.drawPath(bubble, strokePaint);
+
+    var textY = paddingY;
+    titlePainter.paint(canvas,
+        ui.Offset(paddingX + (contentWidth - titlePainter.width) / 2, textY));
+    textY += titlePainter.height;
+    if (hasSubtitle) {
+      textY += 2.0;
+      subtitlePainter.paint(
+        canvas,
+        ui.Offset(
+            paddingX + (contentWidth - subtitlePainter.width) / 2, textY),
       );
     }
 

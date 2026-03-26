@@ -1043,12 +1043,22 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       ));
     }
 
+    // Phase 1b: Cluster overlapping layout badges at low zoom.
+    _clusterLayoutBadges(pendingMarkers, zoom);
+
     // Phase 2: Render all icons in parallel
     final iconFutures = pendingMarkers.map((p) async {
       switch (p.iconType) {
         case _PropertyIconType.layoutBadge:
           return await _iconFactory.getLayoutBadgeIcon(
             title: p.title.isEmpty ? 'Layout' : p.title,
+            subtitle: p.layoutLocation,
+            zoom: zoom,
+            pixelRatio: pixelRatio,
+          );
+        case _PropertyIconType.layoutCluster:
+          return await _iconFactory.getLayoutClusterIcon(
+            count: p.clusterCount,
             subtitle: p.layoutLocation,
             zoom: zoom,
             pixelRatio: pixelRatio,
@@ -1089,6 +1099,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         case _PropertyIconType.layoutBadge:
           anchor = const Offset(0.5, 1.0);
           zIndex = 999999;
+        case _PropertyIconType.layoutCluster:
+          anchor = const Offset(0.5, 1.0);
+          zIndex = 999999;
         case _PropertyIconType.layoutDot:
           anchor = const Offset(0.5, 0.5);
           zIndex = 140;
@@ -1109,34 +1122,39 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
           anchor: anchor,
           zIndex: zIndex,
           onTap: p.isLayout
-              ? (p.shouldShowLayoutBadge
+              ? (p.iconType == _PropertyIconType.layoutCluster
                   ? () => _focusPropertyOnMap(
-                        target: p.focusCenter ?? p.center,
-                        zoom: p.focusZoom ?? _layoutFocusZoomTarget,
+                        target: p.center,
+                        zoom: (zoom + 2).clamp(zoom + 1, _layoutBadgeMaxZoom + 0.5),
                       )
-                  : () {
-                      final layoutId = p.feature.featureId.trim();
-                      if (layoutId.isEmpty) {
-                        ToastMessage.show(
-                          context,
-                          'Layout details not available',
-                        );
-                        return;
-                      }
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (!mounted) return;
-                        _dismissKeyboard();
-                        _closeAnyPanel();
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => LayoutDetailScreen(
-                              layoutId: layoutId,
-                              fallbackFeature: p.feature,
-                            ),
-                          ),
-                        );
-                      });
-                    })
+                  : p.shouldShowLayoutBadge
+                      ? () => _focusPropertyOnMap(
+                            target: p.focusCenter ?? p.center,
+                            zoom: p.focusZoom ?? _layoutFocusZoomTarget,
+                          )
+                      : () {
+                          final layoutId = p.feature.featureId.trim();
+                          if (layoutId.isEmpty) {
+                            ToastMessage.show(
+                              context,
+                              'Layout details not available',
+                            );
+                            return;
+                          }
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (!mounted) return;
+                            _dismissKeyboard();
+                            _closeAnyPanel();
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => LayoutDetailScreen(
+                                  layoutId: layoutId,
+                                  fallbackFeature: p.feature,
+                                ),
+                              ),
+                            );
+                          });
+                        })
               // IndependentHouse, Land, CommercialSpace, ApartmentFlat - all use carousel
               : () => unawaited(
                     _handleCarouselPropertyTapped(
@@ -1151,6 +1169,47 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     }
 
     return Set<Marker>.unmodifiable(nextMarkers);
+  }
+
+  /// Groups nearby layout badge markers into clusters using a grid-based
+  /// spatial hash. Mutates [markers] in-place: keeps one representative per
+  /// cell and removes the rest, converting the representative to a cluster
+  /// badge when the cell contains more than one layout.
+  void _clusterLayoutBadges(List<_PendingPropertyMarker> markers, double zoom) {
+    if (zoom > _layoutBadgeMaxZoom) return; // no badges visible → nothing to cluster
+
+    final cellSize = _layoutClusterCellSize(zoom);
+    // Map from grid-cell key → index of the representative marker in [markers].
+    final cells = <String, int>{};
+    // Indices to remove (absorbed into a cluster).
+    final toRemove = <int>{};
+
+    for (var i = 0; i < markers.length; i++) {
+      final m = markers[i];
+      if (m.iconType != _PropertyIconType.layoutBadge) continue;
+
+      final cellX = (m.center.longitude / cellSize).floor();
+      final cellY = (m.center.latitude / cellSize).floor();
+      final key = '$cellX,$cellY';
+
+      final existing = cells[key];
+      if (existing == null) {
+        cells[key] = i;
+      } else {
+        // Merge into the existing representative.
+        final rep = markers[existing];
+        rep.clusterCount += 1;
+        rep.iconType = _PropertyIconType.layoutCluster;
+        toRemove.add(i);
+      }
+    }
+
+    if (toRemove.isEmpty) return;
+    // Remove absorbed markers in reverse to preserve indices.
+    final sorted = toRemove.toList()..sort((a, b) => b.compareTo(a));
+    for (final idx in sorted) {
+      markers.removeAt(idx);
+    }
   }
 
   LatLngBounds _expandBounds(LatLngBounds bounds, double multiplier) {
@@ -1698,6 +1757,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 /// Icon types for property markers.
 enum _PropertyIconType {
   layoutBadge,
+  layoutCluster,
   layoutDot,
   priceBadge,
   defaultMarker,
@@ -1705,7 +1765,7 @@ enum _PropertyIconType {
 
 /// Helper class for pending property marker data.
 class _PendingPropertyMarker {
-  const _PendingPropertyMarker({
+  _PendingPropertyMarker({
     required this.feature,
     required this.center,
     required this.title,
@@ -1717,6 +1777,7 @@ class _PendingPropertyMarker {
     required this.shouldShowLayoutBadge,
     required this.layoutLocation,
     required this.iconType,
+    this.clusterCount = 1,
   });
 
   final MapPropertyFeature feature;
@@ -1729,5 +1790,6 @@ class _PendingPropertyMarker {
   final double? focusZoom;
   final bool shouldShowLayoutBadge;
   final String? layoutLocation;
-  final _PropertyIconType iconType;
+  _PropertyIconType iconType;
+  int clusterCount;
 }
