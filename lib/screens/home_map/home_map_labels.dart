@@ -439,10 +439,15 @@ extension _HomeMapLabels on _HomeMapScreenState {
       final a = points.first;
       final b = points.last;
       final bearingFromNorth = _bearingDegrees(a, b);
-      var rotation = (bearingFromNorth - 90 + 360) % 360;
-      if (rotation > 90 && rotation < 270) {
-        rotation = (rotation + 180) % 360;
+      // Google Maps Marker.rotation is clockwise from North.
+      // Normalize to [0, 180) so text always reads left-to-right / bottom-to-top.
+      var rotation = bearingFromNorth % 360;
+      if (rotation >= 180) {
+        rotation -= 180;
       }
+      // Snap near-vertical labels (>170°) to 0° so all vertical roads
+      // consistently read in the same direction regardless of polygon winding.
+      if (rotation > 170) rotation = 0;
       return rotation;
     }
 
@@ -450,11 +455,17 @@ extension _HomeMapLabels on _HomeMapScreenState {
     final angle = 0.5 * math.atan2(2 * sxy, sxx - syy);
     final angleDeg = _radToDeg(angle);
 
-    // Convert to marker rotation: 0 means east/west text, positive clockwise.
-    var rotation = (-angleDeg + 360) % 360;
-    if (rotation > 90 && rotation < 270) {
-      rotation = (rotation + 180) % 360;
+    // Convert PCA angle (CCW from east) to Google Maps marker rotation
+    // (CW from north): markerRotation = 90 - angleDeg.
+    // Then normalize to [0, 180) so text is never upside-down.
+    var rotation = (90 - angleDeg) % 360;
+    if (rotation < 0) rotation += 360;
+    if (rotation >= 180) {
+      rotation -= 180;
     }
+    // Snap near-vertical labels (>170°) to 0° so all vertical roads
+    // consistently read in the same direction regardless of polygon winding.
+    if (rotation > 170) rotation = 0;
     return rotation;
   }
 
