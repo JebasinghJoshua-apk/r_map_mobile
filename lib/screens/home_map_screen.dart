@@ -1062,6 +1062,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
             subtitle: p.layoutLocation,
             zoom: zoom,
             pixelRatio: pixelRatio,
+            titleOverride: p.clusterTitle,
           );
         case _PropertyIconType.layoutDot:
           return await _iconFactory.getLayoutMarkerDotIcon(
@@ -1171,18 +1172,36 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     return Set<Marker>.unmodifiable(nextMarkers);
   }
 
+  /// Strips trailing Roman numeral or numeric suffixes to extract a base name.
+  /// e.g. "Thirumal Nagar I" → "Thirumal Nagar",
+  ///      "Thirumal Nagar III" → "Thirumal Nagar",
+  ///      "Sai Garden 2" → "Sai Garden".
+  static String _layoutBaseName(String name) {
+    // Remove trailing Roman numerals (I, II, III, IV, V, VI, VII, VIII, IX, X, etc.)
+    // or plain digits, optionally preceded by a dash or dot.
+    final stripped = name
+        .replaceFirst(
+          RegExp(
+            r'[\s\-\.]+(?:X{0,3}(?:IX|IV|V?I{0,3})|\d+)\s*$',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .trim();
+    return stripped.isEmpty ? name.trim() : stripped;
+  }
+
   /// Groups nearby layout badge markers into clusters using a grid-based
-  /// spatial hash. Mutates [markers] in-place: keeps one representative per
-  /// cell and removes the rest, converting the representative to a cluster
-  /// badge when the cell contains more than one layout.
+  /// spatial hash. Within each grid cell, layouts that share the same base
+  /// name (ignoring trailing Roman numeral / numeric suffixes) are merged
+  /// into a single badge like "Thirumal Nagar(3)". Remaining layouts that
+  /// don't share a name are merged with the generic count label.
   void _clusterLayoutBadges(List<_PendingPropertyMarker> markers, double zoom) {
     if (zoom > _layoutBadgeMaxZoom) return; // no badges visible → nothing to cluster
 
     final cellSize = _layoutClusterCellSize(zoom);
-    // Map from grid-cell key → index of the representative marker in [markers].
-    final cells = <String, int>{};
-    // Indices to remove (absorbed into a cluster).
-    final toRemove = <int>{};
+    // Map from grid-cell key → sub-map of baseName → list of marker indices.
+    final cells = <String, Map<String, List<int>>>{};
 
     for (var i = 0; i < markers.length; i++) {
       final m = markers[i];
@@ -1190,17 +1209,31 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
       final cellX = (m.center.longitude / cellSize).floor();
       final cellY = (m.center.latitude / cellSize).floor();
-      final key = '$cellX,$cellY';
+      final cellKey = '$cellX,$cellY';
+      final baseName = _layoutBaseName(m.title);
 
-      final existing = cells[key];
-      if (existing == null) {
-        cells[key] = i;
-      } else {
-        // Merge into the existing representative.
-        final rep = markers[existing];
-        rep.clusterCount += 1;
+      cells.putIfAbsent(cellKey, () => <String, List<int>>{});
+      cells[cellKey]!.putIfAbsent(baseName, () => <int>[]);
+      cells[cellKey]![baseName]!.add(i);
+    }
+
+    final toRemove = <int>{};
+
+    for (final cell in cells.values) {
+      for (final entry in cell.entries) {
+        final indices = entry.value;
+        if (indices.length <= 1) continue;
+
+        // Use the first marker as the representative.
+        final rep = markers[indices.first];
+        rep.clusterCount = indices.length;
         rep.iconType = _PropertyIconType.layoutCluster;
-        toRemove.add(i);
+        rep.clusterTitle = '${entry.key}(${indices.length})';
+
+        // Mark the rest for removal.
+        for (var j = 1; j < indices.length; j++) {
+          toRemove.add(indices[j]);
+        }
       }
     }
 
@@ -1792,4 +1825,5 @@ class _PendingPropertyMarker {
   final String? layoutLocation;
   _PropertyIconType iconType;
   int clusterCount;
+  String? clusterTitle;
 }

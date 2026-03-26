@@ -721,11 +721,14 @@ class _HomeMapIconFactory {
   }
 
   /// Renders a cluster badge showing the number of grouped layouts.
+  /// When [titleOverride] is provided (e.g. "Thirumal Nagar(3)"), it is used
+  /// as the badge label instead of the generic "N Layouts".
   Future<BitmapDescriptor> getLayoutClusterIcon({
     required int count,
     required String? subtitle,
     required double zoom,
     required double pixelRatio,
+    String? titleOverride,
   }) async {
     final clampedZoom = zoom.clamp(12.0, 20.0);
     final isBig = clampedZoom >= 16.8;
@@ -736,13 +739,13 @@ class _HomeMapIconFactory {
     final paddingY = isBig ? 7.0 : 6.0;
     final radius = isBig ? 8.0 : 7.0;
 
-    final title = '$count Layouts';
+    final title = titleOverride ?? '$count Layouts';
     final effectiveSubtitle = (subtitle ?? '').trim();
     final hasSubtitle = effectiveSubtitle.isNotEmpty;
 
     final cacheKey = [
       'layout-cluster',
-      count.toString(),
+      title,
       effectiveSubtitle,
       isBig ? '1' : '0',
       clampedZoom.toStringAsFixed(2),
