@@ -409,81 +409,53 @@ extension _HomeMapLabels on _HomeMapScreenState {
   double? _dominantRotationDegrees(List<LatLng> points) {
     if (points.length < 2) return null;
 
-    // Project to local-ish coordinates: x = lng*cos(lat0), y = lat.
+    // Find the longest segment — matches the Next.js approach for consistent
+    // label direction across platforms.
     final lat0 =
         points.map((p) => p.latitude).reduce((a, b) => a + b) / points.length;
     final cosLat0 = math.cos(_degToRad(lat0));
 
-    var meanX = 0.0;
-    var meanY = 0.0;
-    for (final p in points) {
-      meanX += p.longitude * cosLat0;
-      meanY += p.latitude;
-    }
-    meanX /= points.length;
-    meanY /= points.length;
+    LatLng? bestStart;
+    LatLng? bestEnd;
+    var bestScore = 0.0;
 
-    var sxx = 0.0;
-    var syy = 0.0;
-    var sxy = 0.0;
-    for (final p in points) {
-      final x = p.longitude * cosLat0 - meanX;
-      final y = p.latitude - meanY;
-      sxx += x * x;
-      syy += y * y;
-      sxy += x * y;
-    }
-
-    // If variance is tiny, fallback to first/last bearing.
-    if ((sxx + syy) <= 1e-12) {
-      final a = points.first;
-      final b = points.last;
-      final bearingFromNorth = _bearingDegrees(a, b);
-      // Google Maps Marker.rotation is clockwise from North.
-      // Normalize to [0, 180) so text always reads left-to-right / bottom-to-top.
-      var rotation = bearingFromNorth % 360;
-      if (rotation >= 180) {
-        rotation -= 180;
+    for (var i = 0; i < points.length - 1; i++) {
+      final s = points[i];
+      final e = points[i + 1];
+      final dx = (e.longitude - s.longitude) * cosLat0;
+      final dy = e.latitude - s.latitude;
+      final score = dx * dx + dy * dy;
+      if (score > bestScore) {
+        bestScore = score;
+        bestStart = s;
+        bestEnd = e;
       }
-      // Snap near-vertical labels (>170°) to 0° so all vertical roads
-      // consistently read in the same direction regardless of polygon winding.
-      if (rotation > 170) rotation = 0;
-      return rotation;
     }
 
-    // PCA angle of principal axis, radians from +x (east), CCW.
-    final angle = 0.5 * math.atan2(2 * sxy, sxx - syy);
-    final angleDeg = _radToDeg(angle);
-
-    // Convert PCA angle (CCW from east) to Google Maps marker rotation
-    // (CW from north): markerRotation = 90 - angleDeg.
-    // Then normalize to [0, 180) so text is never upside-down.
-    var rotation = (90 - angleDeg) % 360;
-    if (rotation < 0) rotation += 360;
-    if (rotation >= 180) {
-      rotation -= 180;
+    if (bestStart == null || bestEnd == null || bestScore <= 1e-18) {
+      return null;
     }
-    // Snap near-vertical labels (>170°) to 0° so all vertical roads
+
+    // Compute angle from the longest segment using atan2 (same as Next.js).
+    // On the map: x = east (right), y = north (up on map, but screen y is down).
+    // atan2(dy, dx) gives CCW from east in math coords.
+    // CSS rotate() and flat marker rotation are both CW-positive in screen space.
+    // Since screen-y is flipped vs map-y, negate dy to get the correct screen angle.
+    final dx = (bestEnd.longitude - bestStart.longitude) * cosLat0;
+    final dy = bestEnd.latitude - bestStart.latitude;
+    var angleDeg = (math.atan2(-dy, dx) * 180) / math.pi;
+    // Normalize to [-90, 90) so text is never upside-down.
+    if (angleDeg >= 90) angleDeg -= 180;
+    if (angleDeg < -90) angleDeg += 180;
+    // Snap near-vertical labels (>80°) to -90° so all vertical roads
     // consistently read in the same direction regardless of polygon winding.
-    if (rotation > 170) rotation = 0;
-    return rotation;
-  }
+    if (angleDeg > 80) angleDeg = -90;
 
-  double _bearingDegrees(LatLng from, LatLng to) {
-    final lat1 = _degToRad(from.latitude);
-    final lat2 = _degToRad(to.latitude);
-    final dLon = _degToRad(to.longitude - from.longitude);
-
-    final y = math.sin(dLon) * math.cos(lat2);
-    final x = math.cos(lat1) * math.sin(lat2) -
-        math.sin(lat1) * math.cos(lat2) * math.cos(dLon);
-    final brng = math.atan2(y, x);
-    final deg = (_radToDeg(brng) + 360) % 360;
-    return deg;
+    // Use the angle directly as flat marker rotation (same as CSS rotate).
+    return angleDeg;
   }
 
   double _degToRad(double deg) => deg * math.pi / 180.0;
-  double _radToDeg(double rad) => rad * 180.0 / math.pi;
 }
 
 /// Helper class for pending plot label data.
