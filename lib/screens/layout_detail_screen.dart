@@ -1,5 +1,8 @@
+import 'dart:io' show Platform;
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../constants/api_constants.dart';
@@ -84,6 +87,36 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && mounted) {
       ToastMessage.show(context, 'Unable to open dialer');
+    }
+  }
+
+  Future<void> _openDirections() async {
+    final center = widget.fallbackFeature?.centerPoint;
+    if (center == null) {
+      if (!mounted) return;
+      ToastMessage.show(context, 'Location not available');
+      return;
+    }
+    final lat = center.latitude;
+    final lng = center.longitude;
+    final Uri uri;
+    if (Platform.isIOS) {
+      uri = Uri.parse(
+        'comgooglemaps://?daddr=$lat,$lng&directionsmode=driving',
+      );
+    } else {
+      uri = Uri.parse('google.navigation:q=$lat,$lng');
+    }
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok) {
+      final webUri = Uri.parse(
+        'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
+      );
+      final webOk =
+          await launchUrl(webUri, mode: LaunchMode.externalApplication);
+      if (!webOk && mounted) {
+        ToastMessage.show(context, 'Unable to open maps');
+      }
     }
   }
 
@@ -517,6 +550,8 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
                             ),
                           ),
                         ],
+                        const SizedBox(height: 14),
+                        DirectionsButton(onTap: _openDirections),
                       ],
                     ),
                   ),

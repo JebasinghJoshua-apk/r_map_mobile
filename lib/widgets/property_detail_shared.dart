@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/map_viewport_models.dart';
@@ -102,6 +104,37 @@ mixin PropertyDetailHelpers<T extends StatefulWidget> on State<T> {
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && mounted) {
       ToastMessage.show(context, 'Unable to open dialer');
+    }
+  }
+
+  /// Open Google Maps navigation to the given coordinates.
+  Future<void> openDirections(LatLng? target) async {
+    if (target == null) {
+      if (!mounted) return;
+      ToastMessage.show(context, 'Location not available');
+      return;
+    }
+    final lat = target.latitude;
+    final lng = target.longitude;
+    final Uri uri;
+    if (Platform.isIOS) {
+      uri = Uri.parse(
+        'comgooglemaps://?daddr=$lat,$lng&directionsmode=driving',
+      );
+    } else {
+      uri = Uri.parse('google.navigation:q=$lat,$lng');
+    }
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok) {
+      // Fallback to web Google Maps.
+      final webUri = Uri.parse(
+        'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
+      );
+      final webOk =
+          await launchUrl(webUri, mode: LaunchMode.externalApplication);
+      if (!webOk && mounted) {
+        ToastMessage.show(context, 'Unable to open maps');
+      }
     }
   }
 }
@@ -1131,6 +1164,37 @@ class CallablePhoneRow extends StatelessWidget {
                 ),
         ),
       ],
+    );
+  }
+}
+
+/// Minimal directions button that opens Google Maps navigation.
+class DirectionsButton extends StatelessWidget {
+  const DirectionsButton({super.key, required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: onTap,
+        icon: const Icon(Icons.directions, size: 18),
+        label: const Text('Get Directions'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF0D9488),
+          side: const BorderSide(color: Color(0xFF0D9488), width: 1.2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          textStyle: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
     );
   }
 }

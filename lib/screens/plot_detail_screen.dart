@@ -236,6 +236,11 @@ class _PlotDetailScreenState
                             ),
                           ),
                         ],
+                        const SizedBox(height: 14),
+                        DirectionsButton(
+                          onTap: () =>
+                              openDirections(widget.feature.centerPoint),
+                        ),
                       ],
                     ),
                   ),
