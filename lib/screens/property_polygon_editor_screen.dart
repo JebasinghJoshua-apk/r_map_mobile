@@ -53,6 +53,8 @@ class _PropertyPolygonEditorScreenState
   static const LatLng _fallbackCenter = LatLng(20.5937, 78.9629); // India
   static const Color _viewportGrayStroke = Color(0xFF4B5563);
   static const Color _viewportGrayFill = Color(0x654B5563);
+  static const Color _plotStroke = Color(0xFF6B7280);
+  static const Color _plotFill = Color(0x00000000);
 
   late final LatLng _center;
   late final double _zoom;
@@ -63,6 +65,7 @@ class _PropertyPolygonEditorScreenState
   Timer? _viewportDebounce;
   int _viewportSeq = 0;
   Set<Polygon> _viewportPropertyPolygons = const <Polygon>{};
+  Set<Polygon> _viewportPlotPolygons = const <Polygon>{};
 
   final Map<String, BitmapDescriptor> _labelIconCache =
       <String, BitmapDescriptor>{};
@@ -196,9 +199,32 @@ class _PropertyPolygonEditorScreenState
       }
     }
 
+    // Parse plot polygons
+    final plotPolygons = <Polygon>{};
+    for (final plot in response.plots) {
+      final plotRings = GeoJson.tryParsePolygons(plot.boundaryGeoJson);
+      if (plotRings.isEmpty) continue;
+      for (var i = 0; i < plotRings.length; i++) {
+        final ring = plotRings[i];
+        if (ring.length < 3) continue;
+        plotPolygons.add(
+          Polygon(
+            polygonId: PolygonId('plt:${plot.plotId}:$i'),
+            points: ring,
+            strokeColor: _plotStroke,
+            fillColor: _plotFill,
+            strokeWidth: 2,
+            zIndex: 2,
+            consumeTapEvents: false,
+          ),
+        );
+      }
+    }
+
     if (!mounted || requestId != _viewportSeq) return;
     setState(() {
       _viewportPropertyPolygons = Set<Polygon>.unmodifiable(polygons);
+      _viewportPlotPolygons = Set<Polygon>.unmodifiable(plotPolygons);
     });
   }
 
@@ -1223,6 +1249,7 @@ class _PropertyPolygonEditorScreenState
             },
             polygons: {
               ..._viewportPropertyPolygons,
+              ..._viewportPlotPolygons,
               if (polygon != null) polygon,
             },
             onTap: _addPoint,

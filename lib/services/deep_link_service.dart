@@ -245,8 +245,8 @@ class DeepLinkService {
                 summary['propertyType'] as String? ?? resolved.propertyType,
             name: summary['title'] as String? ?? 'Property',
             isOwnedByCurrentUser: false,
-            listingType: null,
-            boundaryGeoJson: null,
+            listingType: summary['listingLabel'] as String?,
+            boundaryGeoJson: summary['boundaryGeoJson'] as String?,
             centerGeoJson: centerGeoJson,
             metadata: _buildMetadataFromSummary(summary),
           );
@@ -326,8 +326,8 @@ class DeepLinkService {
               summary['propertyType'] as String? ?? target.propertyType,
           name: summary['title'] as String? ?? 'Property',
           isOwnedByCurrentUser: false,
-          listingType: null,
-          boundaryGeoJson: null,
+          listingType: summary['listingLabel'] as String?,
+          boundaryGeoJson: summary['boundaryGeoJson'] as String?,
           centerGeoJson: centerGeoJson,
           metadata: _buildMetadataFromSummary(summary),
         );
@@ -430,6 +430,24 @@ class DeepLinkService {
       if (s['subtitle'] != null) 'subtitle': s['subtitle'] as String?,
       if (s['heroImageUrl'] != null)
         'heroImageUrl': s['heroImageUrl'] as String?,
+      if (s['description'] != null)
+        'description': s['description'] as String?,
+      if (s['contactName'] != null)
+        'contactName': s['contactName'] as String?,
+      if (s['contactNumbers'] != null)
+        'contactNumbers': s['contactNumbers'] as String?,
+      if (s['facingLabel'] != null) 'facing': s['facingLabel'] as String?,
+      if (s['additionalDetails'] != null)
+        'additionalInformation': s['additionalDetails'] as String?,
+      if (s['subtitle'] != null) 'landType': s['subtitle'] as String?,
+      if (s['buildingAgeLabel'] != null)
+        'buildingAge': s['buildingAgeLabel'] as String?,
+      if (s['floorsLabel'] != null) 'floors': s['floorsLabel'] as String?,
+      if (s['shortCode'] != null) 'shortCode': s['shortCode'] as String?,
+      if (s['surveyNumber'] != null)
+        'surveyNumber': s['surveyNumber'] as String?,
+      if (s['approvalNumber'] != null)
+        'approvalNumber': s['approvalNumber'] as String?,
     };
   }
 
