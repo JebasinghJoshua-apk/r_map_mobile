@@ -12,7 +12,7 @@ class MobileBffPlotsApi {
 
   final http.Client _client;
 
-  static const Duration _timeout = Duration(seconds: 12);
+  static const Duration _timeout = Duration(seconds: 20);
 
   Uri _uri(String path) {
     final normalizedBase = ApiConstants.mobileBffBaseUrl.endsWith('/')
