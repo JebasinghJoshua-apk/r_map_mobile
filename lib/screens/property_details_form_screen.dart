@@ -13,6 +13,7 @@ import '../services/mobile_bff_map_api.dart';
 import '../state/auth_scope.dart';
 import '../utils/geojson.dart';
 import '../utils/pending_map_focus.dart';
+import '../utils/user_role.dart';
 import '../widgets/auth_dialog.dart';
 import '../widgets/property_form/property_form.dart';
 import '../widgets/toast_message.dart';
@@ -79,6 +80,14 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
 
   // Contact prefill flag
   bool _didPrefillContactFromUser = false;
+
+  // Assigned owner (admin-only)
+  String? _assignedOwnerUserId;
+  String? _assignedOwnerName;
+  List<Map<String, dynamic>> _userSearchResults = <Map<String, dynamic>>[];
+  bool _isSearchingUsers = false;
+  final TextEditingController _userSearchController = TextEditingController();
+  Timer? _userSearchDebounce;
 
   // Text controllers
   late final TextEditingController _plotTitleController;
@@ -262,6 +271,8 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     _landContactNumberController.dispose();
     _commercialContactNameController.dispose();
     _commercialContactNumberController.dispose();
+    _userSearchController.dispose();
+    _userSearchDebounce?.cancel();
 
     super.dispose();
   }
@@ -289,6 +300,161 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     final baseUri = Uri.parse(normalizedBase);
     final relative = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
     return baseUri.resolve(relative).toString();
+  }
+
+  //===========================================================================
+  // Assigned Owner Search (Admin only)
+  //===========================================================================
+
+  void _onUserSearchChanged(String query) {
+    _userSearchDebounce?.cancel();
+    if (query.trim().length < 2) {
+      setState(() => _userSearchResults = []);
+      return;
+    }
+    _userSearchDebounce = Timer(const Duration(milliseconds: 400), () {
+      _performUserSearch(query.trim());
+    });
+  }
+
+  Future<void> _performUserSearch(String query) async {
+    final session = AuthScope.of(context).session;
+    final token = session?.token;
+    if (token == null) return;
+
+    setState(() => _isSearchingUsers = true);
+    try {
+      final results = await _api.searchUsers(
+        query: query,
+        bearerToken: token,
+      );
+      if (mounted) {
+        setState(() {
+          _userSearchResults = results;
+          _isSearchingUsers = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isSearchingUsers = false);
+    }
+  }
+
+  void _selectUser(Map<String, dynamic> user) {
+    setState(() {
+      _assignedOwnerUserId = user['id']?.toString();
+      _assignedOwnerName =
+          (user['name'] ?? '').toString().trim();
+      _userSearchController.text = _assignedOwnerName ?? '';
+      _userSearchResults = [];
+    });
+  }
+
+  void _clearAssignedOwner() {
+    setState(() {
+      _assignedOwnerUserId = null;
+      _assignedOwnerName = null;
+      _userSearchController.clear();
+      _userSearchResults = [];
+    });
+  }
+
+  Widget _buildAssignedOwnerSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        const Divider(),
+        const SizedBox(height: 8),
+        const Text(
+          'Assign Owner (Admin)',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF334155),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _userSearchController,
+          decoration: InputDecoration(
+            hintText: 'Search by name or phone...',
+            prefixIcon: const Icon(Icons.person_search, size: 20),
+            suffixIcon: _assignedOwnerUserId != null
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 20),
+                    onPressed: _clearAssignedOwner,
+                  )
+                : _isSearchingUsers
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : null,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
+          onChanged: _onUserSearchChanged,
+          readOnly: false,
+        ),
+        if (_assignedOwnerUserId != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            'Assigned: $_assignedOwnerName',
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF0FAD97),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+        if (_userSearchResults.isNotEmpty)
+          Container(
+            constraints: const BoxConstraints(maxHeight: 200),
+            margin: const EdgeInsets.only(top: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x1A000000),
+                  blurRadius: 8,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: _userSearchResults.length,
+              separatorBuilder: (_, __) =>
+                  const Divider(height: 1, indent: 12),
+              itemBuilder: (_, i) {
+                final user = _userSearchResults[i];
+                final name = (user['name'] ?? '').toString();
+                final phone = (user['phone'] ?? '').toString();
+                final role = (user['role'] ?? '').toString();
+                return ListTile(
+                  dense: true,
+                  title: Text(name,
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w500)),
+                  subtitle: Text('$phone • $role',
+                      style: const TextStyle(fontSize: 12)),
+                  onTap: () => _selectUser(user),
+                );
+              },
+            ),
+          ),
+        const SizedBox(height: 8),
+        const Divider(),
+      ],
+    );
   }
 
   //===========================================================================
@@ -687,6 +853,13 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         _propertyType = resolvedType;
         _listingType = listing;
         _prefillPropertyFields(entity);
+        _assignedOwnerUserId =
+            _pickString(entity, ['assignedOwnerUserId']);
+        _assignedOwnerName =
+            _pickString(entity, ['assignedOwnerName']);
+        if (_assignedOwnerName != null && _assignedOwnerName!.isNotEmpty) {
+          _userSearchController.text = _assignedOwnerName!;
+        }
         _prefillRevision += 1;
         _didPrefillFromEditPayload = true;
       });
@@ -1058,6 +1231,11 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
       }
       setState(() {});
       return;
+    }
+
+    // Inject assigned owner for admin edits
+    if (_isEdit && _assignedOwnerUserId != null && result.payload != null) {
+      result.payload!['assignedOwnerUserId'] = _assignedOwnerUserId;
     }
 
     setState(() {
@@ -1538,6 +1716,10 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   @override
   Widget build(BuildContext context) {
     final showListingType = _propertyType != 'Layouts';
+    final session = AuthScope.of(context).session;
+    final isAdmin =
+        session?.user.roleValue == UserRole.admin;
+    final showAssignedOwner = _isEdit && isAdmin;
     return WillPopScope(
       onWillPop: () async => !_isSaving && !_isPrefilling,
       child: Scaffold(
@@ -1606,6 +1788,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
                   ),
                   const SizedBox(height: 10),
                   ..._buildPropertyFields(),
+                  if (showAssignedOwner) _buildAssignedOwnerSection(),
                   const SizedBox(height: 16),
                   PropertyPhotoSection(
                     existingPhotos: _existingPhotos,

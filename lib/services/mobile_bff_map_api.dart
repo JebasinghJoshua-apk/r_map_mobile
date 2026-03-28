@@ -985,6 +985,54 @@ class MobileBffMapApi {
       debugPrint('MobileBFF diagnostics failed: $e');
     }
   }
+
+  /// Search users by name or phone number (admin-only).
+  /// Returns a list of `{id, name, phone, email, role}` maps.
+  Future<List<Map<String, dynamic>>> searchUsers({
+    required String query,
+    String? bearerToken,
+  }) async {
+    final encoded = Uri.encodeQueryComponent(query);
+    final uri = _uri('/mobile/users/search?q=$encoded');
+
+    http.Response response;
+    try {
+      final headers = <String, String>{};
+      if (bearerToken != null && bearerToken.trim().isNotEmpty) {
+        final token = bearerToken.toLowerCase().startsWith('bearer ')
+            ? bearerToken.substring('bearer '.length)
+            : bearerToken;
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      response = await _client
+          .get(uri, headers: headers.isEmpty ? null : headers)
+          .timeout(_timeout);
+    } on SocketException {
+      throw const MapApiException('Cannot connect to the server.');
+    } on HttpException {
+      throw const MapApiException('Network error. Please try again.');
+    } on TimeoutException {
+      throw const MapApiException('Request timed out. Please try again.');
+    }
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is List) {
+        return decoded.cast<Map<String, dynamic>>();
+      }
+      return <Map<String, dynamic>>[];
+    }
+
+    if (response.statusCode == 403) {
+      throw const MapApiException('Admin access required.');
+    }
+
+    throw MapApiException(
+      _tryMessage(response.body) ??
+          'User search failed (${response.statusCode})',
+    );
+  }
 }
 
 class MapApiException implements Exception {
