@@ -7,10 +7,11 @@ import 'package:http/http.dart' as http;
 
 import '../constants/api_constants.dart';
 import '../models/saved_property.dart';
+import 'auth_aware_http_client.dart';
 
 class MobileBffSavedPropertiesApi {
   MobileBffSavedPropertiesApi({http.Client? client})
-      : _client = client ?? http.Client();
+      : _client = client ?? AuthAwareHttpClient.instance;
 
   final http.Client _client;
 

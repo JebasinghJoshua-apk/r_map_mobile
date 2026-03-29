@@ -13,11 +13,13 @@ import '../models/map_viewport_models.dart';
 import '../models/my_property_list_item.dart';
 import '../models/nearby_property_card.dart';
 import '../models/property_detail.dart';
+import 'auth_aware_http_client.dart';
 import 'firebase_perf_service.dart';
 import 'performance_logger.dart';
 
 class MobileBffMapApi {
-  MobileBffMapApi({http.Client? client}) : _client = client ?? http.Client();
+  MobileBffMapApi({http.Client? client})
+      : _client = client ?? AuthAwareHttpClient.instance;
 
   final http.Client _client;
 

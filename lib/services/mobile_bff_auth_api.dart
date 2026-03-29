@@ -7,9 +7,11 @@ import 'package:http/http.dart' as http;
 
 import '../constants/api_constants.dart';
 import '../models/auth_session.dart';
+import 'auth_aware_http_client.dart';
 
 class MobileBffAuthApi {
-  MobileBffAuthApi({http.Client? client}) : _client = client ?? http.Client();
+  MobileBffAuthApi({http.Client? client})
+      : _client = client ?? AuthAwareHttpClient.instance;
 
   final http.Client _client;
 

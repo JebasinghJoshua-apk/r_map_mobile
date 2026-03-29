@@ -105,6 +105,19 @@ class AuthState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Silently clear the local session when the server reports 401.
+  /// Unlike [logout], this skips device un-registration (token is already
+  /// invalid) and resets the HTTP interceptor guard so the callback can
+  /// fire again after re-login.
+  Future<void> forceLogout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_userKey);
+    _session = null;
+    AnalyticsService.instance.setUserId(null);
+    notifyListeners();
+  }
+
   /// Sends OTP to the specified phone number.
   Future<SendOtpResult> sendOtp({
     required String phoneNumber,

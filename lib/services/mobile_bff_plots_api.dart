@@ -6,9 +6,11 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../constants/api_constants.dart';
+import 'auth_aware_http_client.dart';
 
 class MobileBffPlotsApi {
-  MobileBffPlotsApi({http.Client? client}) : _client = client ?? http.Client();
+  MobileBffPlotsApi({http.Client? client})
+      : _client = client ?? AuthAwareHttpClient.instance;
 
   final http.Client _client;
 

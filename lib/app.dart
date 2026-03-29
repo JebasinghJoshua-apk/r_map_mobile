@@ -11,11 +11,13 @@ import 'screens/layout_detail_screen.dart';
 import 'screens/property_detail_screen.dart';
 import 'screens/splash_screen.dart';
 import 'services/analytics_service.dart';
+import 'services/auth_aware_http_client.dart';
 import 'services/deep_link_service.dart';
 import 'services/push_notification_service.dart';
 import 'state/auth_scope.dart';
 import 'state/auth_state.dart';
 import 'utils/route_observer.dart';
+import 'widgets/session_expired_dialog.dart';
 
 /// Global navigator key used by the deep-link service to push routes from
 /// outside the widget tree.
@@ -52,6 +54,9 @@ class _RMapAppState extends State<RMapApp> {
     _authState = AuthState();
     _authState.initialize();
 
+    // When any API call returns 401, force-logout and prompt re-login.
+    AuthAwareHttpClient.onSessionExpired = _onSessionExpired;
+
     deepLinkService = DeepLinkService(navigatorKey: appNavigatorKey);
     deepLinkService.initialize();
 
@@ -61,6 +66,7 @@ class _RMapAppState extends State<RMapApp> {
 
   @override
   void dispose() {
+    AuthAwareHttpClient.onSessionExpired = null;
     PushNotificationService.instance.onNotificationTap = null;
     deepLinkService.dispose();
     _authState.dispose();
@@ -124,6 +130,25 @@ class _RMapAppState extends State<RMapApp> {
         );
       },
     );
+  }
+
+  /// Called by [AuthAwareHttpClient] when any API returns 401.
+  /// Clears the stale session and shows a re-login prompt.
+  void _onSessionExpired() {
+    // Only act if the user was actually logged in.
+    if (!_authState.isAuthenticated) return;
+
+    _authState.forceLogout();
+
+    // Show dialog on the next frame so the navigator context is available.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = appNavigatorKey.currentContext;
+      if (ctx != null) {
+        SessionExpiredDialog.show(ctx);
+      }
+      // Allow the interceptor to fire again after the user re-logs in.
+      AuthAwareHttpClient.reset();
+    });
   }
 
   /// Navigate to the property detail screen when a push notification is tapped.
