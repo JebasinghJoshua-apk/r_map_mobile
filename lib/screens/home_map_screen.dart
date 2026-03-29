@@ -1197,7 +1197,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   /// into a single badge like "Thirumal Nagar(3)". Remaining layouts that
   /// don't share a name are merged with the generic count label.
   void _clusterLayoutBadges(List<_PendingPropertyMarker> markers, double zoom) {
-    if (zoom > _layoutBadgeMaxZoom) return; // no badges visible → nothing to cluster
+    if (zoom > _layoutClusterMaxZoom) return; // mid-zoom: show individual badges
 
     final cellSize = _layoutClusterCellSize(zoom);
     // Map from grid-cell key → sub-map of baseName → list of marker indices.

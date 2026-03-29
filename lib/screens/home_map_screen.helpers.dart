@@ -42,7 +42,12 @@ const int _badgeIconCacheMaxEntries = 2500;
 
 // Keep badge marker styling aligned with the web app.
 // Source of truth: r-map-ui/src/components/Map/utils/markerIcons.ts
-const double _layoutBadgeMaxZoom = 17.0;
+const double _layoutBadgeMaxZoom = 17.5;
+
+// Below this zoom, nearby same-name layouts are clustered into a single
+// badge like "யோகா நகர்(2)". Between this and [_layoutBadgeMaxZoom],
+// each layout gets its own individual badge (intermediate level).
+const double _layoutClusterMaxZoom = 15.5;
 
 // Grid cell size (in degrees) used for layout badge clustering at each zoom.
 // Smaller cell = less aggressive clustering.
