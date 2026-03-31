@@ -177,9 +177,9 @@ extension _HomeMapDimensions on _HomeMapScreenState {
 
   /// Stepped font-size scaling for dimension labels.
   double _dimensionFontSize(double zoom) {
-    if (zoom >= 21.0) return 12;
-    if (zoom >= 20.5) return 11;
-    if (zoom >= 20.2) return 10;
+    if (zoom >= 21.0) return 14;
+    if (zoom >= 20.5) return 13;
+    if (zoom >= 20.2) return 12;
     if (zoom >= 20.0) return 9;
     return 8;
   }

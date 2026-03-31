@@ -240,7 +240,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                                   fontWeight: FontWeight.w700,
                                                 ),
                                               ),
-                                              const SizedBox(height: 8),
+                                              const SizedBox(height: 9),
                                               Container(
                                                 padding:
                                                     const EdgeInsets.symmetric(
@@ -267,7 +267,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                                 ),
                                               ),
                                               if (showLayoutDetailsLink) ...[
-                                                const SizedBox(height: 16),
+                                                const SizedBox(height: 18),
                                                 Center(
                                                   child: TextButton(
                                                     onPressed:
