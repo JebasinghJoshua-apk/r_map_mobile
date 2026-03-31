@@ -1043,8 +1043,12 @@ class AuthGatedContactSection extends StatelessWidget {
           ? child
           : Stack(
               children: [
-                // Render the real content so the section has a natural height.
-                child,
+                // Render the real content so the section has a natural height,
+                // but ensure enough room for the login overlay text.
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  child: child,
+                ),
                 // Blur + login overlay.
                 Positioned.fill(
                   child: ClipRect(
