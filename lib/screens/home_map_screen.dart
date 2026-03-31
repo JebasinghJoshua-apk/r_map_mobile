@@ -1009,17 +1009,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       }
 
       final shouldShowLayoutBadge = isLayout && zoom <= _layoutBadgeMaxZoom;
-      final layoutLocation = shouldShowLayoutBadge
-          ? _getMetadataValue(
-              feature.metadata,
-              const <String>[
-                'location',
-                'locality',
-                'city',
-                'area',
-              ],
-            )
-          : null;
 
       // Determine icon type
       _PropertyIconType iconType;
@@ -1043,7 +1032,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         focusCenter: focusCenter,
         focusZoom: focusZoom,
         shouldShowLayoutBadge: shouldShowLayoutBadge,
-        layoutLocation: layoutLocation,
         iconType: iconType,
       ));
     }
@@ -1057,14 +1045,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         case _PropertyIconType.layoutBadge:
           return await _iconFactory.getLayoutBadgeIcon(
             title: p.title.isEmpty ? 'Layout' : p.title,
-            subtitle: p.layoutLocation,
             zoom: zoom,
             pixelRatio: pixelRatio,
           );
         case _PropertyIconType.layoutCluster:
           return await _iconFactory.getLayoutClusterIcon(
             count: p.clusterCount,
-            subtitle: p.layoutLocation,
             zoom: zoom,
             pixelRatio: pixelRatio,
             titleOverride: p.clusterTitle,
@@ -1814,7 +1800,6 @@ class _PendingPropertyMarker {
     required this.focusCenter,
     required this.focusZoom,
     required this.shouldShowLayoutBadge,
-    required this.layoutLocation,
     required this.iconType,
     this.clusterCount = 1,
   });
@@ -1828,7 +1813,6 @@ class _PendingPropertyMarker {
   final LatLng? focusCenter;
   final double? focusZoom;
   final bool shouldShowLayoutBadge;
-  final String? layoutLocation;
   _PropertyIconType iconType;
   int clusterCount;
   String? clusterTitle;

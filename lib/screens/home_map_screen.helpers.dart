@@ -47,7 +47,7 @@ const double _layoutBadgeMaxZoom = 17.5;
 // Below this zoom, nearby same-name layouts are clustered into a single
 // badge like "யோகா நகர்(2)". Between this and [_layoutBadgeMaxZoom],
 // each layout gets its own individual badge (intermediate level).
-const double _layoutClusterMaxZoom = 15.5;
+const double _layoutClusterMaxZoom = 15.0;
 
 // Grid cell size (in degrees) used for layout badge clustering at each zoom.
 // Smaller cell = less aggressive clustering.
@@ -84,7 +84,7 @@ const Color _priceBadgePlotText = Color(0xFFF8FAFC);
 const Color _layoutBadgeBackground = Color(0xFF3730A3);
 const Color _layoutBadgeStroke = Color(0xFFEEF2FF);
 const Color _layoutBadgeTitle = Color(0xFFF8FAFC);
-const Color _layoutBadgeSubtitle = Color(0xFFC7D2FE);
+
 
 const Color _badgeShadowColor = Color(0x590F172A);
 
@@ -587,27 +587,19 @@ class _HomeMapIconFactory {
 
   Future<BitmapDescriptor> getLayoutBadgeIcon({
     required String title,
-    required String? subtitle,
     required double zoom,
     required double pixelRatio,
   }) async {
     final clampedZoom = zoom.clamp(12.0, 20.0);
-    final isBig = clampedZoom >= 16.8;
 
-    final titleFont = isBig ? 13.0 : 11.0;
-    final subtitleFont = isBig ? 10.0 : 9.0;
-    final paddingX = isBig ? 10.0 : 8.0;
-    final paddingY = isBig ? 7.0 : 6.0;
-    final radius = isBig ? 8.0 : 7.0;
-
-    final effectiveSubtitle = (subtitle ?? '').trim();
-    final hasSubtitle = effectiveSubtitle.isNotEmpty;
+    const titleFont = 11.0;
+    const paddingX = 8.0;
+    const paddingY = 6.0;
+    const radius = 7.0;
 
     final cacheKey = [
       'layout-badge',
       title,
-      effectiveSubtitle,
-      isBig ? '1' : '0',
       clampedZoom.toStringAsFixed(2),
       pixelRatio.toStringAsFixed(2),
     ].join('|');
@@ -633,34 +625,14 @@ class _HomeMapIconFactory {
       ),
     );
 
-    final subtitlePainter = TextPainter(
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-      ellipsis: '…',
-      text: TextSpan(
-        text: hasSubtitle ? effectiveSubtitle : '',
-        style: TextStyle(
-          color: _layoutBadgeSubtitle,
-          fontSize: subtitleFont,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.1,
-        ),
-      ),
-    );
-
-    // Keep it reasonably compact; we can expand later if needed.
-    const maxTextWidth = 160.0;
+    // Wider text at higher zoom so full name is revealed as user zooms in.
+    final maxTextWidth = clampedZoom >= 16.0 ? 220.0 : 110.0;
     titlePainter.layout(maxWidth: maxTextWidth);
-    if (hasSubtitle) {
-      subtitlePainter.layout(maxWidth: maxTextWidth);
-    }
 
-    final contentWidth =
-        math.max(titlePainter.width, hasSubtitle ? subtitlePainter.width : 0);
+    final contentWidth = titlePainter.width;
     final bubbleWidth = contentWidth + paddingX * 2;
 
-    final contentHeight =
-        titlePainter.height + (hasSubtitle ? subtitlePainter.height + 2.0 : 0);
+    final contentHeight = titlePainter.height;
     final bubbleHeight = contentHeight + paddingY * 2;
 
     const pointerHeight = 7.0;
@@ -690,23 +662,14 @@ class _HomeMapIconFactory {
       ..color = _layoutBadgeBackground;
     final strokePaint = ui.Paint()
       ..style = ui.PaintingStyle.stroke
-      ..strokeWidth = isBig ? 1.2 : 1.0
+      ..strokeWidth = 1.0
       ..color = _layoutBadgeStroke;
 
     canvas.drawPath(bubble, fillPaint);
     canvas.drawPath(bubble, strokePaint);
 
-    var textY = paddingY;
     titlePainter.paint(canvas,
-        ui.Offset(paddingX + (contentWidth - titlePainter.width) / 2, textY));
-    textY += titlePainter.height;
-    if (hasSubtitle) {
-      textY += 2.0;
-      subtitlePainter.paint(
-        canvas,
-        ui.Offset(paddingX + (contentWidth - subtitlePainter.width) / 2, textY),
-      );
-    }
+        ui.Offset(paddingX + (contentWidth - titlePainter.width) / 2, paddingY));
 
     final picture = recorder.endRecording();
     final image = await picture.toImage(
@@ -730,29 +693,22 @@ class _HomeMapIconFactory {
   /// as the badge label instead of the generic "N Layouts".
   Future<BitmapDescriptor> getLayoutClusterIcon({
     required int count,
-    required String? subtitle,
     required double zoom,
     required double pixelRatio,
     String? titleOverride,
   }) async {
     final clampedZoom = zoom.clamp(12.0, 20.0);
-    final isBig = clampedZoom >= 16.8;
 
-    final titleFont = isBig ? 13.0 : 11.0;
-    final subtitleFont = isBig ? 10.0 : 9.0;
-    final paddingX = isBig ? 10.0 : 8.0;
-    final paddingY = isBig ? 7.0 : 6.0;
-    final radius = isBig ? 8.0 : 7.0;
+    const titleFont = 11.0;
+    const paddingX = 8.0;
+    const paddingY = 6.0;
+    const radius = 7.0;
 
     final title = titleOverride ?? '$count Layouts';
-    final effectiveSubtitle = (subtitle ?? '').trim();
-    final hasSubtitle = effectiveSubtitle.isNotEmpty;
 
     final cacheKey = [
       'layout-cluster',
       title,
-      effectiveSubtitle,
-      isBig ? '1' : '0',
       clampedZoom.toStringAsFixed(2),
       pixelRatio.toStringAsFixed(2),
     ].join('|');
@@ -778,33 +734,13 @@ class _HomeMapIconFactory {
       ),
     );
 
-    final subtitlePainter = TextPainter(
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-      ellipsis: '…',
-      text: TextSpan(
-        text: hasSubtitle ? effectiveSubtitle : '',
-        style: TextStyle(
-          color: _layoutBadgeSubtitle,
-          fontSize: subtitleFont,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.1,
-        ),
-      ),
-    );
-
-    const maxTextWidth = 160.0;
+    final maxTextWidth = clampedZoom >= 16.0 ? 220.0 : 110.0;
     titlePainter.layout(maxWidth: maxTextWidth);
-    if (hasSubtitle) {
-      subtitlePainter.layout(maxWidth: maxTextWidth);
-    }
 
-    final contentWidth =
-        math.max(titlePainter.width, hasSubtitle ? subtitlePainter.width : 0);
+    final contentWidth = titlePainter.width;
     final bubbleWidth = contentWidth + paddingX * 2;
 
-    final contentHeight =
-        titlePainter.height + (hasSubtitle ? subtitlePainter.height + 2.0 : 0);
+    final contentHeight = titlePainter.height;
     final bubbleHeight = contentHeight + paddingY * 2;
 
     const pointerHeight = 7.0;
@@ -835,24 +771,14 @@ class _HomeMapIconFactory {
       ..color = const Color(0xFF312E81); // indigo-900
     final strokePaint = ui.Paint()
       ..style = ui.PaintingStyle.stroke
-      ..strokeWidth = isBig ? 1.2 : 1.0
+      ..strokeWidth = 1.0
       ..color = _layoutBadgeStroke;
 
     canvas.drawPath(bubble, fillPaint);
     canvas.drawPath(bubble, strokePaint);
 
-    var textY = paddingY;
     titlePainter.paint(canvas,
-        ui.Offset(paddingX + (contentWidth - titlePainter.width) / 2, textY));
-    textY += titlePainter.height;
-    if (hasSubtitle) {
-      textY += 2.0;
-      subtitlePainter.paint(
-        canvas,
-        ui.Offset(
-            paddingX + (contentWidth - subtitlePainter.width) / 2, textY),
-      );
-    }
+        ui.Offset(paddingX + (contentWidth - titlePainter.width) / 2, paddingY));
 
     final picture = recorder.endRecording();
     final image = await picture.toImage(

@@ -99,7 +99,7 @@ extension _HomeMapViewport on _HomeMapScreenState {
       return;
     }
 
-    final zoom = _effectiveZoom ?? _lastCameraPosition.zoom;
+    final zoom = _lastCameraPosition.zoom;
     final selectedType = _selectedPropertyType?.trim();
     final propertyTypes = (selectedType == null || selectedType.isEmpty)
         ? <String>[]
