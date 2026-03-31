@@ -60,6 +60,7 @@ part 'home_map/home_map_carousel.dart';
 part 'home_map/home_map_controls.dart';
 part 'home_map/home_map_selection.dart';
 part 'home_map/home_map_labels.dart';
+part 'home_map/home_map_dimensions.dart';
 part 'home_map/home_map_nearby_layouts.dart';
 
 class _PropertyMediaCacheEntry {
@@ -225,6 +226,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   Set<Marker> _plotLabelMarkers = <Marker>{};
   Set<Marker> _roadLabelMarkers = <Marker>{};
   Set<Marker> _amenityLabelMarkers = <Marker>{};
+  Set<Marker> _dimensionMarkers = <Marker>{};
+
+  /// Current viewport plots for dimension label rendering at very high zoom.
+  List<MapPlotFeature> _currentViewportPlots = const [];
 
   Set<Polygon> _layoutPolygons = <Polygon>{};
   Set<Polygon> _propertyPolygons = <Polygon>{};
@@ -1328,6 +1333,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       ..._plotLabelMarkers,
       ..._roadLabelMarkers,
       ..._amenityLabelMarkers,
+      ..._dimensionMarkers,
     };
 
     return PopScope(

@@ -880,6 +880,7 @@ class _HomeMapIconFactory {
     required EdgeInsets padding,
     required double borderRadius,
     List<Shadow>? shadows,
+    FontWeight fontWeight = FontWeight.w600,
   }) async {
     final cacheKey = [
       'label',
@@ -892,6 +893,7 @@ class _HomeMapIconFactory {
       borderRadius.toStringAsFixed(1),
       _shadowsSignature(shadows),
       pixelRatio.toStringAsFixed(2),
+      fontWeight.index.toString(),
     ].join('|');
 
     final cached = _labelIconCache.remove(cacheKey);
@@ -907,7 +909,7 @@ class _HomeMapIconFactory {
         style: TextStyle(
           color: textColor,
           fontSize: fontSize,
-          fontWeight: FontWeight.w600,
+          fontWeight: fontWeight,
           shadows: shadows,
         ),
       ),

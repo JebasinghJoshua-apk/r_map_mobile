@@ -48,6 +48,7 @@ extension _HomeMapLabels on _HomeMapScreenState {
     // Phase 1: Collect plot labels
     if (shouldShowPlotLabels) {
       final plotFontSize = _plotLabelFontSize(zoom);
+
       for (final plot in response.plots) {
         if (totalLabels >= _maxLabelMarkers) break;
 

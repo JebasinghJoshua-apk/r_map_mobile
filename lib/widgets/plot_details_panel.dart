@@ -189,18 +189,18 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                         Container(
                           width: double.infinity,
                           color: const Color(0xFFEFF6FF),
-                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                          padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
                           child: Stack(
                             children: [
                               LayoutBuilder(
                                 builder: (context, constraints) {
-                                  const gap = 12.0;
+                                  const gap = 6.0;
                                   return Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
                                       Expanded(
-                                        flex: 11,
+                                        flex: 8,
                                         child: _PlotSketchCard(
                                           borderColor: const Color(0xFF15803D),
                                           dimensions: dimensions,
@@ -211,9 +211,9 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                       Expanded(
                                         flex: 9,
                                         child: Padding(
-                                          // Leave a touch of breathing room from the top.
+                                          // top: breathing room; right: offset for close/share buttons overlay
                                           padding:
-                                              const EdgeInsets.only(top: 6),
+                                              const EdgeInsets.only(top: 6, right: 40),
                                           child: Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.center,
@@ -225,7 +225,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                                 'Plot #$plotNumber',
                                                 textAlign: TextAlign.center,
                                                 style: const TextStyle(
-                                                  fontSize: 14,
+                                                  fontSize: 16,
                                                   fontWeight: FontWeight.w800,
                                                   color: Color(0xFF111827),
                                                 ),
@@ -236,7 +236,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                                 textAlign: TextAlign.center,
                                                 style: const TextStyle(
                                                   color: Color(0xFF4B5563),
-                                                  fontSize: 12,
+                                                  fontSize: 14,
                                                   fontWeight: FontWeight.w700,
                                                 ),
                                               ),
@@ -261,52 +261,8 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                                   style: TextStyle(
                                                     color: statusTheme.color,
                                                     fontWeight: FontWeight.w800,
-                                                    fontSize: 10,
+                                                    fontSize: 11,
                                                     letterSpacing: 0.8,
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 14),
-                                              TextButton.icon(
-                                                onPressed: _showShareSheet,
-                                                style: TextButton.styleFrom(
-                                                  backgroundColor:
-                                                      const Color(0xFF2563EB)
-                                                          .withOpacity(0.10),
-                                                  side: const BorderSide(
-                                                    color: Color(0xFF93C5FD),
-                                                    width: 1,
-                                                  ),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8),
-                                                  ),
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                    horizontal: 10,
-                                                    vertical: 8,
-                                                  ),
-                                                  minimumSize:
-                                                      const Size(0, 32),
-                                                  tapTargetSize:
-                                                      MaterialTapTargetSize
-                                                          .shrinkWrap,
-                                                  visualDensity:
-                                                      VisualDensity.compact,
-                                                ),
-                                                icon: const Icon(
-                                                  Icons.share_outlined,
-                                                  size: 14,
-                                                  color: Color(0xFF1D4ED8),
-                                                ),
-                                                label: const Text(
-                                                  'Share',
-                                                  style: TextStyle(
-                                                    color: Color(0xFF1D4ED8),
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.w500,
-                                                    height: 1,
                                                   ),
                                                 ),
                                               ),
@@ -335,7 +291,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                                       style: TextStyle(
                                                         color:
                                                             Color(0xFF1D4ED8),
-                                                        fontSize: 12,
+                                                        fontSize: 14,
                                                         fontWeight:
                                                             FontWeight.w600,
                                                         height: 1,
@@ -353,10 +309,18 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                 },
                               ),
                               Positioned(
-                                top: 0,
-                                right: 0,
-                                child:
-                                    _CloseIconButton(onPressed: widget.onClose),
+                                top: -4,
+                                right: 4,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _CloseIconButton(
+                                        onPressed: widget.onClose),
+                                    const SizedBox(height: 6),
+                                    _ShareIconButton(
+                                        onPressed: _showShareSheet),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
@@ -381,7 +345,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                               ),
                             ),
                           ),
-                        if (!canEditStatus) const SizedBox(height: 12),
+                        if (!canEditStatus) const SizedBox(height: 0),
                         if (canEditStatus)
                           Container(
                             width: double.infinity,
@@ -617,6 +581,34 @@ class _CloseIconButton extends StatelessWidget {
   }
 }
 
+class _ShareIconButton extends StatelessWidget {
+  const _ShareIconButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+          ),
+          child: const Icon(Icons.share_outlined,
+              size: 16, color: Color(0xFF1D4ED8)),
+        ),
+      ),
+    );
+  }
+}
+
 class _PlotSketchCard extends StatelessWidget {
   const _PlotSketchCard({
     required this.borderColor,
@@ -630,10 +622,9 @@ class _PlotSketchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Keep the same visual proportions as the original fixed-size card
-    // (152x112) while letting the parent decide the width.
+    // Slightly landscape so the sketch doesn't drive panel too tall.
     return AspectRatio(
-      aspectRatio: 152 / 112,
+      aspectRatio: 1.15,
       child: Container(
         decoration: BoxDecoration(
           color: const Color(0xFFF8FAFC),

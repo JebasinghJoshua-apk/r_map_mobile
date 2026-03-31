@@ -551,9 +551,72 @@ extension _HomeMapSelection on _HomeMapScreenState {
       await _fetchViewport();
     });
 
+    // Rebuild dimension markers on zoom change (they only appear at high zoom).
+    unawaited(_rebuildDimensionMarkers());
+
     if (_selectedProperty?.propertyType.trim() == 'IndependentHouse') {
       _scheduleIndependentHouseCarouselRefresh();
     }
+  }
+
+  /// Builds (or clears) dimension-label markers based on the current zoom
+  /// level.  At zoom >= 21 shows dimensions for all viewport plots that
+  /// have dimension data; at zoom >= 20 shows only for the selected plot.
+  Future<void> _rebuildDimensionMarkers([MapPlotFeature? forPlot]) async {
+    final zoom = _effectiveZoom ?? _lastCameraPosition.zoom;
+    if (zoom < _minDimensionLabelZoom) {
+      if (_dimensionMarkers.isNotEmpty) {
+        _safeSetState(() { _dimensionMarkers = const <Marker>{}; });
+      }
+      return;
+    }
+
+    final isHybrid = _mapType == MapType.hybrid;
+    final pixelRatio = MediaQuery.of(context).devicePixelRatio;
+
+    // Collect plots that should show dimensions.
+    final plotsToLabel = <MapPlotFeature>[];
+
+    if (zoom >= 21.0) {
+      // Show all viewport plots that have dimensions.
+      for (final p in _currentViewportPlots) {
+        if (_HomeMapDimensions._parsePlotDimensions(p) != null) {
+          plotsToLabel.add(p);
+        }
+      }
+    } else {
+      // Only the selected or specified plot.
+      final plot = forPlot ?? _selectedPlot;
+      if (plot != null &&
+          _HomeMapDimensions._parsePlotDimensions(plot) != null) {
+        plotsToLabel.add(plot);
+      }
+    }
+
+    if (plotsToLabel.isEmpty) {
+      if (_dimensionMarkers.isNotEmpty) {
+        _safeSetState(() { _dimensionMarkers = const <Marker>{}; });
+      }
+      return;
+    }
+
+    // Build markers for all collected plots.
+    final allMarkers = <Marker>{};
+    for (final plot in plotsToLabel) {
+      final markers = await _buildDimensionMarkers(
+        plot: plot,
+        zoom: zoom,
+        pixelRatio: pixelRatio,
+        isHybrid: isHybrid,
+      );
+      allMarkers.addAll(markers);
+    }
+
+    if (!mounted) return;
+
+    _safeSetState(() {
+      _dimensionMarkers = Set<Marker>.unmodifiable(allMarkers);
+    });
   }
 
   /// Persist a lat/lng to SharedPreferences for push-notification
@@ -658,6 +721,9 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _focusedPlotIdFromDeepLink = null;
     });
 
+    // Build dimension markers for the selected plot.
+    unawaited(_rebuildDimensionMarkers(plot));
+
     // Center the plot after selection so users immediately see what's selected.
     unawaited(_focusPlotOnMap(plot));
   }
@@ -670,6 +736,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
     _safeSetState(() {
       _selectedPlot = null;
       _selectedPlotHighlightPolygons = const <Polygon>{};
+      _dimensionMarkers = const <Marker>{};
     });
   }
 
@@ -765,34 +832,39 @@ extension _HomeMapSelection on _HomeMapScreenState {
       fillOpacity = _plotFillOpacity;
     }
 
-    final strokeWidth = baseStrokeWidth + _selectedPlotStrokeWidthBump;
-    final outlineStrokeWidth =
-        strokeWidth + _selectedPlotOutlineStrokeWidthExtra;
+    final coreStrokeWidth = baseStrokeWidth + _selectedPlotStrokeWidthBump;
+    final glowStrokeWidth =
+        coreStrokeWidth + _selectedPlotGlowStrokeWidthExtra;
+
+    // Boost fill opacity so selected plot stands out.
+    final boostedFillOpacity = (fillOpacity + 0.20).clamp(0.0, 1.0);
 
     final next = <Polygon>{};
     for (var i = 0; i < polygons.length; i++) {
       final points = polygons[i];
       if (points.length < 3) continue;
+
+      // Outer glow — lighter gray, wider stroke.
       next.add(
         Polygon(
-          polygonId: PolygonId('plot-selected-outline:${plot.plotId}:$i'),
+          polygonId: PolygonId('plot-selected-glow:${plot.plotId}:$i'),
           points: points,
-          strokeWidth: outlineStrokeWidth,
-          strokeColor: _selectedPlotOutlineStroke
-              .withOpacity(_selectedPlotOutlineOpacity),
+          strokeWidth: glowStrokeWidth,
+          strokeColor: _selectedPlotGlowStroke,
           fillColor: Colors.transparent,
           consumeTapEvents: false,
-          zIndex: _selectedPlotOutlineZIndex,
+          zIndex: _selectedPlotGlowZIndex,
         ),
       );
 
+      // Core — dark gray stroke + boosted fill.
       next.add(
         Polygon(
           polygonId: PolygonId('plot-selected:${plot.plotId}:$i'),
           points: points,
-          strokeWidth: strokeWidth,
-          strokeColor: stroke.withOpacity(1.0),
-          fillColor: fill.withOpacity(fillOpacity),
+          strokeWidth: coreStrokeWidth,
+          strokeColor: _selectedPlotCoreStroke,
+          fillColor: fill.withOpacity(boostedFillOpacity),
           consumeTapEvents: false,
           zIndex: _selectedPlotZIndex,
         ),
@@ -1190,6 +1262,9 @@ extension _HomeMapSelection on _HomeMapScreenState {
       // Clear deep-link focus since we're now fully selected.
       _focusedPlotIdFromDeepLink = null;
     });
+
+    // Build dimension markers for the deep-linked plot.
+    unawaited(_rebuildDimensionMarkers(match!));
   }
 
   /// Focus a layout from a deep link.
