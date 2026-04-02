@@ -97,6 +97,15 @@ int _layoutMarkerSizeForZoom(double zoom) {
   return 14;
 }
 
+/// Extracts a trailing Roman numeral phase suffix from a layout title.
+/// e.g. "Sri Sai Garden II" → "II", "Lotus Nagar" → null.
+final RegExp _phaseRegex = RegExp(r'\b(X{0,3}(?:IX|IV|V?I{1,3}))\s*$');
+
+String? _extractPhaseLabel(String title) {
+  final match = _phaseRegex.firstMatch(title.trim());
+  return match?.group(1);
+}
+
 double _priceBadgeFocusZoomTarget(String propertyType) {
   // Keep aligned with web: r-map-ui/src/components/Map/MapViewportLayer/constants.ts
   switch (propertyType.trim()) {
@@ -391,6 +400,7 @@ class _HomeMapIconFactory {
   Future<BitmapDescriptor> getLayoutMarkerDotIcon({
     required double zoom,
     required double pixelRatio,
+    String? phaseLabel,
   }) async {
     final size = _layoutMarkerSizeForZoom(zoom);
 
@@ -399,6 +409,7 @@ class _HomeMapIconFactory {
       size,
       zoom.toStringAsFixed(2),
       pixelRatio.toStringAsFixed(2),
+      phaseLabel ?? '',
     ].join('|');
 
     final cached = _badgeIconCache.remove(cacheKey);
@@ -435,6 +446,29 @@ class _HomeMapIconFactory {
     canvas.drawCircle(ui.Offset(center, center), outerRadius, outerStrokePaint);
     canvas.drawCircle(ui.Offset(center, center), innerRadius, innerFillPaint);
     canvas.drawCircle(ui.Offset(center, center), innerRadius, innerStrokePaint);
+
+    // Draw phase label (I, II, III, …) inside the dot when zoom is large enough.
+    if (phaseLabel != null && phaseLabel.isNotEmpty && size >= 20) {
+      final fontSize = (innerRadius * 0.9).clamp(6.0, 12.0);
+      final paragraphBuilder = ui.ParagraphBuilder(
+        ui.ParagraphStyle(
+          textAlign: TextAlign.center,
+          maxLines: 1,
+        ),
+      )
+        ..pushStyle(ui.TextStyle(
+          color: _layoutMarkerInnerStroke,
+          fontSize: fontSize,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.5,
+        ))
+        ..addText(phaseLabel);
+      final paragraph = paragraphBuilder.build()
+        ..layout(ui.ParagraphConstraints(width: size.toDouble()));
+      final textX = center - paragraph.width / 2;
+      final textY = center - paragraph.height / 2;
+      canvas.drawParagraph(paragraph, ui.Offset(textX, textY));
+    }
 
     final picture = recorder.endRecording();
     final image = await picture.toImage(

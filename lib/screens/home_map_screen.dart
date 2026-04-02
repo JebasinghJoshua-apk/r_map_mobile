@@ -1059,6 +1059,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
           return await _iconFactory.getLayoutMarkerDotIcon(
             zoom: zoom,
             pixelRatio: pixelRatio,
+            phaseLabel: _extractPhaseLabel(p.title),
           );
         case _PropertyIconType.priceBadge:
           final colors =
