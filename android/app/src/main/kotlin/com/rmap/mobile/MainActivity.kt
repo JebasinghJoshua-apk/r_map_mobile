@@ -14,6 +14,12 @@ class MainActivity : FlutterActivity() {
     private var channel: MethodChannel? = null
     private var initialLink: String? = null
 
+    /**
+     * Track the last URI we sent to Dart so we don't re-process the same
+     * deep link on every onResume cycle.
+     */
+    private var lastProcessedUri: String? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
@@ -33,7 +39,9 @@ class MainActivity : FlutterActivity() {
         // Stash the deep-link URI BEFORE super.onCreate, which triggers
         // configureFlutterEngine.  If we wait, handleIntent sees channel!=null
         // and tries invokeMethod("onNewLink") before Dart is ready → lost.
-        initialLink = intent?.data?.toString()
+        val uri = intent?.data?.toString()
+        initialLink = uri
+        lastProcessedUri = uri
         super.onCreate(savedInstanceState)
 
         // Create the notification channel for property alerts (Android 8+).
@@ -56,11 +64,27 @@ class MainActivity : FlutterActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         handleIntent(intent)
+    }
+
+    /**
+     * Safety net: some launchers (notably social media in-app browsers like
+     * Facebook) can bring the task to the foreground with a new intent without
+     * calling [onNewIntent].  Re-check the current intent on every resume so
+     * deep-link data is never silently dropped.
+     */
+    override fun onResume() {
+        super.onResume()
+        val uri = intent?.data?.toString()
+        if (uri != null && uri != lastProcessedUri) {
+            handleIntent(intent)
+        }
     }
 
     private fun handleIntent(intent: Intent?) {
         val uri = intent?.data?.toString() ?: return
+        lastProcessedUri = uri
         if (channel != null) {
             // Engine is already running – push to Dart immediately.
             channel?.invokeMethod("onNewLink", uri)

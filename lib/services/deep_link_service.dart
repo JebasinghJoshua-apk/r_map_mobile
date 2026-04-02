@@ -53,6 +53,11 @@ class DeepLinkService {
   /// Whether the home screen has signalled it is ready.
   bool _homeScreenReady = false;
 
+  /// Last URI we successfully started navigating to. Prevents duplicate
+  /// navigation when the same link is delivered twice (e.g. via both
+  /// onNewIntent and onResume on Android).
+  String? _lastHandledUri;
+
   static const _allowedHosts = {
     'rmap.in',
     'www.rmap.in',
@@ -111,8 +116,19 @@ class DeepLinkService {
     // Only handle our known hosts.
     if (!_allowedHosts.contains(uri.host)) return;
 
+    // Deduplicate: skip if we already handled this exact URI recently.
+    final uriString = uri.toString();
+    if (uriString == _lastHandledUri) {
+      debugPrint('[DeepLink] skipping duplicate: $uri');
+      return;
+    }
+
     final target = _parseUri(uri);
     if (target == null) return;
+
+    // /launch links just open the app – no navigation needed.
+    // Mark as handled so onResume won't re-process.
+    _lastHandledUri = uriString;
 
     if (!_homeScreenReady) {
       // The app just launched – stash this until the navigator is ready.
