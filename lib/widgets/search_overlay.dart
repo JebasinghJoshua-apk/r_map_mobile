@@ -75,6 +75,7 @@ enum _ProfileMenuAction {
   favorites,
   logout,
   contactUs,
+  helpVideo,
 }
 
 class SearchOverlayState extends State<SearchOverlay> {
@@ -973,6 +974,9 @@ class _CompactProfileButtonState extends State<_CompactProfileButton> {
       case _ProfileMenuAction.contactUs:
         _showContactUsDialog(context, appSettings);
         break;
+      case _ProfileMenuAction.helpVideo:
+        _showHelpVideoDialog(context);
+        break;
     }
   }
 
@@ -1187,6 +1191,11 @@ Future<_ProfileMenuAction?> _showProfileMenuPopover({
                               action: _ProfileMenuAction.contactUs,
                             ),
                             buildItem(
+                              icon: Icons.play_circle_outline,
+                              label: 'How to Use',
+                              action: _ProfileMenuAction.helpVideo,
+                            ),
+                            buildItem(
                               icon: Icons.logout,
                               label: 'Logout',
                               action: _ProfileMenuAction.logout,
@@ -1202,6 +1211,11 @@ Future<_ProfileMenuAction?> _showProfileMenuPopover({
                               icon: Icons.phone_outlined,
                               label: 'Contact Us',
                               action: _ProfileMenuAction.contactUs,
+                            ),
+                            buildItem(
+                              icon: Icons.play_circle_outline,
+                              label: 'How to Use',
+                              action: _ProfileMenuAction.helpVideo,
                             ),
                           ],
                         ],
@@ -1282,6 +1296,130 @@ class _ProfilePopoverArrowPainter extends CustomPainter {
   bool shouldRepaint(covariant _ProfilePopoverArrowPainter oldDelegate) {
     return oldDelegate.color != color;
   }
+}
+
+void _showHelpVideoDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (context) => Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Expanded(
+                  child: Text(
+                    'How to Use R Map',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: const Icon(
+                    Icons.close,
+                    size: 18,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            // How to Add Property
+            GestureDetector(
+              onTap: () {
+                Navigator.of(context).pop();
+                launchUrl(
+                  Uri.parse('https://www.youtube.com/watch?v=b5LlTFJMVwk'),
+                  mode: LaunchMode.externalApplication,
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDFA),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFCCFBF1)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.play_circle_filled,
+                      size: 36,
+                      color: Color(0xFF0D9488),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'How to Add Property',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'R Map-\u0BB2\u0BCD Property \u0B9A\u0BC7\u0BB0\u0BCD\u0BAA\u0BCD\u0BAA\u0BA4\u0BC1 \u0B8E\u0BAA\u0BCD\u0BAA\u0B9F\u0BBF?',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 14,
+                      color: Color(0xFF94A3B8),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.center,
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: TextButton.styleFrom(
+                  backgroundColor: const Color(0xFF0D9488),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 28,
+                    vertical: 10,
+                  ),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'Close',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 void _showContactUsDialog(BuildContext context, AppSettings settings) {
