@@ -1332,6 +1332,63 @@ void _showHelpVideoDialog(BuildContext context) {
               ],
             ),
             const SizedBox(height: 20),
+            // How to Use R Map
+            GestureDetector(
+              onTap: () {
+                Navigator.of(context).pop();
+                launchUrl(
+                  Uri.parse('https://www.youtube.com/watch?v=0xlJ8bW2p34'),
+                  mode: LaunchMode.externalApplication,
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDFA),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFCCFBF1)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.play_circle_filled,
+                      size: 36,
+                      color: Color(0xFF0D9488),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'How to Use R Map',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'R Map பயன்படுத்துவது எப்படி?',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 14,
+                      color: Color(0xFF94A3B8),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             // How to Add Property
             GestureDetector(
               onTap: () {
