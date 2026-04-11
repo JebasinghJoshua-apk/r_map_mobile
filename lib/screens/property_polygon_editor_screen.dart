@@ -475,6 +475,23 @@ class _PropertyPolygonEditorScreenState
     _dismissKeyboard();
   }
 
+  /// On iOS the map's onLongPress fires even when the long-press lands on
+  /// a draggable marker.  To avoid adding a duplicate point we skip the
+  /// add when the tap is close to an existing vertex.
+  Future<void> _onLongPress(LatLng p) async {
+    final controller = _controller;
+    if (controller != null && _points.isNotEmpty) {
+      final tapScreen = await controller.getScreenCoordinate(p);
+      for (final vertex in _points) {
+        final vScreen = await controller.getScreenCoordinate(vertex);
+        final dx = (tapScreen.x - vScreen.x).abs();
+        final dy = (tapScreen.y - vScreen.y).abs();
+        if (dx < 60 && dy < 60) return; // near an existing marker – skip
+      }
+    }
+    _addPoint(p);
+  }
+
   void _undo() {
     if (_points.isEmpty) return;
     setState(() {
@@ -1253,7 +1270,7 @@ class _PropertyPolygonEditorScreenState
               if (polygon != null) polygon,
             },
             onTap: _addPoint,
-            onLongPress: _addPoint,
+            onLongPress: _onLongPress,
             onCameraMoveStarted: () =>
                 _closeSearchSuggestions(dismissKeyboard: true),
             onCameraMove: (position) {
