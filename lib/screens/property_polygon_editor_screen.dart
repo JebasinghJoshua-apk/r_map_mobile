@@ -1129,9 +1129,13 @@ class _PropertyPolygonEditorScreenState
 
   @override
   Widget build(BuildContext context) {
-    // Account for Samsung/Android nav bar (edge-to-edge mode)
+    // Account for Samsung/Android nav bar (edge-to-edge mode).
+    // On iOS the safe-area inset is already handled by the Scaffold,
+    // so skip the extra padding to avoid excessive bottom space.
     final bottomSystemInset = MediaQuery.of(context).viewPadding.bottom;
-    final bottomPadding = bottomSystemInset > 0 ? bottomSystemInset : 0.0;
+    final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
+    final bottomPadding =
+        isIOS ? 12.0 : (bottomSystemInset > 0 ? bottomSystemInset : 0.0);
 
     final title = widget.mode == PropertyPolygonEditorMode.add
         ? 'Add Property'

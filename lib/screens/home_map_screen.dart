@@ -1297,7 +1297,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     final isRouteCurrent = ModalRoute.of(context)?.isCurrent ?? true;
     final selectedPlot = _selectedPlot;
     final bottomSystemInset = MediaQuery.of(context).viewPadding.bottom;
-    final bottomPanelInset = bottomSystemInset > 0 ? bottomSystemInset : 0.0;
+    final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
+    final bottomPanelInset =
+        isIOS ? 16.0 : (bottomSystemInset > 0 ? bottomSystemInset : 0.0);
     final isBottomPanelOpen = selectedPlot != null || _selectedProperty != null;
 
     final isViewportEmpty = _viewportMarkers.isEmpty &&

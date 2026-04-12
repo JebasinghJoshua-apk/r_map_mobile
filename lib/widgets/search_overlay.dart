@@ -349,6 +349,7 @@ class SearchOverlayState extends State<SearchOverlay> {
 
   Future<bool> _selectPlace(String placeId, String fallbackLabel) async {
     if (!mounted) return false;
+    _debounce?.cancel();
     setState(() {
       _isLoading = true;
     });
@@ -701,8 +702,7 @@ class SearchOverlayState extends State<SearchOverlay> {
                 ),
               ],
             )
-          else if (!_suppressSuggestionAndRecentPanels &&
-              _predictions.isNotEmpty) ...[
+          else if (_shouldShowSuggestions) ...[
             const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 260),
@@ -761,6 +761,7 @@ class SearchOverlayState extends State<SearchOverlay> {
 
     if (!showBrandHeader) {
       return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(child: searchCard),
           const SizedBox(width: 7),

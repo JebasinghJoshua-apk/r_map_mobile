@@ -272,6 +272,10 @@ extension _HomeMapSelection on _HomeMapScreenState {
     ToastMessage.show(context, safeLabel);
 
     // Auto popup nearby layouts after selecting a place (match web behavior).
+    // Delay briefly so the search overlay finishes collapsing to compact mode
+    // before the bottom sheet appears, preventing layout overlap on iOS.
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    if (!mounted) return;
     unawaited(_openNearbyLayoutsPopup(anchor: target));
   }
 
