@@ -910,44 +910,41 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                     );
                   },
                 ),
-                if (!isAdmin && contactPhone.isNotEmpty)
+                if (contactPhone.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: Row(
-                      children: [
-                        Flexible(
-                          child: Text.rich(
-                            TextSpan(
-                              text: 'To add a layout, please contact ',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF64748B),
-                              ),
-                              children: [
-                                WidgetSpan(
-                                  alignment: PlaceholderAlignment.baseline,
-                                  baseline: TextBaseline.alphabetic,
-                                  child: GestureDetector(
-                                    onTap: () => launchUrl(
-                                      Uri(scheme: 'tel', path: contactPhone),
-                                    ),
-                                    child: Text(
-                                      contactPhone,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: Color(0xFF0D8B7A),
-                                        fontWeight: FontWeight.w600,
-                                        decoration: TextDecoration.underline,
-                                        decorationColor: Color(0xFF0D8B7A),
-                                      ),
-                                    ),
+                    child: Center(
+                      child: Text.rich(
+                        TextSpan(
+                          text: 'To add a layout, please contact ',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF64748B),
+                          ),
+                          children: [
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.baseline,
+                              baseline: TextBaseline.alphabetic,
+                              child: GestureDetector(
+                                onTap: () => launchUrl(
+                                  Uri(scheme: 'tel', path: contactPhone),
+                                ),
+                                child: Text(
+                                  contactPhone,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF0D8B7A),
+                                    fontWeight: FontWeight.w600,
+                                    decoration: TextDecoration.underline,
+                                    decorationColor: Color(0xFF0D8B7A),
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-                      ],
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ),
               ],
