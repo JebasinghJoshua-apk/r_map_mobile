@@ -23,6 +23,7 @@ import '../services/mobile_bff_plots_api.dart';
 import '../services/performance_logger.dart';
 import '../state/auth_scope.dart';
 import '../utils/geojson.dart';
+import '../utils/user_role.dart';
 import '../widgets/api_key_missing_banner.dart';
 import '../widgets/auth_dialog.dart';
 import '../widgets/network_status_banner.dart';
@@ -41,6 +42,9 @@ import '../models/property_detail.dart';
 import '../models/saved_property.dart';
 import 'layout_detail_screen.dart';
 import 'property_detail_screen.dart';
+import 'property_polygon_editor_screen.dart';
+import 'property_details_form_screen.dart';
+import 'layout_details_form_screen.dart';
 import '../utils/route_observer.dart';
 import '../utils/anchored_popover_geometry.dart';
 import '../utils/pending_layout_focus.dart';
@@ -772,6 +776,193 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       _showNearbyCoachmark = false;
     });
     unawaited(FeatureCoachmarkService.nearby.onCoachmarkDismissed());
+  }
+
+  /// Show property type picker → login if needed → open polygon editor.
+  Future<void> _onAddPropertyTapped() async {
+    final baseOptions = <String>[
+      'Independent House',
+      'Plot',
+      'Apartment',
+      'Land',
+      'Commercial Space',
+    ];
+    final userRole =
+        AuthScope.of(context).session?.user.roleValue ?? UserRole.user;
+    final options = userRole == UserRole.admin
+        ? [...baseOptions, 'Layout']
+        : baseOptions;
+
+    final selectedType = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        final size = MediaQuery.of(context).size;
+        final maxWidth = size.width - 64;
+        final dialogWidth = maxWidth < 332 ? maxWidth : 332.0;
+        final dialogMaxHeight = (size.height - 96).clamp(240.0, 520.0);
+
+        return Dialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: dialogWidth,
+              maxHeight: dialogMaxHeight,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Add Property',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        tooltip: 'Close',
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  itemCount: options.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final opt = options[index];
+                    return Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        overlayColor: WidgetStateProperty.resolveWith(
+                          (states) {
+                            if (states.contains(WidgetState.pressed)) {
+                              return const Color(0xFF0FAD97).withOpacity(0.10);
+                            }
+                            if (states.contains(WidgetState.hovered)) {
+                              return const Color(0xFF0FAD97).withOpacity(0.06);
+                            }
+                            return null;
+                          },
+                        ),
+                        onTap: () => Navigator.of(context).pop(opt),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: const Color(0xFFE2E8F0),
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x14000000),
+                                blurRadius: 10,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    opt,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!mounted || selectedType == null || selectedType.trim().isEmpty) return;
+
+    // Login gate — prompt if not signed in.
+    final session = AuthScope.of(context).session;
+    final token = session?.token;
+    if (token == null || token.trim().isEmpty) {
+      await AuthDialog.showLogin(context);
+      if (!mounted) return;
+      // Re-check after login dialog
+      final newToken = AuthScope.of(context).session?.token;
+      if (newToken == null || newToken.trim().isEmpty) return;
+    }
+
+    final center = _lastCameraPosition.target;
+    final zoom = _lastCameraPosition.zoom;
+    final bearerToken = AuthScope.of(context).session?.token ?? '';
+
+    // Layout uses a dedicated screen with boundary drawing + QR generation
+    if (selectedType == 'Layout') {
+      await Navigator.of(context, rootNavigator: true).push(
+        MaterialPageRoute<void>(
+          builder: (_) => LayoutDetailsFormScreen(
+            initialCenter: center,
+            initialZoom: zoom,
+          ),
+        ),
+      );
+      return;
+    }
+
+    await Navigator.of(context, rootNavigator: true).push<List<LatLng>>(
+      MaterialPageRoute(
+        builder: (_) => PropertyPolygonEditorScreen(
+          mode: PropertyPolygonEditorMode.add,
+          initialCenter: center,
+          initialZoom: zoom,
+          bearerToken: bearerToken,
+          popOnNext: false,
+          onNext: (points) async {
+            await Navigator.of(context, rootNavigator: true)
+                .push<String>(
+              MaterialPageRoute(
+                builder: (_) => PropertyDetailsFormScreen(
+                  boundaryPoints: points,
+                  initialPropertyType: selectedType,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _onNearbyButtonTapped() async {
@@ -1547,6 +1738,54 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                     const SizedBox(height: 10),
                     _mapZoomControl(),
                   ],
+                ),
+              ),
+            // "Add Property" button – centred at bottom, visible to all users.
+            if (!isBottomPanelOpen && _hasSelectedPlace)
+              Positioned(
+                bottom: 10 + bottomPanelInset,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: _onAddPropertyTapped,
+                      child: Container(
+                        height: 40,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0D8B7A),
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.add, color: Colors.white, size: 20),
+                            SizedBox(width: 6),
+                            Text(
+                              'Add Property',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             // Nearby coachmark — separate Positioned so it doesn't

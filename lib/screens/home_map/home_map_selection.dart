@@ -268,8 +268,6 @@ extension _HomeMapSelection on _HomeMapScreenState {
     );
 
     if (!mounted) return;
-    final safeLabel = label.trim().isEmpty ? 'Selected place' : label.trim();
-    ToastMessage.show(context, safeLabel);
 
     // Auto popup nearby layouts after selecting a place (match web behavior).
     // Delay briefly so the search overlay finishes collapsing to compact mode
@@ -312,8 +310,6 @@ extension _HomeMapSelection on _HomeMapScreenState {
     );
 
     if (!mounted) return;
-    final safeLabel = label.trim().isEmpty ? 'Selected place' : label.trim();
-    ToastMessage.show(context, safeLabel);
   }
 
   Future<void> _onMyPropertySelected(MyPropertyListItem item) async {
