@@ -16,6 +16,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../app.dart';
 import '../constants/api_constants.dart';
 import '../constants/search_constants.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../services/app_settings_service.dart';
 import '../services/firebase_perf_service.dart';
 import '../services/in_app_update_service.dart';
 import '../services/mobile_bff_map_api.dart';
@@ -789,9 +792,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     ];
     final userRole =
         AuthScope.of(context).session?.user.roleValue ?? UserRole.user;
-    final options = userRole == UserRole.admin
-        ? [...baseOptions, 'Layout']
-        : baseOptions;
+    final isAdmin = userRole == UserRole.admin;
+    final options = isAdmin ? [...baseOptions, 'Layout'] : baseOptions;
+
+    // Fetch contact phone from backend (cached, no delay on subsequent calls).
+    final appSettings = await AppSettingsService().getSettings();
+    final contactPhone = appSettings.contactPhone;
 
     final selectedType = await showDialog<String>(
       context: context,
@@ -904,6 +910,46 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                     );
                   },
                 ),
+                if (!isAdmin && contactPhone.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text.rich(
+                            TextSpan(
+                              text: 'To add a layout, please contact ',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF64748B),
+                              ),
+                              children: [
+                                WidgetSpan(
+                                  alignment: PlaceholderAlignment.baseline,
+                                  baseline: TextBaseline.alphabetic,
+                                  child: GestureDetector(
+                                    onTap: () => launchUrl(
+                                      Uri(scheme: 'tel', path: contactPhone),
+                                    ),
+                                    child: Text(
+                                      contactPhone,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Color(0xFF0D8B7A),
+                                        fontWeight: FontWeight.w600,
+                                        decoration: TextDecoration.underline,
+                                        decorationColor: Color(0xFF0D8B7A),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
