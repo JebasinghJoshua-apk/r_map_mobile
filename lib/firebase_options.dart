@@ -32,10 +32,10 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDECSScoCgED6o0dLg1erJpdQgwR2g3Kns',
-    appId: '1:700895122851:ios:e9c8cc7be20d22e1693616',
+    appId: '1:700895122851:ios:131346f46d3d0e1a693616',
     messagingSenderId: '700895122851',
     projectId: 'rmap-60045',
     storageBucket: 'rmap-60045.firebasestorage.app',
-    iosBundleId: 'com.example.rMapMobile',
+    iosBundleId: 'in.rmap.app',
   );
 }

@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.example.rMapMobile</string>
+	<string>in.rmap.app</string>
 	<key>PROJECT_ID</key>
 	<string>rmap-60045</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:700895122851:ios:e9c8cc7be20d22e1693616</string>
+	<string>1:700895122851:ios:131346f46d3d0e1a693616</string>
 </dict>
 </plist>
