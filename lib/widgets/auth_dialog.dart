@@ -274,6 +274,10 @@ class _AuthDialogState extends State<AuthDialog> {
       setState(() => _error = 'Please enter your name');
       return;
     }
+    if (RegExp(r'^\d+$').hasMatch(name)) {
+      setState(() => _error = 'Please enter your name, not a number');
+      return;
+    }
 
     setState(() {
       _isSubmitting = true;
@@ -624,26 +628,47 @@ class _AuthDialogState extends State<AuthDialog> {
 
                       // OTP Register Mode (new user)
                       if (_mode == AuthMode.otpRegister) ...[
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Text(
-                            'Phone $_verifiedPhone verified! Enter your name to complete registration.',
-                            style: const TextStyle(color: Colors.grey),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE6F4F1),
+                            border: Border.all(color: const Color(0xFF0B6B63)),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.check_circle,
+                                  color: Color(0xFF0B6B63), size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '✔ Phone verified — $_verifiedPhone',
+                                  style: const TextStyle(
+                                    color: Color(0xFF0B6B63),
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const Text('Name'),
+                        const SizedBox(height: 12),
+                        const Text('Your Name'),
                         const SizedBox(height: 6),
                         TextFormField(
                           key: const ValueKey('otp_register_name_field'),
                           controller: _nameController,
                           focusNode: _nameFocusNode,
-                          keyboardType: TextInputType.text,
+                          keyboardType: TextInputType.name,
                           textCapitalization: TextCapitalization.words,
                           textInputAction: TextInputAction.done,
                           decoration: const InputDecoration(
-                            hintText: 'Enter your name',
+                            hintText: 'e.g. Ravi Kumar',
                             hintStyle: TextStyle(color: Colors.black45),
                             prefixIcon: Icon(Icons.person_outline),
+                            helperText: 'Enter your full name (letters only)',
                             border: OutlineInputBorder(
                               borderRadius:
                                   BorderRadius.all(Radius.circular(10)),
