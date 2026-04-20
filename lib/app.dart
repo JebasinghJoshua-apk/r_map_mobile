@@ -83,6 +83,7 @@ class _RMapAppState extends State<RMapApp> {
         return AuthScope(
           authState: _authState,
           child: MaterialApp(
+            debugShowCheckedModeBanner: false,
             title: 'R Map',
             builder: (context, child) {
               final mediaQuery = MediaQuery.of(context);
