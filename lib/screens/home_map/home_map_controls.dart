@@ -124,7 +124,12 @@ extension _HomeMapControls on _HomeMapScreenState {
       if (!_myLocationEnabled) {
         _updateState(() => _myLocationEnabled = true);
       }
-      final locationData = await location.getLocation();
+      final locationData = await location
+          .getLocation()
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw TimeoutException('Location timed out'),
+          );
       if (locationData.latitude != null && locationData.longitude != null) {
         await _mapController?.animateCamera(
           CameraUpdate.newLatLngZoom(

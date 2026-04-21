@@ -351,7 +351,12 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
       }
 
       // Get current position
-      final locationData = await location.getLocation();
+      final locationData = await location
+          .getLocation()
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw TimeoutException('Location timed out'),
+          );
 
       if (locationData.latitude != null && locationData.longitude != null) {
         final myLocation =
