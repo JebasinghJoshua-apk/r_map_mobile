@@ -1796,7 +1796,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                       borderRadius: BorderRadius.circular(8),
                       onTap: _onAddPropertyTapped,
                       child: Container(
-                        height: 40,
+                        height: 36,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 14,
                         ),
