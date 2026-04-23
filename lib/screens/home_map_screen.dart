@@ -1685,7 +1685,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                 ),
               ),
             Positioned(
-              top: MediaQuery.of(context).viewPadding.top + 4,
+              top: MediaQuery.of(context).viewPadding.top + 2,
               left: 16,
               right: 16,
               child: Column(
