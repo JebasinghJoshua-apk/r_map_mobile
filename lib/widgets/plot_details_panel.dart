@@ -180,12 +180,16 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                 borderRadius: const BorderRadius.all(Radius.circular(14)),
                 child: Material(
                   color: Colors.white,
-                  child: SafeArea(
-                    top: false,
-                    bottom: false,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap:
+                        showLayoutDetailsLink ? _handleLayoutDetailsPressed : null,
+                    child: SafeArea(
+                      top: false,
+                      bottom: false,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
                         Container(
                           width: double.infinity,
                           color: const Color(0xFFEFF6FF),
@@ -410,7 +414,8 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                               ],
                             ),
                           ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
