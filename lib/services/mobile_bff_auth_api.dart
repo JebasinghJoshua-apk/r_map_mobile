@@ -262,13 +262,55 @@ class MobileBffAuthApi {
         'Registration failed (${response.statusCode})');
   }
 
+  Future<AuthSession> refreshSession({
+    required String refreshToken,
+  }) async {
+    final uri = _uri('/mobile/auth/refresh');
+    http.Response response;
+    try {
+      response = await _client
+          .post(
+            uri,
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'refreshToken': refreshToken,
+            }),
+          )
+          .timeout(_timeout);
+    } on SocketException {
+      throw const AuthApiException(
+        'Cannot connect to the server. Please check your network.',
+      );
+    } on TimeoutException {
+      throw const AuthApiException('Request timed out. Please try again.');
+    }
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return _parseSession(json);
+    }
+
+    if (response.statusCode == 401) {
+      throw const AuthApiException('Session expired. Please login again.');
+    }
+
+    throw AuthApiException(
+      _tryMessage(response.body) ??
+          'Session refresh failed (${response.statusCode})',
+    );
+  }
+
   AuthSession _parseSession(Map<String, dynamic> json) {
     final token = (json['token'] as String?) ?? '';
+    final refreshToken = json['refreshToken'] as String?;
+    final refreshTokenExpiresAt = json['refreshTokenExpiresAt'] as String?;
     final userJson =
         (json['user'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
 
     return AuthSession(
       token: token,
+      refreshToken: refreshToken,
+      refreshTokenExpiresAt: refreshTokenExpiresAt,
       user: AuthUser(
         id: (userJson['id'] as String?) ?? '',
         firstName: (userJson['firstName'] as String?) ?? '',

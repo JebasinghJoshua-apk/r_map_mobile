@@ -54,7 +54,11 @@ class _RMapAppState extends State<RMapApp> {
     _authState = AuthState();
     _authState.initialize();
 
-    // When any API call returns 401, force-logout and prompt re-login.
+    // When any API call returns 401, try one silent refresh first.
+    AuthAwareHttpClient.onRefreshSession = _authState.refreshSession;
+    AuthAwareHttpClient.accessTokenProvider = () => _authState.session?.token;
+
+    // If refresh fails, force-logout and prompt re-login.
     AuthAwareHttpClient.onSessionExpired = _onSessionExpired;
 
     deepLinkService = DeepLinkService(navigatorKey: appNavigatorKey);
@@ -66,6 +70,8 @@ class _RMapAppState extends State<RMapApp> {
 
   @override
   void dispose() {
+    AuthAwareHttpClient.onRefreshSession = null;
+    AuthAwareHttpClient.accessTokenProvider = null;
     AuthAwareHttpClient.onSessionExpired = null;
     PushNotificationService.instance.onNotificationTap = null;
     deepLinkService.dispose();

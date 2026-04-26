@@ -13,18 +13,21 @@ class AuthState extends ChangeNotifier {
   AuthState({MobileBffAuthApi? api}) : _api = api ?? MobileBffAuthApi();
 
   static const _tokenKey = 'auth_token';
+  static const _refreshTokenKey = 'refresh_token';
   static const _userKey = 'auth_user';
 
   final MobileBffAuthApi _api;
 
   AuthSession? _session;
   AuthSession? get session => _session;
+  Future<bool>? _refreshFuture;
 
   bool get isAuthenticated => _session != null && _session!.token.isNotEmpty;
 
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(_tokenKey);
+    final refreshToken = prefs.getString(_refreshTokenKey);
     final userJson = prefs.getString(_userKey);
 
     if (token == null ||
@@ -38,7 +41,11 @@ class AuthState extends ChangeNotifier {
 
     try {
       final userMap = (jsonDecode(userJson) as Map).cast<String, dynamic>();
-      _session = AuthSession(token: token, user: AuthUser.fromJson(userMap));
+      _session = AuthSession(
+        token: token,
+        refreshToken: refreshToken,
+        user: AuthUser.fromJson(userMap),
+      );
     } catch (_) {
       _session = null;
     }
@@ -98,6 +105,7 @@ class AuthState extends ChangeNotifier {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
+    await prefs.remove(_refreshTokenKey);
     await prefs.remove(_userKey);
     _session = null;
     AnalyticsService.instance.setUserId(null);
@@ -112,10 +120,20 @@ class AuthState extends ChangeNotifier {
   Future<void> forceLogout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
+    await prefs.remove(_refreshTokenKey);
     await prefs.remove(_userKey);
     _session = null;
     AnalyticsService.instance.setUserId(null);
     notifyListeners();
+  }
+
+  Future<bool> refreshSession() {
+    if (_refreshFuture != null) {
+      return _refreshFuture!;
+    }
+
+    _refreshFuture = _refreshSessionInternal();
+    return _refreshFuture!;
   }
 
   /// Sends OTP to the specified phone number.
@@ -173,7 +191,31 @@ class AuthState extends ChangeNotifier {
   Future<void> _persist(AuthSession session) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, session.token);
+    if (session.refreshToken != null && session.refreshToken!.isNotEmpty) {
+      await prefs.setString(_refreshTokenKey, session.refreshToken!);
+    } else {
+      await prefs.remove(_refreshTokenKey);
+    }
     await prefs.setString(_userKey, jsonEncode(session.user.toJson()));
+  }
+
+  Future<bool> _refreshSessionInternal() async {
+    try {
+      final refreshToken = _session?.refreshToken?.trim();
+      if (refreshToken == null || refreshToken.isEmpty) {
+        return false;
+      }
+
+      final refreshed = await _api.refreshSession(refreshToken: refreshToken);
+      await _persist(refreshed);
+      _session = refreshed;
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      _refreshFuture = null;
+    }
   }
 
   /// Register FCM device token with the backend (fire-and-forget).

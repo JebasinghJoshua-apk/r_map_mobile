@@ -3,20 +3,28 @@ import '../utils/user_role.dart';
 class AuthSession {
   const AuthSession({
     required this.token,
+    this.refreshToken,
+    this.refreshTokenExpiresAt,
     required this.user,
   });
 
   final String token;
+  final String? refreshToken;
+  final String? refreshTokenExpiresAt;
   final AuthUser user;
 
   Map<String, dynamic> toJson() => {
         'token': token,
+        'refreshToken': refreshToken,
+        'refreshTokenExpiresAt': refreshTokenExpiresAt,
         'user': user.toJson(),
       };
 
   static AuthSession fromJson(Map<String, dynamic> json) {
     return AuthSession(
       token: (json['token'] as String?) ?? '',
+      refreshToken: json['refreshToken'] as String?,
+      refreshTokenExpiresAt: json['refreshTokenExpiresAt'] as String?,
       user: AuthUser.fromJson((json['user'] as Map).cast<String, dynamic>()),
     );
   }

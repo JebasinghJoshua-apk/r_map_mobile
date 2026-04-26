@@ -850,18 +850,15 @@ class MobileBffMapApi {
   }) async {
     final uri = _uri('/mobile/properties/$propertyId/images');
 
-    http.StreamedResponse response;
-    try {
+    Future<http.StreamedResponse> sendUpload(String? tokenValue) async {
       final request = http.MultipartRequest('POST', uri);
-      if (bearerToken != null && bearerToken.trim().isNotEmpty) {
-        final token = bearerToken.toLowerCase().startsWith('bearer ')
-            ? bearerToken.substring('bearer '.length)
-            : bearerToken;
+      if (tokenValue != null && tokenValue.trim().isNotEmpty) {
+        final token = tokenValue.toLowerCase().startsWith('bearer ')
+            ? tokenValue.substring('bearer '.length)
+            : tokenValue;
         request.headers['Authorization'] = 'Bearer $token';
       }
 
-      // IMPORTANT: keep these names aligned with
-      // R.MAP.MobileBff.Models.PropertyImageUploadRequest
       request.fields['IsPrimary'] = isPrimary ? 'true' : 'false';
       request.fields['DisplayOrder'] = displayOrder.toString();
       if (description != null && description.trim().isNotEmpty) {
@@ -872,8 +869,12 @@ class MobileBffMapApi {
       }
 
       request.files.add(await http.MultipartFile.fromPath('File', file.path));
+      return request.send().timeout(_timeout);
+    }
 
-      response = await request.send().timeout(_timeout);
+    http.StreamedResponse response;
+    try {
+      response = await sendUpload(bearerToken);
     } on SocketException {
       await _logNetworkDiagnostics(uri);
       debugPrint(_networkHelpMessage());
@@ -888,6 +889,14 @@ class MobileBffMapApi {
       throw const MapApiException('Unexpected response from server');
     } on TimeoutException {
       throw const MapApiException('Request timed out. Please try again.');
+    }
+
+    if (response.statusCode == 401) {
+      final refreshed = await AuthAwareHttpClient.refreshSessionIfPossible();
+      if (refreshed) {
+        final latestToken = AuthAwareHttpClient.currentAccessToken();
+        response = await sendUpload(latestToken);
+      }
     }
 
     final responseBody = await response.stream.bytesToString();
