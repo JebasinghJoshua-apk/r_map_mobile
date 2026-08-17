@@ -340,10 +340,12 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
   }
 
   void _selectUser(Map<String, dynamic> user) {
+    final selectedUserId = user['id']?.toString().trim();
+    final selectedUserName = (user['name'] ?? '').toString().trim();
     setState(() {
-      _assignedOwnerUserId = user['id']?.toString();
-      _assignedOwnerName =
-          (user['name'] ?? '').toString().trim();
+      _assignedOwnerUserId =
+          (selectedUserId == null || selectedUserId.isEmpty) ? null : selectedUserId;
+      _assignedOwnerName = selectedUserName.isEmpty ? null : selectedUserName;
       _userSearchController.text = _assignedOwnerName ?? '';
       _userSearchResults = [];
     });
@@ -379,7 +381,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           decoration: InputDecoration(
             hintText: 'Search by name or phone...',
             prefixIcon: const Icon(Icons.person_search, size: 20),
-            suffixIcon: _assignedOwnerUserId != null
+            suffixIcon: (_assignedOwnerUserId?.trim().isNotEmpty ?? false)
                 ? IconButton(
                     icon: const Icon(Icons.clear, size: 20),
                     onPressed: _clearAssignedOwner,
@@ -403,7 +405,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
           onChanged: _onUserSearchChanged,
           readOnly: false,
         ),
-        if (_assignedOwnerUserId != null) ...[
+        if (_assignedOwnerUserId?.trim().isNotEmpty ?? false) ...[
           const SizedBox(height: 4),
           Text(
             'Assigned: $_assignedOwnerName',
@@ -853,12 +855,17 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
         _propertyType = resolvedType;
         _listingType = listing;
         _prefillPropertyFields(entity);
-        _assignedOwnerUserId =
+        final assignedOwnerUserId =
             _pickString(entity, ['assignedOwnerUserId']);
-        _assignedOwnerName =
+        final assignedOwnerName =
             _pickString(entity, ['assignedOwnerName']);
+        _assignedOwnerUserId =
+            assignedOwnerUserId.isEmpty ? null : assignedOwnerUserId;
+        _assignedOwnerName = assignedOwnerName.isEmpty ? null : assignedOwnerName;
         if (_assignedOwnerName != null && _assignedOwnerName!.isNotEmpty) {
           _userSearchController.text = _assignedOwnerName!;
+        } else {
+          _userSearchController.clear();
         }
         _prefillRevision += 1;
         _didPrefillFromEditPayload = true;
@@ -1234,7 +1241,7 @@ class _PropertyDetailsFormScreenState extends State<PropertyDetailsFormScreen> {
     }
 
     // Inject assigned owner for admin edits
-    if (_isEdit && _assignedOwnerUserId != null && result.payload != null) {
+    if (_isEdit && (_assignedOwnerUserId?.trim().isNotEmpty ?? false) && result.payload != null) {
       result.payload!['assignedOwnerUserId'] = _assignedOwnerUserId;
     }
 
