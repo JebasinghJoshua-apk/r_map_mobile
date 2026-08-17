@@ -25,6 +25,33 @@ class MobileBffLayoutsApi {
     return Uri.parse('$normalizedBase$normalizedPath');
   }
 
+  static String additionalDetailsForInput(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return '';
+    }
+    final normalized = value.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    return normalized.replaceAll('~~', '\n');
+  }
+
+  static String? additionalDetailsForStorage(String? value) {
+    if (value == null) {
+      return null;
+    }
+
+    final normalized = value.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    final lines = normalized
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList(growable: false);
+
+    if (lines.isEmpty) {
+      return null;
+    }
+
+    return lines.join('~~');
+  }
+
   Future<LayoutDetailDto> getLayoutDetail({
     required String layoutId,
     String? bearerToken,
@@ -140,8 +167,10 @@ class MobileBffLayoutsApi {
     if (locationDetails != null && locationDetails.trim().isNotEmpty) {
       payload['locationDetails'] = locationDetails.trim();
     }
-    if (additionalDetails != null && additionalDetails.trim().isNotEmpty) {
-      payload['additionalDetails'] = additionalDetails.trim();
+    final normalizedAdditionalDetails =
+        additionalDetailsForStorage(additionalDetails);
+    if (normalizedAdditionalDetails != null) {
+      payload['additionalDetails'] = normalizedAdditionalDetails;
     }
     if (contactNumbers != null && contactNumbers.trim().isNotEmpty) {
       payload['contactNumbers'] = contactNumbers.trim();
@@ -196,6 +225,96 @@ class MobileBffLayoutsApi {
     throw LayoutsApiException(
       _tryMessage(response.body) ??
           'Layout creation failed (${response.statusCode})',
+    );
+  }
+
+  Future<void> updateLayout({
+    required String layoutId,
+    required String name,
+    String? area,
+    int? plotsCount,
+    String? surveyNumber,
+    String? approvalNumber,
+    String? locationDetails,
+    String? additionalDetails,
+    String? contactNumbers,
+    String? description,
+    required String bearerToken,
+  }) async {
+    final trimmedId = layoutId.trim();
+    if (trimmedId.isEmpty) {
+      throw const LayoutsApiException('Invalid layout id');
+    }
+
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty) {
+      throw const LayoutsApiException('Layout name is required');
+    }
+
+    final uri = _uri('/mobile/layouts/$trimmedId');
+
+    final normalizedAdditionalDetails =
+      additionalDetailsForStorage(additionalDetails);
+
+    final payload = <String, dynamic>{
+      'name': trimmedName,
+      if (area != null) 'area': area.trim().isEmpty ? null : area.trim(),
+      if (plotsCount != null && plotsCount > 0) 'plotsCount': plotsCount,
+      if (surveyNumber != null)
+        'surveyNumber': surveyNumber.trim().isEmpty ? null : surveyNumber.trim(),
+      if (approvalNumber != null)
+        'approvalNumber':
+            approvalNumber.trim().isEmpty ? null : approvalNumber.trim(),
+      if (locationDetails != null)
+        'locationDetails':
+            locationDetails.trim().isEmpty ? null : locationDetails.trim(),
+      if (additionalDetails != null)
+        'additionalDetails': normalizedAdditionalDetails,
+      if (contactNumbers != null)
+        'contactNumbers':
+            contactNumbers.trim().isEmpty ? null : contactNumbers.trim(),
+      if (description != null) 'description': description,
+    };
+
+    http.Response response;
+    try {
+      final token = bearerToken.trim();
+      final normalized = token.toLowerCase().startsWith('bearer ')
+          ? token.substring('bearer '.length)
+          : token;
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $normalized',
+      };
+
+      response = await _client
+          .put(uri, headers: headers, body: jsonEncode(payload))
+          .timeout(_timeout);
+    } on SocketException {
+      _logNetworkHelp(uri);
+      throw const LayoutsApiException(
+        'Cannot connect to the server. Please check your network and try again.',
+      );
+    } on HttpException {
+      _logNetworkHelp(uri);
+      throw const LayoutsApiException('Network error. Please try again.');
+    } on TimeoutException {
+      throw const LayoutsApiException('Request timed out. Please try again.');
+    } on FormatException {
+      throw const LayoutsApiException('Unexpected response from server');
+    }
+
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      return;
+    }
+
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      throw const LayoutsApiException('Not authorized to update layouts');
+    }
+
+    throw LayoutsApiException(
+      _tryMessage(response.body) ??
+          'Layout update failed (${response.statusCode})',
     );
   }
 }

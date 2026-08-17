@@ -504,7 +504,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
         surveyNumber: _surveyNumberController.text.trim(),
         approvalNumber: _approvalNumberController.text.trim(),
         locationDetails: _locationDetailsController.text.trim(),
-        additionalDetails: _additionalDetailsController.text.trim(),
+        additionalDetails: _additionalDetailsController.text,
         contactNumbers: _contactNumbersController.text.trim(),
         description: _descriptionController.text.trim(),
         plotsCount: plotsCount,

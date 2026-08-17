@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../constants/api_constants.dart';
 import '../../models/my_property_list_item.dart';
+import '../../screens/layout_fields_edit_screen.dart';
 import '../../screens/layout_details_form_screen.dart';
 import '../../screens/property_details_form_screen.dart';
 import '../../screens/property_polygon_editor_screen.dart';
@@ -781,7 +782,27 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                           }
 
                           Future<void> edit() async {
-                            if (!isEditableProperty || isLayoutProperty) {
+                            if (isLayoutProperty) {
+                              final updated = await Navigator.of(
+                                context,
+                                rootNavigator: true,
+                              ).push<bool>(
+                                MaterialPageRoute(
+                                  builder: (_) => LayoutFieldsEditScreen(
+                                    layoutId: item.id,
+                                  ),
+                                ),
+                              );
+                              if (!mounted) {
+                                return;
+                              }
+                              if (updated == true) {
+                                unawaited(_load());
+                              }
+                              return;
+                            }
+
+                            if (!isEditableProperty) {
                               return;
                             }
 
@@ -1010,7 +1031,8 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                                                 ),
                                                 _approvalStatusChip(
                                                     item.approvalStatus),
-                                                if (item.isAssignedOnly)
+                                                if (item.isAssignedOnly &&
+                                                    !isLayoutProperty)
                                                   _assignedBadge(),
                                               ],
                                             ),
@@ -1018,7 +1040,8 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                                         ),
                                       ),
                                       const SizedBox(width: 8),
-                                      if (!item.isAssignedOnly)
+                                      if (!item.isAssignedOnly ||
+                                          isLayoutProperty)
                                         Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
@@ -1072,14 +1095,14 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                                               ),
                                             _actionIcon(
                                               icon: Icons.edit_outlined,
-                                              tooltip: isEditableProperty &&
-                                                      !isLayoutProperty
-                                                  ? 'Edit'
+                                              tooltip: isLayoutProperty ||
+                                                  isEditableProperty
+                                                ? 'Edit'
                                                   : (hasMultiplePlots
                                                       ? 'Edit disabled'
                                                       : 'Edit (web only)'),
-                                              onTap: isEditableProperty &&
-                                                      !isLayoutProperty
+                                              onTap: isLayoutProperty ||
+                                                  isEditableProperty
                                                   ? () => unawaited(edit())
                                                   : () =>
                                                       ToastMessage.showAbove(
@@ -1088,31 +1111,33 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                                                             ? 'Only single-plot properties can be edited on mobile.'
                                                             : 'Layout editable only in web screen.',
                                                       ),
-                                              enabled: isEditableProperty &&
-                                                  !isLayoutProperty,
+                                                enabled: isLayoutProperty ||
+                                                  isEditableProperty,
                                             ),
-                                            const SizedBox(width: 6),
-                                            _actionIcon(
-                                              icon: Icons.delete_outline,
-                                              tooltip: deleteDisabledReason,
-                                              onTap: canDeleteProperty
-                                                  ? () => unawaited(
-                                                      deleteProperty())
-                                                  : (isDeleting
-                                                      ? null
-                                                      : () => ToastMessage
-                                                              .showAbove(
-                                                            context,
-                                                            hasMultiplePlots
-                                                                ? 'Only single-plot properties can be deleted on mobile.'
-                                                                : 'Layout deletions are available on the web screen.',
-                                                          )),
-                                              enabled: canDeleteProperty,
-                                              iconColor:
-                                                  const Color(0xFFDC2626),
-                                              borderColor:
-                                                  const Color(0xFFFEE2E2),
-                                            ),
+                                            if (!item.isAssignedOnly) ...[
+                                              const SizedBox(width: 6),
+                                              _actionIcon(
+                                                icon: Icons.delete_outline,
+                                                tooltip: deleteDisabledReason,
+                                                onTap: canDeleteProperty
+                                                    ? () => unawaited(
+                                                        deleteProperty())
+                                                    : (isDeleting
+                                                        ? null
+                                                        : () => ToastMessage
+                                                                .showAbove(
+                                                              context,
+                                                              hasMultiplePlots
+                                                                  ? 'Only single-plot properties can be deleted on mobile.'
+                                                                  : 'Layout deletions are available on the web screen.',
+                                                            )),
+                                                enabled: canDeleteProperty,
+                                                iconColor:
+                                                    const Color(0xFFDC2626),
+                                                borderColor:
+                                                    const Color(0xFFFEE2E2),
+                                              ),
+                                            ],
                                           ],
                                         ),
                                     ],
