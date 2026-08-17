@@ -563,6 +563,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
     required TextEditingController controller,
     required String label,
     TextInputType? keyboardType,
+    int minLines = 1,
     int maxLines = 1,
   }) {
     return Padding(
@@ -570,6 +571,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
+        minLines: minLines,
         maxLines: maxLines,
         decoration: InputDecoration(
           labelText: label,
@@ -620,7 +622,8 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
                   _buildField(
                     controller: _additionalDetailsController,
                     label: 'Additional Details',
-                    maxLines: 5,
+                    minLines: 7,
+                    maxLines: 9,
                   ),
                   _buildField(
                     controller: _contactNumberController,
