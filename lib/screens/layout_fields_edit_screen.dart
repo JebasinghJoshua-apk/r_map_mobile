@@ -35,8 +35,6 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _areaController = TextEditingController();
   final TextEditingController _plotsCountController = TextEditingController();
-  final TextEditingController _surveyNumberController = TextEditingController();
-  final TextEditingController _approvalNumberController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
   final TextEditingController _additionalDetailsController =
       TextEditingController();
@@ -62,8 +60,6 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
     _nameController.dispose();
     _areaController.dispose();
     _plotsCountController.dispose();
-    _surveyNumberController.dispose();
-    _approvalNumberController.dispose();
     _locationController.dispose();
     _additionalDetailsController.dispose();
     _contactNumberController.dispose();
@@ -96,8 +92,6 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
         _nameController.text = detail.name;
         _areaController.text = detail.area ?? '';
         _plotsCountController.text = detail.plotsCount?.toString() ?? '';
-        _surveyNumberController.text = detail.surveyNumber ?? '';
-        _approvalNumberController.text = detail.approvalNumber ?? '';
         _locationController.text = detail.locationDetails ?? '';
         _additionalDetailsController.text =
             MobileBffLayoutsApi.additionalDetailsForInput(
@@ -522,8 +516,6 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
         name: name,
         area: _areaController.text,
         plotsCount: plotsCount,
-        surveyNumber: _surveyNumberController.text,
-        approvalNumber: _approvalNumberController.text,
         locationDetails: _locationController.text,
         additionalDetails: _additionalDetailsController.text,
         contactNumbers: _contactNumberController.text,
@@ -622,21 +614,13 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
                     keyboardType: TextInputType.number,
                   ),
                   _buildField(
-                    controller: _surveyNumberController,
-                    label: 'Survey Number',
-                  ),
-                  _buildField(
-                    controller: _approvalNumberController,
-                    label: 'Approval Number',
-                  ),
-                  _buildField(
                     controller: _locationController,
                     label: 'Location',
                   ),
                   _buildField(
                     controller: _additionalDetailsController,
                     label: 'Additional Details',
-                    maxLines: 3,
+                    maxLines: 5,
                   ),
                   _buildField(
                     controller: _contactNumberController,
