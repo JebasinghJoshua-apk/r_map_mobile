@@ -8,7 +8,7 @@ class GeoJson {
   /// Encodes a [Polygon] GeoJSON from a list of [LatLng] points.
   /// Returns null if fewer than 3 points are supplied.
   static String? polygonToGeoJson(List<LatLng> points) {
-    if (points.length < 3) return null;
+    if (points.length < 4) return null;
 
     final ring = <List<double>>[];
     for (final p in points) {

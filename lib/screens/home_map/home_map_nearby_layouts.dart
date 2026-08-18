@@ -340,7 +340,7 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
     final previewSet = <Polygon>{};
     for (var i = 0; i < polygons.length; i++) {
       final ring = polygons[i];
-      if (ring.length < 3) continue;
+      if (ring.length < 4) continue;
 
       previewSet.add(
         Polygon(

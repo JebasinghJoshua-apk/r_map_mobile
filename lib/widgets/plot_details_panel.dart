@@ -474,7 +474,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
     final polygons = GeoJson.tryParsePolygons(plot.boundaryGeoJson);
     if (polygons.isEmpty) return null;
     final ring = polygons.first;
-    if (ring.length < 3) return null;
+    if (ring.length < 4) return null;
     return ring;
   }
 
@@ -724,7 +724,7 @@ class _PlotSketchPainter extends CustomPainter {
         points = points.sublist(0, points.length - 1);
       }
     }
-    if (points.length < 3) return;
+    if (points.length < 4) return;
 
     // Centroid used for tilt + label placement.
     var centroid = const Offset(0, 0);

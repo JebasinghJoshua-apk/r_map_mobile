@@ -79,7 +79,7 @@ extension _HomeMapDimensions on _HomeMapScreenState {
 
     for (var polyIdx = 0; polyIdx < polygons.length; polyIdx++) {
       final ring = polygons[polyIdx];
-      if (ring.length < 3) continue;
+      if (ring.length < 4) continue;
 
       // For closed rings the last point == first — don't label the closing edge.
       final edgeCount =

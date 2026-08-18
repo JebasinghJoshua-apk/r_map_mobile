@@ -183,7 +183,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
 
       for (var i = 0; i < rings.length; i++) {
         final ring = rings[i];
-        if (ring.length < 3) continue;
+        if (ring.length < 4) continue;
         polygons.add(
           Polygon(
             polygonId:

@@ -1070,7 +1070,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
     if (controller == null) return;
 
     final points = request.boundaryPoints;
-    if (points.length < 3) return;
+    if (points.length < 4) return;
 
     final bounds = _boundsFromPoints(points);
     final center = _centerOfBounds(bounds);
