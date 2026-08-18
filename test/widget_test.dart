@@ -8,6 +8,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:r_map_mobile/app.dart';
+import 'package:r_map_mobile/screens/property_polygon_editor_screen.dart';
 
 void main() {
   testWidgets('RMapApp renders', (WidgetTester tester) async {
@@ -15,5 +16,9 @@ void main() {
     await tester.pump();
 
     expect(find.byType(MaterialApp), findsOneWidget);
+  });
+
+  test('property polygon editor requires 4 points minimum', () {
+    expect(PropertyPolygonEditorScreen.minimumRequiredPoints, 4);
   });
 }

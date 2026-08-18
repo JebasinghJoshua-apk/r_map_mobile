@@ -17,6 +17,8 @@ import '../utils/geojson.dart';
 import '../widgets/api_key_missing_banner.dart';
 
 class PropertyPolygonEditorScreen extends StatefulWidget {
+  static const int minimumRequiredPoints = 4;
+
   const PropertyPolygonEditorScreen({
     super.key,
     required this.mode,
@@ -544,7 +546,7 @@ class _PropertyPolygonEditorScreenState
     });
   }
 
-  bool get _canFinish => _points.length >= 3;
+  bool get _canFinish => _points.length >= PropertyPolygonEditorScreen.minimumRequiredPoints;
 
   Future<void> _handleNext() async {
     if (!_canFinish) return;
@@ -1146,7 +1148,7 @@ class _PropertyPolygonEditorScreenState
         ? 'Add Property'
         : 'Edit Property';
 
-    final polygon = _points.length >= 3
+    final polygon = _points.length >= PropertyPolygonEditorScreen.minimumRequiredPoints
         ? Polygon(
             polygonId: PolygonId('draft_$_geometryRevision'),
             points: _points,
@@ -1158,7 +1160,7 @@ class _PropertyPolygonEditorScreenState
           )
         : null;
 
-    final polylinePoints = _points.length >= 3
+    final polylinePoints = _points.length >= PropertyPolygonEditorScreen.minimumRequiredPoints
         ? <LatLng>[..._points, _points.first]
         : <LatLng>[..._points];
 
@@ -1189,7 +1191,7 @@ class _PropertyPolygonEditorScreenState
     final edgeMarkers = <Marker>{};
     final showEdgeMarkers = _points.length >= 2;
     if (showEdgeMarkers) {
-      final willClose = _points.length >= 3;
+      final willClose = _points.length >= PropertyPolygonEditorScreen.minimumRequiredPoints;
       final lastIndex = _points.length - 1;
       final edgeCount = willClose ? _points.length : lastIndex;
       for (var i = 0; i < edgeCount; i++) {
@@ -1441,7 +1443,7 @@ class _PropertyPolygonEditorScreenState
                                       SizedBox(width: 8.w),
                                       Flexible(
                                         child: Text(
-                                          'Tap map to add points (${_points.length}/3).',
+                                          'Tap map to add points (${_points.length}/${PropertyPolygonEditorScreen.minimumRequiredPoints}).',
                                           textAlign: TextAlign.center,
                                           softWrap: true,
                                           style: TextStyle(

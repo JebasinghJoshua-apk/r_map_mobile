@@ -21,6 +21,8 @@ import '../widgets/toast_message.dart';
 
 /// Screen for admin users to create a new layout by drawing boundary and filling details.
 class LayoutDetailsFormScreen extends StatefulWidget {
+  static const int minimumRequiredPoints = 4;
+
   const LayoutDetailsFormScreen({
     super.key,
     this.initialCenter,
@@ -450,8 +452,11 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
   }
 
   void _proceedToForm() {
-    if (_boundaryPoints.length < 3) {
-      ToastMessage.show(context, 'Draw at least 3 points to define boundary');
+    if (_boundaryPoints.length < LayoutDetailsFormScreen.minimumRequiredPoints) {
+      ToastMessage.show(
+        context,
+        'Draw at least ${LayoutDetailsFormScreen.minimumRequiredPoints} points to define boundary',
+      );
       return;
     }
     setState(() {
@@ -472,8 +477,11 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
       return;
     }
 
-    if (_boundaryPoints.length < 3) {
-      ToastMessage.show(context, 'Layout boundary must have at least 3 points');
+    if (_boundaryPoints.length < LayoutDetailsFormScreen.minimumRequiredPoints) {
+      ToastMessage.show(
+        context,
+        'Layout boundary must have at least ${LayoutDetailsFormScreen.minimumRequiredPoints} points',
+      );
       return;
     }
 
@@ -567,7 +575,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
   Set<Polygon> _buildPolygons() {
     final polygons = <Polygon>{..._viewportPropertyPolygons};
 
-    if (_boundaryPoints.length >= 3) {
+    if (_boundaryPoints.length >= LayoutDetailsFormScreen.minimumRequiredPoints) {
       polygons.add(
         Polygon(
           polygonId: PolygonId('layout_boundary_$_geometryRevision'),
@@ -617,7 +625,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
     final edgeMarkers = <Marker>{};
     final showEdgeMarkers = _boundaryPoints.length >= 2;
     if (showEdgeMarkers) {
-      final willClose = _boundaryPoints.length >= 3;
+      final willClose = _boundaryPoints.length >= LayoutDetailsFormScreen.minimumRequiredPoints;
       final lastIndex = _boundaryPoints.length - 1;
       final edgeCount = willClose ? _boundaryPoints.length : lastIndex;
       for (var i = 0; i < edgeCount; i++) {
@@ -645,7 +653,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
   Set<Polyline> _buildPolylines() {
     if (_boundaryPoints.length < 2) return const <Polyline>{};
 
-    final polylinePoints = _boundaryPoints.length >= 3
+    final polylinePoints = _boundaryPoints.length >= LayoutDetailsFormScreen.minimumRequiredPoints
         ? <LatLng>[..._boundaryPoints, _boundaryPoints.first]
         : <LatLng>[..._boundaryPoints];
 
@@ -822,7 +830,9 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
           Padding(
             padding: const EdgeInsets.only(right: 10),
             child: FilledButton(
-              onPressed: _boundaryPoints.length >= 3 ? _proceedToForm : null,
+              onPressed: _boundaryPoints.length >= LayoutDetailsFormScreen.minimumRequiredPoints
+                  ? _proceedToForm
+                  : null,
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF0FAD97),
                 padding:
@@ -1056,9 +1066,9 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
                                 const SizedBox(width: 8),
                                 Flexible(
                                   child: Text(
-                                    _boundaryPoints.length >= 3
+                                    _boundaryPoints.length >= LayoutDetailsFormScreen.minimumRequiredPoints
                                         ? 'Press Next to continue'
-                                        : 'Tap map to add points (${_boundaryPoints.length}/3).',
+                                        : 'Tap map to add points (${_boundaryPoints.length}/${LayoutDetailsFormScreen.minimumRequiredPoints}).',
                                     textAlign: TextAlign.center,
                                     softWrap: true,
                                     style: const TextStyle(
