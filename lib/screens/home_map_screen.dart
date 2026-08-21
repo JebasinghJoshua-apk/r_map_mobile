@@ -233,6 +233,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   Set<Marker> _plotLabelMarkers = <Marker>{};
   Set<Marker> _roadLabelMarkers = <Marker>{};
   Set<Marker> _amenityLabelMarkers = <Marker>{};
+  Set<Marker> _selectedPropertyChildPlotLabelMarkers = <Marker>{};
+  Set<Marker> _selectedPropertyChildRoadLabelMarkers = <Marker>{};
+  Set<Marker> _selectedPropertyChildAmenityLabelMarkers = <Marker>{};
   Set<Marker> _dimensionMarkers = <Marker>{};
 
   /// Current viewport plots for dimension label rendering at very high zoom.
@@ -243,9 +246,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   Set<Polygon> _plotPolygons = <Polygon>{};
   Set<Polygon> _selectedPlotHighlightPolygons = <Polygon>{};
   Set<Polygon> _selectedPropertyHighlightPolygons = <Polygon>{};
+  Set<Polygon> _selectedPropertyChildPlotPolygons = <Polygon>{};
   Set<Polygon> _amenityPolygons = <Polygon>{};
+  Set<Polygon> _selectedPropertyChildAmenityPolygons = <Polygon>{};
   Set<Polygon> _roadPolygons = <Polygon>{};
+  Set<Polygon> _selectedPropertyChildRoadPolygons = <Polygon>{};
   Set<Polyline> _roadPolylines = <Polyline>{};
+  Set<Polyline> _selectedPropertyChildRoadPolylines = <Polyline>{};
 
   // Layout preview polygon (shown immediately when opening from nearby dialog
   // while full viewport data loads).
@@ -357,6 +364,15 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   }
 
   List<String> _layoutContactNumbersForPlot(MapPlotFeature plot) {
+    final rawMeta = plot.metadata['contactNumbers']?.trim();
+    if (rawMeta != null && rawMeta.isNotEmpty) {
+      return rawMeta
+          .split(RegExp(r'[\n,;/.|]+'))
+          .map((v) => v.trim())
+          .where((v) => v.isNotEmpty)
+          .toList(growable: false);
+    }
+
     final layoutId = plot.layoutId?.trim();
     if (layoutId == null || layoutId.isEmpty) {
       return const <String>[];
@@ -1530,19 +1546,25 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   Widget build(BuildContext context) {
     final isRouteCurrent = ModalRoute.of(context)?.isCurrent ?? true;
     final selectedPlot = _selectedPlot;
+    final selectedPropertyType = _selectedProperty?.propertyType.trim();
     final bottomSystemInset = MediaQuery.of(context).viewPadding.bottom;
     final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
     final bottomPanelInset =
         isIOS ? 16.0 : (bottomSystemInset > 0 ? bottomSystemInset : 0.0);
-    final isBottomPanelOpen = selectedPlot != null || _selectedProperty != null;
+    final showPropertyPanel = _selectedProperty != null;
+    final isBottomPanelOpen = selectedPlot != null || showPropertyPanel;
 
     final isViewportEmpty = _viewportMarkers.isEmpty &&
         _layoutPolygons.isEmpty &&
         _propertyPolygons.isEmpty &&
         _plotPolygons.isEmpty &&
+      _selectedPropertyChildPlotPolygons.isEmpty &&
         _amenityPolygons.isEmpty &&
+      _selectedPropertyChildAmenityPolygons.isEmpty &&
         _roadPolygons.isEmpty &&
-        _roadPolylines.isEmpty;
+      _selectedPropertyChildRoadPolygons.isEmpty &&
+      _roadPolylines.isEmpty &&
+      _selectedPropertyChildRoadPolylines.isEmpty;
 
     final showEmptyState = isRouteCurrent &&
         !isBottomPanelOpen &&
@@ -1556,6 +1578,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       ..._plotLabelMarkers,
       ..._roadLabelMarkers,
       ..._amenityLabelMarkers,
+      ..._selectedPropertyChildPlotLabelMarkers,
+      ..._selectedPropertyChildRoadLabelMarkers,
+      ..._selectedPropertyChildAmenityLabelMarkers,
       ..._dimensionMarkers,
     };
 
@@ -1607,12 +1632,18 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                 ..._propertyPolygons,
                 ..._selectedPropertyHighlightPolygons,
                 ..._plotPolygons,
+                ..._selectedPropertyChildPlotPolygons,
                 ..._selectedPlotHighlightPolygons,
                 ..._amenityPolygons,
+                ..._selectedPropertyChildAmenityPolygons,
                 ..._roadPolygons,
+                ..._selectedPropertyChildRoadPolygons,
                 ..._layoutPreviewPolygons,
               },
-              polylines: _roadPolylines,
+              polylines: {
+                ..._roadPolylines,
+                ..._selectedPropertyChildRoadPolylines,
+              },
               rotateGesturesEnabled: false,
               tiltGesturesEnabled: false,
               compassEnabled: false,
@@ -1975,7 +2006,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                       onLayoutDetails: () {
                         if (isIndividualPlot) {
                           final ipId = selectedPlot.individualPlotsId!.trim();
-                          final feature = _propertyByFeatureId[ipId];
+                          final feature = _propertyByFeatureId[ipId] ??
+                              (_selectedProperty?.featureId.trim() == ipId
+                                  ? _selectedProperty
+                                  : null);
                           if (feature == null) {
                             ToastMessage.show(
                               context,
@@ -2031,7 +2065,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                   }(),
                 ),
               ),
-            if (selectedPlot == null && _selectedProperty != null)
+            if (selectedPlot == null && showPropertyPanel)
               Positioned(
                 left: 0,
                 right: 0,

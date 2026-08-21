@@ -7,16 +7,23 @@ extension _HomeMapSelection on _HomeMapScreenState {
     });
 
     final p = saved.property;
-    final center = p.centerPoint;
-    if (center == null) {
-      if (!mounted) return;
-      ToastMessage.show(context, 'Location not available for this property');
-      return;
-    }
 
     final token = AuthScope.of(context).session?.token;
-    final id =
-        saved.propertyId.trim().isEmpty ? p.id.trim() : saved.propertyId.trim();
+    final id = saved.propertyId.trim().isNotEmpty
+        ? saved.propertyId.trim()
+        : p.id.trim();
+
+    PropertyDetail? detail;
+    if (token != null && token.trim().isNotEmpty && id.isNotEmpty) {
+      try {
+        detail = await _mapApi.getPropertyDetail(
+          propertyId: id,
+          bearerToken: token,
+        );
+      } catch (_) {
+        // Best effort only.
+      }
+    }
 
     MapPropertyFeature? matchedFeature;
     if (id.isNotEmpty) {
@@ -30,18 +37,34 @@ extension _HomeMapSelection on _HomeMapScreenState {
       }
     }
 
+    LatLng? center = p.centerPoint;
+    center ??= GeoJson.tryParsePoint(detail?.centerPointGeoJson);
+    if (center == null && detail?.propertyBoundaryGeoJson != null) {
+      final polygons = GeoJson.tryParsePolygons(detail!.propertyBoundaryGeoJson);
+      final points = polygons.firstWhere(
+        (poly) => poly.length >= 3,
+        orElse: () => const <LatLng>[],
+      );
+      if (points.isNotEmpty) {
+        center = _centerOfBounds(_boundsFromPoints(points));
+      }
+    }
     final rawType = (p.propertyTypeName ?? '').trim();
     final normalizedType = rawType.replaceAll(RegExp(r'\s+'), '');
     final typeFilter = normalizedType.isNotEmpty ? normalizedType : rawType;
 
-    if (matchedFeature == null && id.isNotEmpty) {
+    final preLookupCenter = center;
+
+    if (preLookupCenter != null && matchedFeature == null && id.isNotEmpty) {
       Future<void> tryViewportLookup({
         required double delta,
         List<String>? propertyTypes,
       }) async {
         final nearBounds = LatLngBounds(
-          southwest: LatLng(center.latitude - delta, center.longitude - delta),
-          northeast: LatLng(center.latitude + delta, center.longitude + delta),
+          southwest:
+              LatLng(preLookupCenter.latitude - delta, preLookupCenter.longitude - delta),
+          northeast:
+              LatLng(preLookupCenter.latitude + delta, preLookupCenter.longitude + delta),
         );
 
         final response = await _mapApi.getViewport(
@@ -82,31 +105,34 @@ extension _HomeMapSelection on _HomeMapScreenState {
       }
     }
 
+    final matchedFeatureCenter = matchedFeature?.centerPoint;
+    if (center == null && matchedFeatureCenter != null) {
+      center = matchedFeatureCenter;
+    }
+    if (center == null && matchedFeature?.boundaryGeoJson != null) {
+      final boundaryGeoJson = matchedFeature?.boundaryGeoJson;
+      final polygons = GeoJson.tryParsePolygons(boundaryGeoJson);
+      final points = polygons.firstWhere(
+        (poly) => poly.length >= 3,
+        orElse: () => const <LatLng>[],
+      );
+      if (points.isNotEmpty) {
+        center = _centerOfBounds(_boundsFromPoints(points));
+      }
+    }
+    if (center == null) {
+      if (!mounted) return;
+      ToastMessage.show(context, 'Location not available for this property');
+      return;
+    }
+
+    final resolvedFocusCenter = center;
+
     final name = p.name.trim().isEmpty
         ? (p.propertyTypeName?.trim().isEmpty ?? true
             ? 'Property'
             : p.propertyTypeName!.trim())
         : p.name.trim();
-
-    PropertyDetail? detail;
-    if (token != null && token.trim().isNotEmpty) {
-      final featureSnapshot = matchedFeature;
-      final needsDetail = featureSnapshot == null ||
-          (featureSnapshot.boundaryGeoJson == null ||
-              featureSnapshot.boundaryGeoJson!.trim().isEmpty) ||
-          (featureSnapshot.centerGeoJson == null ||
-              featureSnapshot.centerGeoJson!.trim().isEmpty);
-      if (needsDetail && id.isNotEmpty) {
-        try {
-          detail = await _mapApi.getPropertyDetail(
-            propertyId: id,
-            bearerToken: token,
-          );
-        } catch (_) {
-          // Best-effort; fallback to viewport data if available.
-        }
-      }
-    }
 
     MapPropertyFeature? effectiveFeature;
     final featureSnapshot = matchedFeature;
@@ -196,16 +222,32 @@ extension _HomeMapSelection on _HomeMapScreenState {
         focusZoom = _priceBadgeFocusZoomTarget(type);
       }
 
-      final target = focusCenter ?? effectiveFeature.centerPoint ?? center;
+      final LatLng target = resolvedFocusCenter ?? effectiveFeature.centerPoint ?? center!;
       final zoom = focusZoom ?? _priceBadgeFocusZoomTarget(type);
 
       if (isLayout) {
+        final selectedFeature = effectiveFeature;
+        _closePlotPanel();
+        _searchOverlayKey.currentState?.contract();
+        _updateState(() {
+          _selectedProperty = selectedFeature;
+          _selectedPropertyHighlightPolygons =
+              _buildSelectedPropertyHighlightPolygons(selectedFeature);
+          _independentHousesCarousel = const <MapPropertyFeature>[];
+          _activeIndependentHouseIndex = 0;
+          _independentHouseCarouselDebounce?.cancel();
+          _independentHouseCarouselRequestSeq++;
+        });
+        unawaited(_refreshMarkerSelectionStyles());
+        _ensurePropertyMediaLoaded(selectedFeature);
+        _clearSelectedPropertyChildOverlays();
         await _focusPropertyOnMap(
           target: target,
           zoom: zoom,
           boundaryGeoJson: effectiveFeature.boundaryGeoJson,
         );
       } else {
+        _clearSelectedPropertyChildOverlays();
         // IndependentHouse, Land, CommercialSpace, ApartmentFlat - all use carousel
         await _handleCarouselPropertyTapped(
           effectiveFeature,
@@ -214,7 +256,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
         );
       }
     } else {
-      await _focusPropertyOnMap(target: center, zoom: 18.0);
+        await _focusPropertyOnMap(target: resolvedFocusCenter!, zoom: 18.0);
     }
 
     if (!mounted) return;
@@ -317,15 +359,23 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _hasSelectedPlace = true;
     });
 
-    final center = item.centerPoint;
-    if (center == null) {
-      if (!mounted) return;
-      ToastMessage.show(context, 'Location not available for this property');
-      return;
+    final token = AuthScope.of(context).session?.token;
+    final id = item.propertyId.trim().isNotEmpty
+        ? item.propertyId.trim()
+        : item.id.trim();
+
+    PropertyDetail? detail;
+    if (token != null && token.trim().isNotEmpty && id.isNotEmpty) {
+      try {
+        detail = await _mapApi.getPropertyDetail(
+          propertyId: id,
+          bearerToken: token,
+        );
+      } catch (_) {
+        // Best effort only.
+      }
     }
 
-    final token = AuthScope.of(context).session?.token;
-    final id = item.id.trim();
     MapPropertyFeature? matchedFeature;
     if (id.isNotEmpty) {
       for (final feature in _propertyByFeatureId.values) {
@@ -338,7 +388,21 @@ extension _HomeMapSelection on _HomeMapScreenState {
       }
     }
 
-    if (matchedFeature == null && id.isNotEmpty) {
+    LatLng? center = item.centerPoint;
+    center ??= GeoJson.tryParsePoint(detail?.centerPointGeoJson);
+    if (center == null && detail?.propertyBoundaryGeoJson != null) {
+      final polygons = GeoJson.tryParsePolygons(detail!.propertyBoundaryGeoJson);
+      final points = polygons.firstWhere(
+        (poly) => poly.length >= 3,
+        orElse: () => const <LatLng>[],
+      );
+      if (points.isNotEmpty) {
+        center = _centerOfBounds(_boundsFromPoints(points));
+      }
+    }
+    final preLookupCenter = center;
+
+    if (preLookupCenter != null && matchedFeature == null && id.isNotEmpty) {
       final rawType = item.propertyType.trim();
       final normalizedType = rawType.replaceAll(RegExp(r'\s+'), '');
       final typeFilter = normalizedType.isNotEmpty ? normalizedType : rawType;
@@ -348,8 +412,10 @@ extension _HomeMapSelection on _HomeMapScreenState {
         List<String>? propertyTypes,
       }) async {
         final nearBounds = LatLngBounds(
-          southwest: LatLng(center.latitude - delta, center.longitude - delta),
-          northeast: LatLng(center.latitude + delta, center.longitude + delta),
+          southwest:
+              LatLng(preLookupCenter.latitude - delta, preLookupCenter.longitude - delta),
+          northeast:
+              LatLng(preLookupCenter.latitude + delta, preLookupCenter.longitude + delta),
         );
 
         final response = await _mapApi.getViewport(
@@ -390,8 +456,30 @@ extension _HomeMapSelection on _HomeMapScreenState {
       }
     }
 
-    PropertyDetail? detail;
-    if (token != null && token.trim().isNotEmpty) {
+    final matchedFeatureCenter = matchedFeature?.centerPoint;
+    if (center == null && matchedFeatureCenter != null) {
+      center = matchedFeatureCenter;
+    }
+    if (center == null && matchedFeature?.boundaryGeoJson != null) {
+      final boundaryGeoJson = matchedFeature?.boundaryGeoJson;
+      final polygons = GeoJson.tryParsePolygons(boundaryGeoJson);
+      final points = polygons.firstWhere(
+        (poly) => poly.length >= 3,
+        orElse: () => const <LatLng>[],
+      );
+      if (points.isNotEmpty) {
+        center = _centerOfBounds(_boundsFromPoints(points));
+      }
+    }
+    if (center == null) {
+      if (!mounted) return;
+      ToastMessage.show(context, 'Location not available for this property');
+      return;
+    }
+
+    final resolvedFocusCenter = center;
+
+    if (detail == null && token != null && token.trim().isNotEmpty) {
       final featureSnapshot = matchedFeature;
       final needsDetail = featureSnapshot == null ||
           (featureSnapshot.boundaryGeoJson == null ||
@@ -498,16 +586,32 @@ extension _HomeMapSelection on _HomeMapScreenState {
         focusZoom = _priceBadgeFocusZoomTarget(type);
       }
 
-      final target = focusCenter ?? effectiveFeature.centerPoint ?? center;
+      final LatLng target = resolvedFocusCenter ?? effectiveFeature.centerPoint ?? center!;
       final zoom = focusZoom ?? _priceBadgeFocusZoomTarget(type);
 
       if (isLayout) {
+        final selectedFeature = effectiveFeature;
+        _closePlotPanel();
+        _searchOverlayKey.currentState?.contract();
+        _updateState(() {
+          _selectedProperty = selectedFeature;
+          _selectedPropertyHighlightPolygons =
+              _buildSelectedPropertyHighlightPolygons(selectedFeature);
+          _independentHousesCarousel = const <MapPropertyFeature>[];
+          _activeIndependentHouseIndex = 0;
+          _independentHouseCarouselDebounce?.cancel();
+          _independentHouseCarouselRequestSeq++;
+        });
+        unawaited(_refreshMarkerSelectionStyles());
+        _ensurePropertyMediaLoaded(selectedFeature);
+        _clearSelectedPropertyChildOverlays();
         await _focusPropertyOnMap(
           target: target,
           zoom: zoom,
           boundaryGeoJson: effectiveFeature.boundaryGeoJson,
         );
       } else {
+        _clearSelectedPropertyChildOverlays();
         // IndependentHouse, Land, CommercialSpace, ApartmentFlat - all use carousel
         await _handleCarouselPropertyTapped(
           effectiveFeature,
@@ -516,7 +620,8 @@ extension _HomeMapSelection on _HomeMapScreenState {
         );
       }
     } else {
-      await _focusPropertyOnMap(target: center, zoom: 18.0);
+      _clearSelectedPropertyChildOverlays();
+      await _focusPropertyOnMap(target: resolvedFocusCenter!, zoom: 18.0);
     }
 
     if (!mounted) return;
@@ -757,6 +862,13 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _independentHousesCarousel = const <MapPropertyFeature>[];
       _activeIndependentHouseIndex = 0;
       _selectedPropertyHighlightPolygons = const <Polygon>{};
+      _selectedPropertyChildPlotPolygons = const <Polygon>{};
+      _selectedPropertyChildAmenityPolygons = const <Polygon>{};
+      _selectedPropertyChildRoadPolygons = const <Polygon>{};
+      _selectedPropertyChildRoadPolylines = const <Polyline>{};
+      _selectedPropertyChildPlotLabelMarkers = const <Marker>{};
+      _selectedPropertyChildRoadLabelMarkers = const <Marker>{};
+      _selectedPropertyChildAmenityLabelMarkers = const <Marker>{};
 
       // Reset restore tracking.
       _cameraBeforePropertyFocus = null;
@@ -788,6 +900,18 @@ extension _HomeMapSelection on _HomeMapScreenState {
   void _closeAnyPanel() {
     _closePlotPanel();
     _closePropertyPanel();
+  }
+
+  void _clearSelectedPropertyChildOverlays() {
+    _updateState(() {
+      _selectedPropertyChildPlotPolygons = const <Polygon>{};
+      _selectedPropertyChildAmenityPolygons = const <Polygon>{};
+      _selectedPropertyChildRoadPolygons = const <Polygon>{};
+      _selectedPropertyChildRoadPolylines = const <Polyline>{};
+      _selectedPropertyChildPlotLabelMarkers = const <Marker>{};
+      _selectedPropertyChildRoadLabelMarkers = const <Marker>{};
+      _selectedPropertyChildAmenityLabelMarkers = const <Marker>{};
+    });
   }
 
   Set<Polygon> _buildSelectedPlotHighlightPolygons(MapPlotFeature plot) {
