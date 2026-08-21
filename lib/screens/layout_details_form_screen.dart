@@ -517,7 +517,8 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
         boundaryLatLng: boundaryLatLng,
         isFarmLand: widget.isFarmLand,
         area: _areaController.text.trim(),
-        surveyNumber: _surveyNumberController.text.trim(),
+        surveyNumber:
+            widget.isFarmLand ? null : _surveyNumberController.text.trim(),
         approvalNumber: _approvalNumberController.text.trim(),
         locationDetails: _locationDetailsController.text.trim(),
         additionalDetails: _additionalDetailsController.text,
@@ -1366,14 +1367,16 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Survey Number
-            _buildTextField(
-              controller: _surveyNumberController,
-              label: 'Survey Number',
-              hint: 'Enter survey number',
-              maxLines: 2,
-            ),
-            const SizedBox(height: 16),
+            if (!widget.isFarmLand) ...[
+              // Survey Number
+              _buildTextField(
+                controller: _surveyNumberController,
+                label: 'Survey Number',
+                hint: 'Enter survey number',
+                maxLines: 2,
+              ),
+              const SizedBox(height: 16),
+            ],
 
             // Approval Number
             _buildTextField(

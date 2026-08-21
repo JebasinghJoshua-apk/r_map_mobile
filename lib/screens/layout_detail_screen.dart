@@ -308,6 +308,11 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
       _meta(fallback, const ['contactNumbers', 'contact', 'phone']),
     ]);
 
+    final contactName = _firstNonEmpty([
+      _detail?.contactName,
+      _meta(fallback, const ['contactName', 'contactPerson']),
+    ]);
+
     final images = (_detail?.images ?? const <LayoutImageDto>[])
         .where((img) => img.fileUrl.trim().isNotEmpty)
         .toList(growable: false);
@@ -492,19 +497,30 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
                           title: '${_entityLabel.toUpperCase()} OVERVIEW',
                           child: Column(
                             children: [
-                              _KeyValueRow(
-                                label: 'Approval No',
-                                value: (approvalNumber ?? '').trim().isEmpty
-                                    ? '—'
-                                    : approvalNumber!,
-                              ),
-                              const SizedBox(height: 10),
-                              _KeyValueRow(
-                                label: 'Survey No',
-                                value: (surveyNumber ?? '').trim().isEmpty
-                                    ? '—'
-                                    : surveyNumber!,
-                              ),
+                              if (!_isFarmLand) ...[
+                                _KeyValueRow(
+                                  label: 'Approval No',
+                                  value: (approvalNumber ?? '').trim().isEmpty
+                                      ? '—'
+                                      : approvalNumber!,
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+                              if (_isFarmLand) ...[
+                                _FullWidthKeyValueRow(
+                                  label: 'Survey No',
+                                  value: (surveyNumber ?? '').trim().isEmpty
+                                      ? '—'
+                                      : surveyNumber!,
+                                ),
+                              ] else ...[
+                                _KeyValueRow(
+                                  label: 'Survey No',
+                                  value: (surveyNumber ?? '').trim().isEmpty
+                                      ? '—'
+                                      : surveyNumber!,
+                                ),
+                              ],
                               const SizedBox(height: 10),
                               _KeyValueRow(
                                 label: 'Location',
@@ -513,20 +529,33 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
                             ],
                           ),
                         ),
-                        if (contactNumbers != null) ...[
+                        if (contactName != null || contactNumbers != null) ...[
                           const SizedBox(height: 14),
                           AuthGatedContactSection(
-                            child: CallablePhoneRow(
-                              label: 'Phone',
-                              rawValue: contactNumbers,
-                              onCall: _callPhoneNumber,
+                            child: Column(
+                              children: [
+                                if (contactName != null) ...[
+                                  _KeyValueRow(
+                                    label: 'Name',
+                                    value: contactName,
+                                  ),
+                                  if (contactNumbers != null)
+                                    const SizedBox(height: 10),
+                                ],
+                                if (contactNumbers != null)
+                                  CallablePhoneRow(
+                                    label: 'Phone',
+                                    rawValue: contactNumbers,
+                                    onCall: _callPhoneNumber,
+                                  ),
+                              ],
                             ),
                           ),
                         ],
                         if (additionalInfo != null) ...[
                           const SizedBox(height: 14),
                           _SectionCard(
-                            title: 'ADDITIONAL INFO',
+                            title: 'DESCRIPTION',
                             child: DelimitedBulletList(
                               text: additionalInfo,
                               delimiter: '~~',
@@ -1060,6 +1089,39 @@ class _KeyValueRow extends StatelessWidget {
               fontSize: 13,
               fontWeight: FontWeight.w800,
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FullWidthKeyValueRow extends StatelessWidget {
+  const _FullWidthKeyValueRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF64748B),
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Color(0xFF0F172A),
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ],
