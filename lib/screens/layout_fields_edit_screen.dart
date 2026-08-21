@@ -40,6 +40,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
   final TextEditingController _locationController = TextEditingController();
   final TextEditingController _additionalDetailsController =
       TextEditingController();
+  final TextEditingController _contactNameController = TextEditingController();
   final TextEditingController _contactNumberController = TextEditingController();
 
   String? _currentDescription;
@@ -69,6 +70,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
     _plotsCountController.dispose();
     _locationController.dispose();
     _additionalDetailsController.dispose();
+    _contactNameController.dispose();
     _contactNumberController.dispose();
     super.dispose();
   }
@@ -105,6 +107,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
             MobileBffLayoutsApi.additionalDetailsForInput(
           detail.additionalDetails,
         );
+        _contactNameController.text = detail.contactName ?? '';
         _contactNumberController.text = detail.contactNumbers ?? '';
         _currentDescription = detail.description;
         _isLoading = false;
@@ -527,6 +530,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
         plotsCount: plotsCount,
         locationDetails: _locationController.text,
         additionalDetails: _additionalDetailsController.text,
+        contactName: _contactNameController.text,
         contactNumbers: _contactNumberController.text,
         description: _currentDescription,
         bearerToken: token,
@@ -630,9 +634,13 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
                   ),
                   _buildField(
                     controller: _additionalDetailsController,
-                    label: 'Additional Details',
+                    label: 'Description',
                     minLines: 7,
                     maxLines: 9,
+                  ),
+                  _buildField(
+                    controller: _contactNameController,
+                    label: 'Contact Name',
                   ),
                   _buildField(
                     controller: _contactNumberController,

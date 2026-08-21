@@ -85,6 +85,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
       TextEditingController();
   final TextEditingController _additionalDetailsController =
       TextEditingController();
+    final TextEditingController _contactNameController = TextEditingController();
   final TextEditingController _contactNumbersController =
       TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
@@ -132,6 +133,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
     _approvalNumberController.dispose();
     _locationDetailsController.dispose();
     _additionalDetailsController.dispose();
+    _contactNameController.dispose();
     _contactNumbersController.dispose();
     _descriptionController.dispose();
     _plotsCountController.dispose();
@@ -519,6 +521,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
         approvalNumber: _approvalNumberController.text.trim(),
         locationDetails: _locationDetailsController.text.trim(),
         additionalDetails: _additionalDetailsController.text,
+        contactName: _contactNameController.text.trim(),
         contactNumbers: _contactNumbersController.text.trim(),
         description: _descriptionController.text.trim(),
         plotsCount: plotsCount,
@@ -1386,6 +1389,13 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
               label: 'Location Details',
               hint: 'Enter location/address',
               maxLines: 2,
+            ),
+            const SizedBox(height: 16),
+
+            _buildTextField(
+              controller: _contactNameController,
+              label: 'Contact Name',
+              hint: 'e.g., Jebasingh',
             ),
             const SizedBox(height: 16),
 

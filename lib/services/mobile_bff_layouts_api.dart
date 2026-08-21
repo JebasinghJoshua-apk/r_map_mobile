@@ -144,6 +144,7 @@ class MobileBffLayoutsApi {
     String? approvalNumber,
     String? locationDetails,
     String? additionalDetails,
+    String? contactName,
     String? contactNumbers,
     String? description,
     int? plotsCount,
@@ -176,6 +177,9 @@ class MobileBffLayoutsApi {
     }
     if (contactNumbers != null && contactNumbers.trim().isNotEmpty) {
       payload['contactNumbers'] = contactNumbers.trim();
+    }
+    if (contactName != null && contactName.trim().isNotEmpty) {
+      payload['contactName'] = contactName.trim();
     }
     if (description != null && description.trim().isNotEmpty) {
       payload['description'] = description.trim();
@@ -240,6 +244,7 @@ class MobileBffLayoutsApi {
     String? approvalNumber,
     String? locationDetails,
     String? additionalDetails,
+    String? contactName,
     String? contactNumbers,
     String? description,
     required String bearerToken,
@@ -274,6 +279,8 @@ class MobileBffLayoutsApi {
             locationDetails.trim().isEmpty ? null : locationDetails.trim(),
       if (additionalDetails != null)
         'additionalDetails': normalizedAdditionalDetails,
+      if (contactName != null)
+        'contactName': contactName.trim().isEmpty ? null : contactName.trim(),
       if (contactNumbers != null)
         'contactNumbers':
             contactNumbers.trim().isEmpty ? null : contactNumbers.trim(),
@@ -406,6 +413,7 @@ class LayoutDetailDto {
     this.approvalNumber,
     this.locationDetails,
     this.additionalDetails,
+    this.contactName,
     this.contactNumbers,
     this.area,
     this.plotsCount,
@@ -423,6 +431,7 @@ class LayoutDetailDto {
   final String? approvalNumber;
   final String? locationDetails;
   final String? additionalDetails;
+  final String? contactName;
   final String? contactNumbers;
   final String? area;
   final int? plotsCount;
@@ -443,6 +452,7 @@ class LayoutDetailDto {
       approvalNumber: json['approvalNumber'] as String?,
       locationDetails: json['locationDetails'] as String?,
       additionalDetails: json['additionalDetails'] as String?,
+      contactName: json['contactName'] as String?,
       contactNumbers: json['contactNumbers'] as String?,
       area: json['area'] as String?,
       plotsCount: _asInt(json['plotsCount']),

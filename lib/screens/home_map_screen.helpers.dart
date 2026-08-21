@@ -34,6 +34,10 @@ const Color _layoutMarkerOuterFill = Color.fromRGBO(55, 48, 163, 0.3);
 const Color _layoutMarkerOuterStroke = Color.fromRGBO(55, 48, 163, 0.55);
 const Color _layoutMarkerInnerFill = Color(0xFF3730A3);
 const Color _layoutMarkerInnerStroke = Color(0xFFC7D2FE);
+const Color _farmLandMarkerOuterFill = Color.fromRGBO(22, 101, 52, 0.3);
+const Color _farmLandMarkerOuterStroke = Color.fromRGBO(22, 101, 52, 0.55);
+const Color _farmLandMarkerInnerFill = Color(0xFF166534);
+const Color _farmLandMarkerInnerStroke = Color(0xFFDCFCE7);
 
 const int _maxLabelMarkers = 550;
 
@@ -84,6 +88,9 @@ const Color _priceBadgePlotText = Color(0xFFF8FAFC);
 const Color _layoutBadgeBackground = Color(0xFF3730A3);
 const Color _layoutBadgeStroke = Color(0xFFEEF2FF);
 const Color _layoutBadgeTitle = Color(0xFFF8FAFC);
+const Color _farmLandBadgeBackground = Color(0xFF166534);
+const Color _farmLandBadgeStroke = Color(0xFFDCFCE7);
+const Color _farmLandBadgeTitle = Color(0xFFF7FEE7);
 
 
 const Color _badgeShadowColor = Color(0x590F172A);
@@ -400,12 +407,14 @@ class _HomeMapIconFactory {
   Future<BitmapDescriptor> getLayoutMarkerDotIcon({
     required double zoom,
     required double pixelRatio,
+    bool isFarmLand = false,
     String? phaseLabel,
   }) async {
     final size = _layoutMarkerSizeForZoom(zoom);
 
     final cacheKey = [
       'layout-dot',
+      isFarmLand ? 'farm' : 'layout',
       size,
       zoom.toStringAsFixed(2),
       pixelRatio.toStringAsFixed(2),
@@ -428,19 +437,19 @@ class _HomeMapIconFactory {
 
     final outerFillPaint = ui.Paint()
       ..style = ui.PaintingStyle.fill
-      ..color = _layoutMarkerOuterFill;
+      ..color = isFarmLand ? _farmLandMarkerOuterFill : _layoutMarkerOuterFill;
     final outerStrokePaint = ui.Paint()
       ..style = ui.PaintingStyle.stroke
       ..strokeWidth = 2.0
-      ..color = _layoutMarkerOuterStroke;
+      ..color = isFarmLand ? _farmLandMarkerOuterStroke : _layoutMarkerOuterStroke;
 
     final innerFillPaint = ui.Paint()
       ..style = ui.PaintingStyle.fill
-      ..color = _layoutMarkerInnerFill;
+      ..color = isFarmLand ? _farmLandMarkerInnerFill : _layoutMarkerInnerFill;
     final innerStrokePaint = ui.Paint()
       ..style = ui.PaintingStyle.stroke
       ..strokeWidth = 2.0
-      ..color = _layoutMarkerInnerStroke;
+      ..color = isFarmLand ? _farmLandMarkerInnerStroke : _layoutMarkerInnerStroke;
 
     canvas.drawCircle(ui.Offset(center, center), outerRadius, outerFillPaint);
     canvas.drawCircle(ui.Offset(center, center), outerRadius, outerStrokePaint);
@@ -457,7 +466,7 @@ class _HomeMapIconFactory {
         ),
       )
         ..pushStyle(ui.TextStyle(
-          color: _layoutMarkerInnerStroke,
+          color: isFarmLand ? _farmLandMarkerInnerStroke : _layoutMarkerInnerStroke,
           fontSize: fontSize,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.5,
@@ -623,6 +632,7 @@ class _HomeMapIconFactory {
     required String title,
     required double zoom,
     required double pixelRatio,
+    bool isFarmLand = false,
   }) async {
     final clampedZoom = zoom.clamp(12.0, 20.0);
 
@@ -633,6 +643,7 @@ class _HomeMapIconFactory {
 
     final cacheKey = [
       'layout-badge',
+      isFarmLand ? 'farm' : 'layout',
       title,
       clampedZoom.toStringAsFixed(2),
       pixelRatio.toStringAsFixed(2),
@@ -651,7 +662,7 @@ class _HomeMapIconFactory {
       text: TextSpan(
         text: title,
         style: TextStyle(
-          color: _layoutBadgeTitle,
+          color: isFarmLand ? _farmLandBadgeTitle : _layoutBadgeTitle,
           fontSize: titleFont,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.2,
@@ -693,11 +704,11 @@ class _HomeMapIconFactory {
 
     final fillPaint = ui.Paint()
       ..style = ui.PaintingStyle.fill
-      ..color = _layoutBadgeBackground;
+      ..color = isFarmLand ? _farmLandBadgeBackground : _layoutBadgeBackground;
     final strokePaint = ui.Paint()
       ..style = ui.PaintingStyle.stroke
       ..strokeWidth = 1.0
-      ..color = _layoutBadgeStroke;
+      ..color = isFarmLand ? _farmLandBadgeStroke : _layoutBadgeStroke;
 
     canvas.drawPath(bubble, fillPaint);
     canvas.drawPath(bubble, strokePaint);
@@ -730,6 +741,7 @@ class _HomeMapIconFactory {
     required double zoom,
     required double pixelRatio,
     String? titleOverride,
+    bool isFarmLand = false,
   }) async {
     final clampedZoom = zoom.clamp(12.0, 20.0);
 
@@ -742,6 +754,7 @@ class _HomeMapIconFactory {
 
     final cacheKey = [
       'layout-cluster',
+      isFarmLand ? 'farm' : 'layout',
       title,
       clampedZoom.toStringAsFixed(2),
       pixelRatio.toStringAsFixed(2),
@@ -760,7 +773,7 @@ class _HomeMapIconFactory {
       text: TextSpan(
         text: title,
         style: TextStyle(
-          color: _layoutBadgeTitle,
+          color: isFarmLand ? _farmLandBadgeTitle : _layoutBadgeTitle,
           fontSize: titleFont,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.2,
@@ -802,11 +815,11 @@ class _HomeMapIconFactory {
     // Use a slightly different background to distinguish clusters.
     final fillPaint = ui.Paint()
       ..style = ui.PaintingStyle.fill
-      ..color = const Color(0xFF312E81); // indigo-900
+      ..color = isFarmLand ? const Color(0xFF14532D) : const Color(0xFF312E81);
     final strokePaint = ui.Paint()
       ..style = ui.PaintingStyle.stroke
       ..strokeWidth = 1.0
-      ..color = _layoutBadgeStroke;
+      ..color = isFarmLand ? _farmLandBadgeStroke : _layoutBadgeStroke;
 
     canvas.drawPath(bubble, fillPaint);
     canvas.drawPath(bubble, strokePaint);

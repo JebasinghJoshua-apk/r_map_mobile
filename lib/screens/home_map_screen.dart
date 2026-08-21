@@ -1293,12 +1293,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
     // Phase 2: Render all icons in parallel
     final iconFutures = pendingMarkers.map((p) async {
+      final isFarmLand = p.feature.metadata['isFarmLand'] == 'true';
       switch (p.iconType) {
         case _PropertyIconType.layoutBadge:
           return await _iconFactory.getLayoutBadgeIcon(
             title: p.title.isEmpty ? 'Layout' : p.title,
             zoom: zoom,
             pixelRatio: pixelRatio,
+            isFarmLand: isFarmLand,
           );
         case _PropertyIconType.layoutCluster:
           return await _iconFactory.getLayoutClusterIcon(
@@ -1306,11 +1308,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
             zoom: zoom,
             pixelRatio: pixelRatio,
             titleOverride: p.clusterTitle,
+            isFarmLand: isFarmLand,
           );
         case _PropertyIconType.layoutDot:
           return await _iconFactory.getLayoutMarkerDotIcon(
             zoom: zoom,
             pixelRatio: pixelRatio,
+            isFarmLand: isFarmLand,
             phaseLabel: _extractPhaseLabel(p.title),
           );
         case _PropertyIconType.priceBadge:
