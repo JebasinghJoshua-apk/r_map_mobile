@@ -170,7 +170,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
     ];
     // Only admins can add layouts from mobile
     final options = widget.userRole == UserRole.admin
-        ? [...baseOptions, 'Layout']
+        ? [...baseOptions, 'Layout', 'Farm Land']
         : baseOptions;
 
     return showDialog<String>(
@@ -624,7 +624,8 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                         return;
                       }
                       // Layout uses a dedicated screen with boundary drawing + QR generation
-                      if (selectedType == 'Layout') {
+                      if (selectedType == 'Layout' || selectedType == 'Farm Land') {
+                        final isFarmLand = selectedType == 'Farm Land';
                         final center = widget.getMapCenter?.call();
                         final zoom = widget.getMapZoom?.call();
                         await Navigator.of(context, rootNavigator: true).push(
@@ -632,6 +633,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                             builder: (_) => LayoutDetailsFormScreen(
                               initialCenter: center,
                               initialZoom: zoom,
+                              isFarmLand: isFarmLand,
                             ),
                           ),
                         );
@@ -737,9 +739,11 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                           final locationLabel = item.locationLabel.trim();
                           final locationMissing = locationLabel.isEmpty;
 
-                          final typeLabel = item.propertyType.trim().isEmpty
-                              ? 'Property'
-                              : item.propertyType.trim();
+                            final typeLabel = item.isFarmLand
+                              ? 'Farm Land'
+                              : (item.propertyType.trim().isEmpty
+                                ? 'Property'
+                                : item.propertyType.trim());
                           final normalizedType =
                               item.propertyType.trim().toLowerCase();
                           final normalizedCompact =
@@ -748,7 +752,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                           final hasMultiplePlots =
                               normalizedCompact == 'plot' && plotsCount > 1;
                           final isLayoutProperty =
-                              normalizedType.contains('layout');
+                              normalizedType.contains('layout') || item.isFarmLand;
                           final isEditableProperty = !item.isAssignedOnly &&
                               const <String>{
                                 'plot',
@@ -790,6 +794,7 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                                 MaterialPageRoute(
                                   builder: (_) => LayoutFieldsEditScreen(
                                     layoutId: item.id,
+                                    isFarmLand: item.isFarmLand,
                                   ),
                                 ),
                               );

@@ -8,6 +8,7 @@ class MyPropertyListItem {
     required this.propertyId,
     required this.name,
     required this.propertyType,
+    required this.isFarmLand,
     required this.address,
     required this.city,
     required this.state,
@@ -26,6 +27,7 @@ class MyPropertyListItem {
   final String propertyId;
   final String name;
   final String propertyType;
+  final bool isFarmLand;
 
   /// Short code for QR URLs (e.g., "A3x9Kp" → rmap.in/s/A3x9Kp)
   final String? shortCode;
@@ -83,6 +85,7 @@ class MyPropertyListItem {
           (propertyId == null || propertyId.trim().isEmpty) ? id : propertyId,
       name: (json['name'] as String?) ?? '',
       propertyType: (json['propertyType'] as String?) ?? '',
+      isFarmLand: json['isFarmLand'] == true,
       address: (json['address'] as String?) ?? '',
       city: (json['city'] as String?) ?? '',
       state: (json['state'] as String?) ?? '',

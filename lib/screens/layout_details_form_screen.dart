@@ -27,10 +27,12 @@ class LayoutDetailsFormScreen extends StatefulWidget {
     super.key,
     this.initialCenter,
     this.initialZoom,
+    this.isFarmLand = false,
   });
 
   final LatLng? initialCenter;
   final double? initialZoom;
+  final bool isFarmLand;
 
   @override
   State<LayoutDetailsFormScreen> createState() =>
@@ -90,6 +92,9 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
 
   bool _isSaving = false;
   bool _showForm = false;
+
+  String get _entityLabel => widget.isFarmLand ? 'Farm Land' : 'Layout';
+  String get _plotLabel => widget.isFarmLand ? 'Land' : 'Plot';
 
   @override
   void initState() {
@@ -473,21 +478,21 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
   Future<void> _saveLayout() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ToastMessage.show(context, 'Please enter a layout name');
+      ToastMessage.show(context, 'Please enter a ${_entityLabel.toLowerCase()} name');
       return;
     }
 
     if (_boundaryPoints.length < LayoutDetailsFormScreen.minimumRequiredPoints) {
       ToastMessage.show(
         context,
-        'Layout boundary must have at least ${LayoutDetailsFormScreen.minimumRequiredPoints} points',
+        '$_entityLabel boundary must have at least ${LayoutDetailsFormScreen.minimumRequiredPoints} points',
       );
       return;
     }
 
     final token = AuthScope.of(context).session?.token;
     if (token == null || token.isEmpty) {
-      ToastMessage.show(context, 'Please login to create a layout');
+      ToastMessage.show(context, 'Please login to create a ${_entityLabel.toLowerCase()}');
       return;
     }
 
@@ -508,6 +513,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
       final response = await _layoutsApi.createLayoutDraft(
         name: name,
         boundaryLatLng: boundaryLatLng,
+        isFarmLand: widget.isFarmLand,
         area: _areaController.text.trim(),
         surveyNumber: _surveyNumberController.text.trim(),
         approvalNumber: _approvalNumberController.text.trim(),
@@ -525,7 +531,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
         _isSaving = false;
       });
 
-      ToastMessage.show(context, 'Layout created successfully!');
+      ToastMessage.show(context, '$_entityLabel created successfully!');
 
       // Show QR code sheet
       await _showQrCodeSheet(response);
@@ -544,7 +550,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
       setState(() {
         _isSaving = false;
       });
-      ToastMessage.show(context, 'Failed to create layout');
+      ToastMessage.show(context, 'Failed to create ${_entityLabel.toLowerCase()}');
     }
   }
 
@@ -1268,7 +1274,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
   Widget _buildFormView() {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Layout Details'),
+        title: Text('$_entityLabel Details'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: _backToMap,
@@ -1328,8 +1334,8 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
             // Name field (required)
             _buildTextField(
               controller: _nameController,
-              label: 'Layout Name *',
-              hint: 'Enter layout name',
+              label: '$_entityLabel Name *',
+              hint: 'Enter ${_entityLabel.toLowerCase()} name',
               textCapitalization: TextCapitalization.words,
             ),
             const SizedBox(height: 16),
@@ -1348,7 +1354,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
                 Expanded(
                   child: _buildTextField(
                     controller: _plotsCountController,
-                    label: 'Plot Count',
+                    label: '$_plotLabel Count',
                     hint: 'e.g., 120',
                     keyboardType: TextInputType.number,
                   ),

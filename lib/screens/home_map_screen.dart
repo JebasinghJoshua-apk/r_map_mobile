@@ -809,7 +809,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     final userRole =
         AuthScope.of(context).session?.user.roleValue ?? UserRole.user;
     final isAdmin = userRole == UserRole.admin;
-    final options = isAdmin ? [...baseOptions, 'Layout'] : baseOptions;
+    final options = isAdmin ? [...baseOptions, 'Layout', 'Farm Land'] : baseOptions;
 
     // Fetch contact phone from backend (cached, no delay on subsequent calls).
     final appSettings = await AppSettingsService().getSettings();
@@ -988,12 +988,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     final bearerToken = AuthScope.of(context).session?.token ?? '';
 
     // Layout uses a dedicated screen with boundary drawing + QR generation
-    if (selectedType == 'Layout') {
+    if (selectedType == 'Layout' || selectedType == 'Farm Land') {
+      final isFarmLand = selectedType == 'Farm Land';
       await Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute<void>(
           builder: (_) => LayoutDetailsFormScreen(
             initialCenter: center,
             initialZoom: zoom,
+            isFarmLand: isFarmLand,
           ),
         ),
       );

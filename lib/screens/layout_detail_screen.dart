@@ -2,7 +2,6 @@ import 'dart:io' show Platform;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../constants/api_constants.dart';
@@ -47,6 +46,10 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
 
   int _activeIndex = 0;
   final PageController _pageController = PageController();
+
+  bool get _isFarmLand => _detail?.isFarmLand ?? false;
+  String get _entityLabel => _isFarmLand ? 'Farm Land' : 'Layout';
+  String get _plotLabel => _isFarmLand ? 'TOTAL LANDS' : 'TOTAL PLOTS';
 
   String? _extractPrimaryPhoneNumber(String? raw) {
     final trimmed = raw?.trim();
@@ -269,7 +272,7 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
           _detail?.name,
           fallback?.name,
         ]) ??
-        'Layout';
+        _entityLabel;
 
     final location = _firstNonEmpty([
       _detail?.locationDetails,
@@ -466,7 +469,7 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
                           children: [
                             Expanded(
                               child: _StatCard(
-                                label: 'TOTAL PLOTS',
+                                label: _plotLabel,
                                 value:
                                     plotsCountLabel?.trim().isNotEmpty ?? false
                                         ? plotsCountLabel!.trim()
@@ -486,7 +489,7 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
                         ),
                         const SizedBox(height: 14),
                         _SectionCard(
-                          title: 'LAYOUT OVERVIEW',
+                          title: '${_entityLabel.toUpperCase()} OVERVIEW',
                           child: Column(
                             children: [
                               _KeyValueRow(

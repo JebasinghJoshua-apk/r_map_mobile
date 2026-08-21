@@ -138,6 +138,7 @@ class MobileBffLayoutsApi {
   Future<LayoutDraftResponse> createLayoutDraft({
     required String name,
     required List<List<double>> boundaryLatLng,
+    bool isFarmLand = false,
     String? area,
     String? surveyNumber,
     String? approvalNumber,
@@ -153,6 +154,7 @@ class MobileBffLayoutsApi {
     final payload = <String, dynamic>{
       'name': name.trim(),
       'layoutBoundaryLatLng': boundaryLatLng,
+      'isFarmLand': isFarmLand,
     };
 
     if (area != null && area.trim().isNotEmpty) {
@@ -231,6 +233,7 @@ class MobileBffLayoutsApi {
   Future<void> updateLayout({
     required String layoutId,
     required String name,
+    bool? isFarmLand,
     String? area,
     int? plotsCount,
     String? surveyNumber,
@@ -258,6 +261,7 @@ class MobileBffLayoutsApi {
 
     final payload = <String, dynamic>{
       'name': trimmedName,
+      if (isFarmLand != null) 'isFarmLand': isFarmLand,
       if (area != null) 'area': area.trim().isEmpty ? null : area.trim(),
       if (plotsCount != null && plotsCount > 0) 'plotsCount': plotsCount,
       if (surveyNumber != null)
@@ -324,6 +328,7 @@ class LayoutDraftResponse {
   const LayoutDraftResponse({
     required this.id,
     required this.name,
+    required this.isFarmLand,
     this.area,
     this.surveyNumber,
     this.approvalNumber,
@@ -339,6 +344,7 @@ class LayoutDraftResponse {
 
   final String id;
   final String name;
+  final bool isFarmLand;
   final String? area;
   final String? surveyNumber;
   final String? approvalNumber;
@@ -357,6 +363,7 @@ class LayoutDraftResponse {
     return LayoutDraftResponse(
       id: (json['id'] as String?) ?? '',
       name: (json['name'] as String?) ?? '',
+      isFarmLand: (json['isFarmLand'] as bool?) ?? false,
       area: json['area'] as String?,
       surveyNumber: json['surveyNumber'] as String?,
       approvalNumber: json['approvalNumber'] as String?,
@@ -393,6 +400,7 @@ class LayoutDetailDto {
   const LayoutDetailDto({
     required this.id,
     required this.name,
+    required this.isFarmLand,
     this.description,
     this.surveyNumber,
     this.approvalNumber,
@@ -409,6 +417,7 @@ class LayoutDetailDto {
 
   final String id;
   final String name;
+  final bool isFarmLand;
   final String? description;
   final String? surveyNumber;
   final String? approvalNumber;
@@ -428,6 +437,7 @@ class LayoutDetailDto {
     return LayoutDetailDto(
       id: (json['id'] as String?) ?? '',
       name: (json['name'] as String?) ?? '',
+      isFarmLand: (json['isFarmLand'] as bool?) ?? false,
       description: json['description'] as String?,
       surveyNumber: json['surveyNumber'] as String?,
       approvalNumber: json['approvalNumber'] as String?,

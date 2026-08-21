@@ -19,9 +19,11 @@ class LayoutFieldsEditScreen extends StatefulWidget {
   const LayoutFieldsEditScreen({
     super.key,
     required this.layoutId,
+    this.isFarmLand = false,
   });
 
   final String layoutId;
+  final bool isFarmLand;
 
   @override
   State<LayoutFieldsEditScreen> createState() => _LayoutFieldsEditScreenState();
@@ -48,10 +50,15 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
   int _photoSequence = 0;
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isFarmLand = false;
+
+  String get _entityLabel => _isFarmLand ? 'Farm Land' : 'Layout';
+  String get _plotLabel => _isFarmLand ? 'Lands' : 'Plots';
 
   @override
   void initState() {
     super.initState();
+    _isFarmLand = widget.isFarmLand;
     _loadLayout();
   }
 
@@ -89,6 +96,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
       }
 
       setState(() {
+        _isFarmLand = detail.isFarmLand;
         _nameController.text = detail.name;
         _areaController.text = detail.area ?? '';
         _plotsCountController.text = detail.plotsCount?.toString() ?? '';
@@ -492,7 +500,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
 
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ToastMessage.show(context, 'Layout name is required.');
+      ToastMessage.show(context, '$_entityLabel name is required.');
       return;
     }
 
@@ -514,6 +522,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
       await _layoutsApi.updateLayout(
         layoutId: widget.layoutId,
         name: name,
+        isFarmLand: _isFarmLand,
         area: _areaController.text,
         plotsCount: plotsCount,
         locationDetails: _locationController.text,
@@ -536,8 +545,8 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
       });
 
       final message = failedUploads.isEmpty
-          ? 'Layout updated successfully.'
-          : 'Layout updated, but ${failedUploads.length} photo(s) failed to upload.';
+          ? '$_entityLabel updated successfully.'
+          : '$_entityLabel updated, but ${failedUploads.length} photo(s) failed to upload.';
       ToastMessage.show(context, message);
       Navigator.of(context).pop(true);
     } on LayoutsApiException catch (ex) {
@@ -555,7 +564,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
       setState(() {
         _isSaving = false;
       });
-      ToastMessage.show(context, 'Failed to update layout.');
+      ToastMessage.show(context, 'Failed to update ${_entityLabel.toLowerCase()}.');
     }
   }
 
@@ -585,7 +594,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Layout'),
+        title: Text('Edit $_entityLabel'),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
@@ -604,7 +613,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
                 children: [
                   _buildField(
                     controller: _nameController,
-                    label: 'Layout Name',
+                    label: '$_entityLabel Name',
                   ),
                   _buildField(
                     controller: _areaController,
@@ -612,7 +621,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
                   ),
                   _buildField(
                     controller: _plotsCountController,
-                    label: 'Plots Count',
+                    label: '$_plotLabel Count',
                     keyboardType: TextInputType.number,
                   ),
                   _buildField(
