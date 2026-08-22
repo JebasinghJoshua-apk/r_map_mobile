@@ -260,6 +260,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
   MapPlotFeature? _selectedPlot;
   int _plotFocusSeq = 0;
+  // Set after a tapped plot has been fitted. Measurements remain visible at
+  // that zoom and while zooming in, but disappear when the user zooms out.
+  double? _dimensionStartZoom;
 
   /// Plot ID focused via deep link (highlight without panel until tapped).
   String? _focusedPlotIdFromDeepLink;

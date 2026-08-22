@@ -656,7 +656,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
       await _fetchViewport();
     });
 
-    // Rebuild dimension markers on zoom change (they only appear at high zoom).
+    // Rebuild dimension markers on zoom change (they begin at the fitted zoom).
     unawaited(_rebuildDimensionMarkers());
 
     if (_selectedProperty?.propertyType.trim() == 'IndependentHouse') {
@@ -665,11 +665,11 @@ extension _HomeMapSelection on _HomeMapScreenState {
   }
 
   /// Builds (or clears) dimension-label markers based on the current zoom
-  /// level.  At zoom >= 21 shows dimensions for all viewport plots that
-  /// have dimension data; at zoom >= 20 shows only for the selected plot.
+  /// relative to the zoom captured after fitting the selected plot.
   Future<void> _rebuildDimensionMarkers([MapPlotFeature? forPlot]) async {
     final zoom = _effectiveZoom ?? _lastCameraPosition.zoom;
-    if (zoom < _minDimensionLabelZoom) {
+    final dimensionStartZoom = _dimensionStartZoom;
+    if (dimensionStartZoom == null || zoom < dimensionStartZoom) {
       if (_dimensionMarkers.isNotEmpty) {
         _safeSetState(() { _dimensionMarkers = const <Marker>{}; });
       }
@@ -682,20 +682,11 @@ extension _HomeMapSelection on _HomeMapScreenState {
     // Collect plots that should show dimensions.
     final plotsToLabel = <MapPlotFeature>[];
 
-    if (zoom >= 21.0) {
-      // Show all viewport plots that have dimensions.
-      for (final p in _currentViewportPlots) {
-        if (_HomeMapDimensions._parsePlotDimensions(p) != null) {
-          plotsToLabel.add(p);
-        }
-      }
-    } else {
-      // Only the selected or specified plot.
-      final plot = forPlot ?? _selectedPlot;
-      if (plot != null &&
-          _HomeMapDimensions._parsePlotDimensions(plot) != null) {
-        plotsToLabel.add(plot);
-      }
+    // Measurements belong to the tapped plot. Do not add labels to every
+    // viewport plot when zooming in from the fitted selection.
+    final plot = forPlot ?? _selectedPlot;
+    if (plot != null && _HomeMapDimensions._parsePlotDimensions(plot) != null) {
+      plotsToLabel.add(plot);
     }
 
     if (plotsToLabel.isEmpty) {
@@ -822,12 +813,10 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _selectedPlot = plot;
       _selectedPlotHighlightPolygons =
           _buildSelectedPlotHighlightPolygons(plot);
+      _dimensionStartZoom = null;
       // Clear deep-link focus once user taps (transitions to full selection).
       _focusedPlotIdFromDeepLink = null;
     });
-
-    // Build dimension markers for the selected plot.
-    unawaited(_rebuildDimensionMarkers(plot));
 
     // Center the plot after selection so users immediately see what's selected.
     unawaited(_focusPlotOnMap(plot));
@@ -842,6 +831,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _selectedPlot = null;
       _selectedPlotHighlightPolygons = const <Polygon>{};
       _dimensionMarkers = const <Marker>{};
+      _dimensionStartZoom = null;
     });
   }
 
@@ -1089,19 +1079,20 @@ extension _HomeMapSelection on _HomeMapScreenState {
 
     if (center == null) return;
 
-    // Zoom behavior:
-    // - If current zoom is below the target (20.5), zoom in to 20.5.
-    // - If current zoom is already above 20.5, keep it (don't zoom out).
-    double currentZoom;
-    try {
-      currentZoom = await controller.getZoomLevel();
-    } catch (_) {
-      currentZoom = _effectiveZoom ?? _lastCameraPosition.zoom;
-    }
-
-    final nextZoom = math.max(currentZoom, _selectedPlotMaxFocusZoom);
     if (focusSeq != _plotFocusSeq) return;
-    await _focusPropertyOnMap(target: center, zoom: nextZoom);
+    await _focusPropertyOnMap(
+      target: center,
+      zoom: _selectedPlotMaxFocusZoom,
+      boundaryGeoJson: plot.boundaryGeoJson,
+    );
+
+    if (focusSeq != _plotFocusSeq || !mounted) return;
+    try {
+      _dimensionStartZoom = await controller.getZoomLevel();
+    } catch (_) {
+      _dimensionStartZoom = _effectiveZoom ?? _lastCameraPosition.zoom;
+    }
+    unawaited(_rebuildDimensionMarkers(plot));
   }
 
   LatLngBounds _boundsFromPoints(List<LatLng> points) {

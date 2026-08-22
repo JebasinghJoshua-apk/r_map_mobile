@@ -1,9 +1,5 @@
 part of '../home_map_screen.dart';
 
-/// Minimum zoom level at which edge dimension labels are shown on the
-/// selected plot polygon.
-const double _minDimensionLabelZoom = 20.0;
-
 extension _HomeMapDimensions on _HomeMapScreenState {
   /// Parses the dimensions array from plot metadata (same keys as the bottom
   /// panel sketch card).  Returns null when the API doesn't provide them.
@@ -50,15 +46,14 @@ extension _HomeMapDimensions on _HomeMapScreenState {
   /// Builds dimension-label markers for each edge of the selected plot's
   /// polygon boundary using the API-provided dimensions from metadata.
   /// Returns an empty set when no plot is selected, no dimensions are
-  /// available, or zoom is below the threshold.
+  /// available. The caller controls visibility based on the selected plot's
+  /// fitted zoom.
   Future<Set<Marker>> _buildDimensionMarkers({
     required MapPlotFeature plot,
     required double zoom,
     required double pixelRatio,
     bool isHybrid = true,
   }) async {
-    if (zoom < _minDimensionLabelZoom) return const <Marker>{};
-
     final dims = _parsePlotDimensions(plot);
     if (dims == null || dims.isEmpty) return const <Marker>{};
 
