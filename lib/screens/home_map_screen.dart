@@ -238,9 +238,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   Set<Marker> _selectedPropertyChildAmenityLabelMarkers = <Marker>{};
   Set<Marker> _dimensionMarkers = <Marker>{};
 
-  /// Current viewport plots for dimension label rendering at very high zoom.
-  List<MapPlotFeature> _currentViewportPlots = const [];
-
   Set<Polygon> _layoutPolygons = <Polygon>{};
   Set<Polygon> _propertyPolygons = <Polygon>{};
   Set<Polygon> _plotPolygons = <Polygon>{};
@@ -263,6 +260,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   // Set after a tapped plot has been fitted. Measurements remain visible at
   // that zoom and while zooming in, but disappear when the user zooms out.
   double? _dimensionStartZoom;
+  int _dimensionBuildGeneration = 0;
+  String? _pendingDimensionFitPlotId;
 
   /// Plot ID focused via deep link (highlight without panel until tapped).
   String? _focusedPlotIdFromDeepLink;
@@ -2009,6 +2008,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                                 false) &&
                             (selectedPlot.layoutId == null ||
                                 selectedPlot.layoutId!.trim().isEmpty);
+                    final isFarmLand =
+                      (selectedPlot.metadata['isFarmLand'] ??
+                          selectedPlot.metadata['is_farm_land'] ??
+                          selectedPlot.metadata['farmLand'])
+                        ?.trim()
+                        .toLowerCase() ==
+                      'true';
                     return PlotDetailsPanel(
                       plot: selectedPlot,
                       isSold: _isSoldPlot(selectedPlot),
@@ -2018,7 +2024,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                       contactNumbers:
                           _layoutContactNumbersForPlot(selectedPlot),
                       detailsLabel:
-                          isIndividualPlot ? 'Property Details →' : null,
+                          isIndividualPlot
+                            ? 'Property Details →'
+                            : isFarmLand
+                              ? 'Farmland Details →'
+                              : null,
                       onLayoutDetails: () {
                         if (isIndividualPlot) {
                           final ipId = selectedPlot.individualPlotsId!.trim();

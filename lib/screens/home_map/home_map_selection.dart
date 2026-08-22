@@ -656,6 +656,12 @@ extension _HomeMapSelection on _HomeMapScreenState {
       await _fetchViewport();
     });
 
+    final pendingPlotId = _pendingDimensionFitPlotId;
+    if (pendingPlotId != null && pendingPlotId == _selectedPlot?.plotId) {
+      _pendingDimensionFitPlotId = null;
+      _captureDimensionStartZoom(_selectedPlot!);
+    }
+
     // Rebuild dimension markers on zoom change (they begin at the fitted zoom).
     unawaited(_rebuildDimensionMarkers());
 
@@ -664,13 +670,40 @@ extension _HomeMapSelection on _HomeMapScreenState {
     }
   }
 
+  Future<void> _captureDimensionStartZoom(MapPlotFeature plot) async {
+    final controller = _mapController;
+    if (controller == null || plot.plotId != _selectedPlot?.plotId) return;
+
+    final generation = _dimensionBuildGeneration;
+    double zoom;
+    try {
+      zoom = await controller.getZoomLevel();
+    } catch (_) {
+      zoom = _effectiveZoom ?? _lastCameraPosition.zoom;
+    }
+    if (!mounted ||
+        generation != _dimensionBuildGeneration ||
+        plot.plotId != _selectedPlot?.plotId) {
+      return;
+    }
+
+    _dimensionStartZoom = zoom;
+    unawaited(_rebuildDimensionMarkers(plot));
+  }
+
   /// Builds (or clears) dimension-label markers based on the current zoom
   /// relative to the zoom captured after fitting the selected plot.
   Future<void> _rebuildDimensionMarkers([MapPlotFeature? forPlot]) async {
-    final zoom = _effectiveZoom ?? _lastCameraPosition.zoom;
+    // Measurements must use the live camera zoom. _effectiveZoom is throttled
+    // for map styling and can lag after a fit or plot switch.
+    final zoom = _lastCameraPosition.zoom;
     final dimensionStartZoom = _dimensionStartZoom;
+    final generation = _dimensionBuildGeneration;
+    final selectedPlotId = _selectedPlot?.plotId;
     if (dimensionStartZoom == null || zoom < dimensionStartZoom) {
-      if (_dimensionMarkers.isNotEmpty) {
+      if (generation == _dimensionBuildGeneration &&
+          selectedPlotId == _selectedPlot?.plotId &&
+          _dimensionMarkers.isNotEmpty) {
         _safeSetState(() { _dimensionMarkers = const <Marker>{}; });
       }
       return;
@@ -690,7 +723,9 @@ extension _HomeMapSelection on _HomeMapScreenState {
     }
 
     if (plotsToLabel.isEmpty) {
-      if (_dimensionMarkers.isNotEmpty) {
+      if (generation == _dimensionBuildGeneration &&
+          selectedPlotId == _selectedPlot?.plotId &&
+          _dimensionMarkers.isNotEmpty) {
         _safeSetState(() { _dimensionMarkers = const <Marker>{}; });
       }
       return;
@@ -708,7 +743,11 @@ extension _HomeMapSelection on _HomeMapScreenState {
       allMarkers.addAll(markers);
     }
 
-    if (!mounted) return;
+    if (!mounted ||
+        generation != _dimensionBuildGeneration ||
+        selectedPlotId != _selectedPlot?.plotId) {
+      return;
+    }
 
     _safeSetState(() {
       _dimensionMarkers = Set<Marker>.unmodifiable(allMarkers);
@@ -813,7 +852,9 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _selectedPlot = plot;
       _selectedPlotHighlightPolygons =
           _buildSelectedPlotHighlightPolygons(plot);
+        _dimensionBuildGeneration++;
       _dimensionStartZoom = null;
+        _pendingDimensionFitPlotId = plot.plotId;
       // Clear deep-link focus once user taps (transitions to full selection).
       _focusedPlotIdFromDeepLink = null;
     });
@@ -831,7 +872,9 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _selectedPlot = null;
       _selectedPlotHighlightPolygons = const <Polygon>{};
       _dimensionMarkers = const <Marker>{};
+      _dimensionBuildGeneration++;
       _dimensionStartZoom = null;
+      _pendingDimensionFitPlotId = null;
     });
   }
 
@@ -1087,12 +1130,8 @@ extension _HomeMapSelection on _HomeMapScreenState {
     );
 
     if (focusSeq != _plotFocusSeq || !mounted) return;
-    try {
-      _dimensionStartZoom = await controller.getZoomLevel();
-    } catch (_) {
-      _dimensionStartZoom = _effectiveZoom ?? _lastCameraPosition.zoom;
-    }
-    unawaited(_rebuildDimensionMarkers(plot));
+    // animateCamera/newLatLngBounds completes before the map necessarily
+    // settles; onCameraIdle captures the real fitted zoom.
   }
 
   LatLngBounds _boundsFromPoints(List<LatLng> points) {
@@ -1141,33 +1180,24 @@ extension _HomeMapSelection on _HomeMapScreenState {
       if (allPoints.length >= 3) {
         final bounds = _boundsFromPoints(allPoints);
         final latSpan = bounds.northeast.latitude - bounds.southwest.latitude;
-        final lngSpan = bounds.northeast.longitude - bounds.southwest.longitude;
 
-        // Only use bounds-based camera for polygons large enough to
-        // potentially overflow the screen at the requested zoom.
-        // ~0.0005° ≈ 55 m — well below the visible area at any default
-        // property zoom (18.5–20), so anything above this threshold
-        // genuinely risks overflowing.  Small polygons skip straight to
-        // the normal center+zoom animation (no double-animation).
-        if (latSpan > 0.0005 || lngSpan > 0.0005) {
-          // Expand bounds to account for the property details panel at
-          // the bottom (~35 % of screen) and search bar at top (~12 %).
-          final adjustedBounds = LatLngBounds(
-            southwest: LatLng(
-              bounds.southwest.latitude - latSpan * 0.55,
-              bounds.southwest.longitude,
-            ),
-            northeast: LatLng(
-              bounds.northeast.latitude + latSpan * 0.15,
-              bounds.northeast.longitude,
-            ),
-          );
+        // Always fit a selected polygon, including smaller plots. The details
+        // panel covers the lower part of the map, so bias the bounds upward.
+        final adjustedBounds = LatLngBounds(
+          southwest: LatLng(
+            bounds.southwest.latitude - latSpan * 0.55,
+            bounds.southwest.longitude,
+          ),
+          northeast: LatLng(
+            bounds.northeast.latitude + latSpan * 0.15,
+            bounds.northeast.longitude,
+          ),
+        );
 
-          await _animateCamera(
-            CameraUpdate.newLatLngBounds(adjustedBounds, 30),
-          );
-          return;
-        }
+        await _animateCamera(
+          CameraUpdate.newLatLngBounds(adjustedBounds, 30),
+        );
+        return;
       }
     }
 
@@ -1203,7 +1233,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
     try {
       zoom = await controller.getZoomLevel();
     } catch (_) {
-      zoom = _effectiveZoom ?? _lastCameraPosition.zoom;
+      zoom = _lastCameraPosition.zoom;
     }
 
     const maxZoom = _selectedPlotMaxFocusZoom;

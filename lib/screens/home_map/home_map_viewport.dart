@@ -147,7 +147,6 @@ extension _HomeMapViewport on _HomeMapScreenState {
         _hasViewportResult = true;
         // Clear layout preview polygon (shown while viewport data was loading).
         _layoutPreviewPolygons = <Polygon>{};
-        _currentViewportPlots = cached.plots;
       });
       _tryAutoSelectPlotFromDeepLink(cached.plots);
       return;
@@ -282,7 +281,6 @@ extension _HomeMapViewport on _HomeMapScreenState {
         _hasViewportResult = true;
         // Clear layout preview polygon (shown while viewport data was loading).
         _layoutPreviewPolygons = <Polygon>{};
-        _currentViewportPlots = filteredResponse.plots;
       });
 
       if (_selectedProperty?.propertyType.trim() == 'IndependentHouse') {
