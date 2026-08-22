@@ -136,7 +136,30 @@ const Color _amenityEbStroke = Color(0xFF4338CA); // Indigo 700
 const Color _amenityEbFill = Color(0xFF6366F1);   // Indigo 500
 const double _amenityStrokeOpacity = 0.95;
 const double _amenityFillOpacity = 0.30;
+const double _amenityTypedFillOpacity = 0.45;
 const int _amenityStrokeWidth = 1;
+
+// Per-amenity-type colors. Keys are lowercase for case-insensitive lookup.
+// Keep aligned with r-map-ui/src/components/Map/utils/overlayStyles.ts
+class _AmenityColors {
+  const _AmenityColors(this.stroke, this.fill);
+
+  final Color stroke;
+  final Color fill;
+}
+
+const Map<String, _AmenityColors> _amenityTypeColors = {
+  'lb': _AmenityColors(_amenityLbStroke, _amenityLbFill),
+  'eb': _AmenityColors(_amenityEbStroke, _amenityEbFill),
+  'park': _AmenityColors(Color(0xFF15803D), Color(0xFF4ADE80)),
+  'ou': _AmenityColors(Color(0xFFA16207), Color(0xFFFACC15)),
+  'office': _AmenityColors(Color(0xFF0369A1), Color(0xFF38BDF8)),
+  'cottage': _AmenityColors(Color(0xFFC2410C), Color(0xFFFB923C)),
+  'shuttle court': _AmenityColors(Color(0xFF0F766E), Color(0xFF2DD4BF)),
+  'play area': _AmenityColors(Color(0xFFBE185D), Color(0xFFF472B6)),
+  'kitchen': _AmenityColors(Color(0xFFB91C1C), Color(0xFFEF4444)),
+  'lawn': _AmenityColors(Color(0xFF4D7C0F), Color(0xFFA3E635)),
+};
 
 const Color _roadStroke = Color(0xFF374151);
 const Color _roadFill = Color(0xFF2B3139);
