@@ -1124,12 +1124,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
   String? _plotAreaLabel(MapPlotFeature plot) {
     final meta = plot.metadata;
-    // Farmland plots show area in Cent instead of sqft (display-only).
+    // Farmland plots show the saved value with "Cent" unit instead of sqft.
     final isFarmLand =
         (meta['isFarmLand'] ?? meta['is_farm_land'] ?? meta['farmLand'])
                 ?.trim()
                 .toLowerCase() ==
             'true';
+    final unit = isFarmLand ? 'Cent' : 'sqft';
     for (final key in const <String>[
       'areaSqFt',
       'areaSqft',
@@ -1146,16 +1147,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         // If the backend already includes unit, show as-is.
         return raw;
       }
-      if (isFarmLand) {
-        // 1 Cent = 435.6 sq ft
-        final cent = value / 435.6;
-        return '${cent.toStringAsFixed(2)} Cent';
-      }
       // Show decimal only when needed (e.g. 1270.69 → "1270.69", 1300.0 → "1300")
       final display = value == value.roundToDouble()
           ? value.toInt().toString()
           : value.toStringAsFixed(2);
-      return '$display sqft';
+      return '$display $unit';
     }
     return null;
   }

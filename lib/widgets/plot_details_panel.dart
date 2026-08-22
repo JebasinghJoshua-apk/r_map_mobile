@@ -139,6 +139,15 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
     final plotNumber =
         widget.plot.plotNumber.trim().isEmpty ? '—' : widget.plot.plotNumber;
 
+    // Farmland plots are labelled "Land" instead of "Plot".
+    final meta = widget.plot.metadata;
+    final isFarmLand =
+        (meta['isFarmLand'] ?? meta['is_farm_land'] ?? meta['farmLand'])
+                ?.trim()
+                .toLowerCase() ==
+            'true';
+    final numberPrefix = isFarmLand ? 'Land' : 'Plot';
+
     final showLayoutDetailsLink = widget.onLayoutDetails != null;
 
     final statusTheme = _plotStatusTheme(_statusValue);
@@ -226,7 +235,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Text(
-                                                'Plot #$plotNumber',
+                                                '$numberPrefix #$plotNumber',
                                                 textAlign: TextAlign.center,
                                                 style: const TextStyle(
                                                   fontSize: 16,
