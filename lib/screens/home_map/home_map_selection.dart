@@ -1,6 +1,38 @@
 part of '../home_map_screen.dart';
 
 extension _HomeMapSelection on _HomeMapScreenState {
+  /// Builds metadata for a property built from a thin [PropertyDetail]
+  /// fallback (i.e. the entity wasn't already present in the loaded
+  /// viewport cache). Prefers the public share-summary endpoint (which
+  /// returns pre-formatted, type-specific price/area labels) and falls back
+  /// to a rough totalArea × pricePerSqFt estimate if that's unavailable.
+  Future<Map<String, String?>> _fallbackFeatureMetadata({
+    required String propertyType,
+    required String featureId,
+    required String? location,
+    required int? plotsCount,
+    required PropertyDetail detail,
+  }) async {
+    final summary = await _fetchPropertyShareSummary(propertyType, featureId);    final summaryPrice = (summary?['priceLabel'] as String?)?.trim();
+    final summaryArea = (summary?['areaLabel'] as String?)?.trim();
+
+    final totalArea = detail.totalArea;
+    final pricePerSqFt = detail.pricePerSqFt;
+
+    return <String, String?>{
+      'location': location,
+      if (plotsCount != null) 'plots': plotsCount.toString(),
+      'area': (summaryArea != null && summaryArea.isNotEmpty)
+          ? summaryArea
+          : (totalArea != null ? _formatDetailArea(totalArea) : null),
+      'price': (summaryPrice != null && summaryPrice.isNotEmpty)
+          ? summaryPrice
+          : (totalArea != null && pricePerSqFt != null)
+              ? _formatDetailPrice(totalArea * pricePerSqFt)
+              : null,
+    };
+  }
+
   Future<void> _onShortlistedPropertySelected(SavedProperty saved) async {
     _safeSetState(() {
       _hasSelectedPlace = true;
@@ -171,9 +203,13 @@ extension _HomeMapSelection on _HomeMapScreenState {
         listingType: null,
         boundaryGeoJson: detail.propertyBoundaryGeoJson,
         centerGeoJson: detail.centerPointGeoJson,
-        metadata: <String, String?>{
-          'location': p.locationLabel,
-        },
+        metadata: await _fallbackFeatureMetadata(
+          propertyType: rawType,
+          featureId: id,
+          location: p.locationLabel,
+          plotsCount: p.plotsCount,
+          detail: detail,
+        ),
       );
     }
 
@@ -226,25 +262,10 @@ extension _HomeMapSelection on _HomeMapScreenState {
       final zoom = focusZoom ?? _priceBadgeFocusZoomTarget(type);
 
       if (isLayout) {
-        final selectedFeature = effectiveFeature;
-        _closePlotPanel();
-        _searchOverlayKey.currentState?.contract();
-        _updateState(() {
-          _selectedProperty = selectedFeature;
-          _selectedPropertyHighlightPolygons =
-              _buildSelectedPropertyHighlightPolygons(selectedFeature);
-          _independentHousesCarousel = const <MapPropertyFeature>[];
-          _activeIndependentHouseIndex = 0;
-          _independentHouseCarouselDebounce?.cancel();
-          _independentHouseCarouselRequestSeq++;
-        });
-        unawaited(_refreshMarkerSelectionStyles());
-        _ensurePropertyMediaLoaded(selectedFeature);
-        _clearSelectedPropertyChildOverlays();
-        await _focusPropertyOnMap(
+        await _selectLayoutFeatureOnMap(
+          effectiveFeature,
           target: target,
           zoom: zoom,
-          boundaryGeoJson: effectiveFeature.boundaryGeoJson,
         );
       } else {
         _clearSelectedPropertyChildOverlays();
@@ -527,17 +548,21 @@ extension _HomeMapSelection on _HomeMapScreenState {
       }
     } else if (detail != null) {
       effectiveFeature = MapPropertyFeature(
-        propertyId: item.id,
-        featureId: item.id,
+        propertyId: id,
+        featureId: id,
         propertyType: item.propertyType,
         name: item.name,
         isOwnedByCurrentUser: true,
         listingType: null,
         boundaryGeoJson: detail.propertyBoundaryGeoJson,
         centerGeoJson: detail.centerPointGeoJson,
-        metadata: <String, String?>{
-          'location': item.locationLabel,
-        },
+        metadata: await _fallbackFeatureMetadata(
+          propertyType: item.propertyType,
+          featureId: id,
+          location: item.locationLabel,
+          plotsCount: item.plotsCount,
+          detail: detail,
+        ),
       );
     }
 
@@ -590,25 +615,10 @@ extension _HomeMapSelection on _HomeMapScreenState {
       final zoom = focusZoom ?? _priceBadgeFocusZoomTarget(type);
 
       if (isLayout) {
-        final selectedFeature = effectiveFeature;
-        _closePlotPanel();
-        _searchOverlayKey.currentState?.contract();
-        _updateState(() {
-          _selectedProperty = selectedFeature;
-          _selectedPropertyHighlightPolygons =
-              _buildSelectedPropertyHighlightPolygons(selectedFeature);
-          _independentHousesCarousel = const <MapPropertyFeature>[];
-          _activeIndependentHouseIndex = 0;
-          _independentHouseCarouselDebounce?.cancel();
-          _independentHouseCarouselRequestSeq++;
-        });
-        unawaited(_refreshMarkerSelectionStyles());
-        _ensurePropertyMediaLoaded(selectedFeature);
-        _clearSelectedPropertyChildOverlays();
-        await _focusPropertyOnMap(
+        await _selectLayoutFeatureOnMap(
+          effectiveFeature,
           target: target,
           zoom: zoom,
-          boundaryGeoJson: effectiveFeature.boundaryGeoJson,
         );
       } else {
         _clearSelectedPropertyChildOverlays();
@@ -1162,6 +1172,40 @@ extension _HomeMapSelection on _HomeMapScreenState {
     );
   }
 
+  /// Select a Layout feature as the active property: opens the small bottom
+  /// details panel and focuses the camera on its boundary. Shared by "My
+  /// Properties", "Nearby Layouts", and the layout marker badge tap.
+  ///
+  /// [fitToBoundary] controls camera focus: when true (default), the camera
+  /// fits the layout's boundary bounds; when false, it moves to [target] at
+  /// the fixed [zoom] level instead (used by the badge marker tap).
+  Future<void> _selectLayoutFeatureOnMap(
+    MapPropertyFeature feature, {
+    required LatLng target,
+    required double zoom,
+    bool fitToBoundary = true,
+  }) async {
+    _closePlotPanel();
+    _searchOverlayKey.currentState?.contract();
+    _updateState(() {
+      _selectedProperty = feature;
+      _selectedPropertyHighlightPolygons =
+          _buildSelectedPropertyHighlightPolygons(feature);
+      _independentHousesCarousel = const <MapPropertyFeature>[];
+      _activeIndependentHouseIndex = 0;
+      _independentHouseCarouselDebounce?.cancel();
+      _independentHouseCarouselRequestSeq++;
+    });
+    unawaited(_refreshMarkerSelectionStyles());
+    _ensurePropertyMediaLoaded(feature);
+    _clearSelectedPropertyChildOverlays();
+    await _focusPropertyOnMap(
+      target: target,
+      zoom: zoom,
+      boundaryGeoJson: fitToBoundary ? feature.boundaryGeoJson : null,
+    );
+  }
+
   Future<void> _focusPropertyOnMap({
     required LatLng target,
     required double zoom,
@@ -1435,7 +1479,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
     }
 
     // Fetch the layout share summary to get coordinates and boundary.
-    final summary = await _fetchLayoutShareSummary(layoutId);
+    final summary = await _fetchPropertyShareSummary('Layout', layoutId);
     if (summary == null) {
       return;
     }
@@ -1468,12 +1512,14 @@ extension _HomeMapSelection on _HomeMapScreenState {
     unawaited(_fetchViewport());
   }
 
-  /// Fetch layout share summary from the API.
-  Future<Map<String, dynamic>?> _fetchLayoutShareSummary(
-    String layoutId,
+  /// Fetch the public share summary for a property (pre-formatted price/area
+  /// labels, boundary, and focus coordinates) directly from the API.
+  Future<Map<String, dynamic>?> _fetchPropertyShareSummary(
+    String propertyType,
+    String featureId,
   ) async {
     final baseUrl = ApiConstants.apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
-    final url = '$baseUrl/api/share/property/Layout/$layoutId';
+    final url = '$baseUrl/api/share/property/$propertyType/$featureId';
 
     try {
       final response =
@@ -1483,7 +1529,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
     } catch (e) {
-      debugPrint('[DeepLink] layout fetch error: $e');
+      debugPrint('[ShareSummary] fetch error: $e');
     }
     return null;
   }

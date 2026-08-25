@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../constants/api_constants.dart';
 import '../models/map_viewport_models.dart';
+import 'share_property_sheet.dart';
 
 class PropertyDetailsPanel extends StatelessWidget {
   const PropertyDetailsPanel({
@@ -149,6 +150,27 @@ class PropertyDetailsPanel extends StatelessWidget {
     return null;
   }
 
+  void _shareLayout(BuildContext context, List<String> resolvedImageUrls) {
+    final name = feature.name.trim().isEmpty ? 'Layout' : feature.name.trim();
+    final location = _meta(const <String>['location', 'locality', 'city']);
+    final shortCode = _meta(const <String>['shortCode']);
+
+    showSharePropertySheet(
+      context,
+      SharePropertyInfo(
+        title: name,
+        propertyType: 'Layout',
+        featureId: feature.featureId.trim(),
+        shortCode: shortCode,
+        location: location,
+        priceLabel: null,
+        listingType: null,
+        heroImageUrl:
+            resolvedImageUrls.isNotEmpty ? resolvedImageUrls.first : null,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final canOpenDetails = onOpenDetails != null;
@@ -161,6 +183,10 @@ class PropertyDetailsPanel extends StatelessWidget {
     final location =
         _meta(const <String>['location', 'locality', 'city', 'area']);
     final facing = _meta(const <String>['facing', 'direction', 'plotFacing']);
+
+    final isLayout = feature.propertyType.trim() == 'Layout';
+    final layoutPlots = isLayout ? _meta(const <String>['plots']) : null;
+    final layoutSummary = layoutPlots != null ? '$layoutPlots Plots' : '';
 
     final resolvedOverride = (imageUrls ?? const <String>[])
         .map((v) => v.trim())
@@ -218,21 +244,22 @@ class PropertyDetailsPanel extends StatelessWidget {
     Widget infoLine(String label, String value) {
       return Padding(
         padding: const EdgeInsets.only(top: 8),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final stackVertically = constraints.maxWidth < 220;
-
-            final labelWidget = Text(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
               label,
+              textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: Color(0xFF64748B),
               ),
-            );
-
-            final valueWidget = Text(
+            ),
+            const SizedBox(height: 2),
+            Text(
               value,
+              textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -240,28 +267,8 @@ class PropertyDetailsPanel extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 color: Color(0xFF0F172A),
               ),
-            );
-
-            if (stackVertically) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  labelWidget,
-                  const SizedBox(height: 2),
-                  valueWidget,
-                ],
-              );
-            }
-
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(width: 76, child: labelWidget),
-                const SizedBox(width: 8),
-                Expanded(child: valueWidget),
-              ],
-            );
-          },
+            ),
+          ],
         ),
       );
     }
@@ -270,7 +277,8 @@ class PropertyDetailsPanel extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.only(top: 10),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Padding(
               padding: const EdgeInsets.only(top: 1),
@@ -281,9 +289,10 @@ class PropertyDetailsPanel extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Expanded(
+            Flexible(
               child: Text(
                 value,
+                textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -294,6 +303,48 @@ class PropertyDetailsPanel extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      );
+    }
+
+    Widget plainLine(String value) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: Text(
+          value,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF0F172A),
+          ),
+        ),
+      );
+    }
+
+    Widget chipLine(String value) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          decoration: BoxDecoration(
+            color: const Color(0xFFDCFCE7),
+            border: Border.all(color: const Color(0xFFBBF7D0)),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            value,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF15803D),
+            ),
+          ),
         ),
       );
     }
@@ -396,46 +447,34 @@ class PropertyDetailsPanel extends StatelessWidget {
     }
 
     Widget detailsPanel() {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: canOpenDetails ? onOpenDetails : null,
-                  behavior: HitTestBehavior.opaque,
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: canOpenDetails
-                          ? const Color(0xFF0F172A)
-                          : const Color(0xFF0F172A),
-                    ),
-                  ),
+      return Padding(
+        padding: const EdgeInsets.only(right: 36),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            GestureDetector(
+              onTap: canOpenDetails ? onOpenDetails : null,
+              behavior: HitTestBehavior.opaque,
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
                 ),
               ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                onPressed: onClose,
-                icon: const Icon(Icons.close, size: 20),
-                tooltip: 'Close',
-              ),
-            ],
-          ),
-          if (price != null) iconLine(Icons.currency_rupee, price),
-          if (location != null) iconLine(Icons.location_on_outlined, location),
-          if (facing != null) infoLine('Facing', facing),
-          if (canOpenDetails)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Align(
-                alignment: Alignment.centerLeft,
+            ),
+            if (price != null) iconLine(Icons.currency_rupee, price),
+            if (location != null) plainLine(location),
+            if (layoutSummary.isNotEmpty) chipLine(layoutSummary),
+            if (facing != null) infoLine('Facing', facing),
+            if (canOpenDetails)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
                 child: TextButton(
                   onPressed: onOpenDetails,
                   style: TextButton.styleFrom(
@@ -453,8 +492,28 @@ class PropertyDetailsPanel extends StatelessWidget {
                   child: const Text('View details →'),
                 ),
               ),
+          ],
+        ),
+      );
+    }
+
+    Widget squareIconButton(IconData icon, VoidCallback onTap, {Color? iconColor}) {
+      return Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
             ),
-        ],
+            child: Icon(icon, size: 18, color: iconColor),
+          ),
+        ),
       );
     }
 
@@ -524,30 +583,62 @@ class PropertyDetailsPanel extends StatelessWidget {
                               );
                             }
 
-                            return Padding(
+                            return Container(
+                              color: isLayout
+                                  ? const Color(0xFFEFF6FF)
+                                  : null,
                               padding:
                                   const EdgeInsets.fromLTRB(10, 10, 12, 10),
-                              child: isNarrow
-                                  ? Column(
+                              child: Stack(
+                                children: [
+                                  isNarrow
+                                      ? Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            imagePanel(3 / 2),
+                                            const SizedBox(height: 8),
+                                            detailsPanel(),
+                                          ],
+                                        )
+                                      : Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            // Make the side thumbnail a bit taller.
+                                            Expanded(child: imagePanel(5 / 4)),
+                                            const SizedBox(width: 10),
+                                            Expanded(child: detailsPanel()),
+                                          ],
+                                        ),
+                                  Positioned(
+                                    top: -4,
+                                    right: 4,
+                                    child: Column(
                                       mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
                                       children: [
-                                        imagePanel(3 / 2),
-                                        const SizedBox(height: 8),
-                                        detailsPanel(),
-                                      ],
-                                    )
-                                  : Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        // Make the side thumbnail a bit taller.
-                                        Expanded(child: imagePanel(5 / 4)),
-                                        const SizedBox(width: 10),
-                                        Expanded(child: detailsPanel()),
+                                        squareIconButton(
+                                          Icons.close,
+                                          onClose,
+                                        ),
+                                        if (isLayout) ...[
+                                          const SizedBox(height: 6),
+                                          squareIconButton(
+                                            Icons.share_outlined,
+                                            () => _shareLayout(
+                                              context,
+                                              effectiveImageUrls,
+                                            ),
+                                            iconColor:
+                                                const Color(0xFF1D4ED8),
+                                          ),
+                                        ],
                                       ],
                                     ),
+                                  ),
+                                ],
+                              ),
                             );
                           },
                         ),

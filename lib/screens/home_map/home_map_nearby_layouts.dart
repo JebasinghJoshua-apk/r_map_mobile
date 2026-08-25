@@ -246,6 +246,10 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
   }
 
   /// Handle user tapping a layout card in the nearby sheet.
+  ///
+  /// Mirrors the "My Properties" layout-focus flow: selects the layout as
+  /// the map's active property so the bottom details panel opens, in
+  /// addition to focusing the camera on its boundary.
   Future<void> _onNearbyLayoutFocused(
     NearbyPropertyCard item,
     LatLng anchor,
@@ -261,10 +265,68 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
       _lastViewportSignature = null;
     }
 
-    _drawLayoutPreviewPolygonIfAvailable(item.id, item.boundaryGeoJson);
-    final zoom = item.mobileFocusZoomLevel ?? item.focusZoomLevel ?? _layoutFocusZoomTarget;
-    await _focusPropertyOnMap(
-      target: LatLng(item.latitude, item.longitude),
+    final token = AuthScope.of(context).session?.token;
+    final id = item.id.trim();
+
+    MapPropertyFeature? matchedFeature;
+    if (id.isNotEmpty) {
+      for (final feature in _propertyByFeatureId.values) {
+        final featureId = feature.featureId.trim();
+        final propertyId = feature.propertyId.trim();
+        if (featureId == id || propertyId == id) {
+          matchedFeature = feature;
+          break;
+        }
+      }
+    }
+
+    var boundaryGeoJson = matchedFeature?.boundaryGeoJson ?? item.boundaryGeoJson;
+    var centerGeoJson = matchedFeature?.centerGeoJson;
+
+    if ((boundaryGeoJson == null || boundaryGeoJson.trim().isEmpty) &&
+        token != null &&
+        token.trim().isNotEmpty &&
+        id.isNotEmpty) {
+      try {
+        final detail = await _mapApi.getPropertyDetail(
+          propertyId: id,
+          bearerToken: token,
+        );
+        boundaryGeoJson ??= detail.propertyBoundaryGeoJson;
+        centerGeoJson ??= detail.centerPointGeoJson;
+      } catch (_) {
+        // Best-effort only; falls back to the card's own data.
+      }
+    }
+
+    final effectiveFeature = MapPropertyFeature(
+      propertyId: matchedFeature?.propertyId ?? id,
+      featureId: matchedFeature?.featureId ?? id,
+      propertyType: (matchedFeature?.propertyType.trim().isNotEmpty ?? false)
+          ? matchedFeature!.propertyType
+          : (item.propertyType.trim().isEmpty ? 'Layout' : item.propertyType),
+      name: (matchedFeature?.name.trim().isNotEmpty ?? false)
+          ? matchedFeature!.name
+          : item.name,
+      isOwnedByCurrentUser: matchedFeature?.isOwnedByCurrentUser ?? false,
+      listingType: matchedFeature?.listingType,
+      boundaryGeoJson: boundaryGeoJson,
+      centerGeoJson: centerGeoJson,
+      metadata: matchedFeature?.metadata ??
+          <String, String?>{
+            'location': _layoutLocationLabel(item),
+            if (item.plotsCount != null) 'plots': item.plotsCount.toString(),
+            'mobileFocusZoomLevel': item.mobileFocusZoomLevel?.toString(),
+            'focusZoomLevel': item.focusZoomLevel?.toString(),
+          },
+    );
+
+    final target = effectiveFeature.centerPoint ?? LatLng(item.latitude, item.longitude);
+    final zoom = _layoutFocusZoomFromMetadata(effectiveFeature.metadata);
+
+    await _selectLayoutFeatureOnMap(
+      effectiveFeature,
+      target: target,
       zoom: zoom,
     );
   }

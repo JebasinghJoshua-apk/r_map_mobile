@@ -11,13 +11,29 @@ extension _HomeMapPropertyMedia on _HomeMapScreenState {
   void _openPropertyDetails(MapPropertyFeature feature) {
     if (!mounted) return;
 
+    _dismissKeyboard();
+
+    // Layouts have their own dedicated detail screen (fetches full data by
+    // id), unlike the generic PropertyDetailScreen router used for other
+    // property types.
+    if (feature.propertyType.trim() == 'Layout') {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => LayoutDetailScreen(
+            layoutId: feature.featureId.trim(),
+            fallbackFeature: feature,
+          ),
+        ),
+      );
+      return;
+    }
+
     final cacheKey = _propertyMediaCacheKey(feature);
     final cached = cacheKey == null ? null : _propertyMediaCache[cacheKey];
     final urls = cached?.urls;
     final isLoading = cached?.isLoading ?? false;
     final error = cached?.error;
 
-    _dismissKeyboard();
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => PropertyDetailScreen(

@@ -1386,9 +1386,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                         zoom: (zoom + 2).clamp(zoom + 1, _layoutBadgeMaxZoom + 0.5),
                       )
                   : p.shouldShowLayoutBadge
-                      ? () => _focusPropertyOnMap(
-                            target: p.focusCenter ?? p.center,
-                            zoom: p.focusZoom ?? _layoutFocusZoomTarget,
+                      ? () => unawaited(
+                            _selectLayoutFeatureOnMap(
+                              p.feature,
+                              target: p.focusCenter ?? p.center,
+                              zoom: p.focusZoom ?? _layoutFocusZoomTarget,
+                              fitToBoundary: false,
+                            ),
                           )
                       : () {
                           final layoutId = p.feature.featureId.trim();

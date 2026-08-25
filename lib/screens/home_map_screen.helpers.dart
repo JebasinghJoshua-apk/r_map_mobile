@@ -113,6 +113,31 @@ String? _extractPhaseLabel(String title) {
   return match?.group(1);
 }
 
+/// Formats a raw rupee amount to match the backend's "INR 1,234" style
+/// (see MapViewportService.FormatCurrency). Returns null for non-positive
+/// values.
+String? _formatDetailPrice(double amount) {
+  if (amount <= 0) return null;
+  final rounded = amount.round();
+  final digits = rounded.toString();
+  final buffer = StringBuffer();
+  for (var i = 0; i < digits.length; i++) {
+    if (i > 0 && (digits.length - i) % 3 == 0) buffer.write(',');
+    buffer.write(digits[i]);
+  }
+  return 'INR $buffer';
+}
+
+/// Formats a total area in square feet, e.g. "1200 sqft". Returns null for
+/// non-positive values.
+String? _formatDetailArea(double totalAreaSqFt) {
+  if (totalAreaSqFt <= 0) return null;
+  final rounded = totalAreaSqFt == totalAreaSqFt.roundToDouble()
+      ? totalAreaSqFt.round().toString()
+      : totalAreaSqFt.toStringAsFixed(1);
+  return '$rounded sqft';
+}
+
 double _priceBadgeFocusZoomTarget(String propertyType) {
   // Keep aligned with web: r-map-ui/src/components/Map/MapViewportLayer/constants.ts
   switch (propertyType.trim()) {
