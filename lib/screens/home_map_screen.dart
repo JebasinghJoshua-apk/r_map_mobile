@@ -1383,7 +1383,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
               ? (p.iconType == _PropertyIconType.layoutCluster
                   ? () => _focusPropertyOnMap(
                         target: p.center,
-                        zoom: (zoom + 2).clamp(zoom + 1, _layoutBadgeMaxZoom + 0.5),
+                        // Jump straight past the clustering threshold so the
+                        // cluster splits into individual badges in one tap,
+                        // instead of incrementally zooming.
+                        zoom: math
+                            .max(zoom + 1, _layoutClusterMaxZoom + 0.5)
+                            .clamp(zoom + 1, _layoutBadgeMaxZoom + 0.5),
                       )
                   : p.shouldShowLayoutBadge
                       ? () => unawaited(
