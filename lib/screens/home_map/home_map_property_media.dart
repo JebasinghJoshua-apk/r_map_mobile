@@ -53,7 +53,19 @@ extension _HomeMapPropertyMedia on _HomeMapScreenState {
     final existing = _propertyMediaCache[key];
     if (existing != null) {
       if (existing.isLoading) return;
-      if (existing.urls != null) return;
+      if (existing.urls != null) {
+        // Cache hit: sync the legacy selected-property fields (they may
+        // have been cleared by a prior panel close) instead of leaving
+        // the panel with stale/empty image state.
+        if (_selectedProperty?.featureId.trim() == feature.featureId.trim()) {
+          _updateState(() {
+            _selectedPropertyMediaUrls = existing.urls;
+            _isSelectedPropertyMediaLoading = false;
+            _selectedPropertyMediaError = existing.error;
+          });
+        }
+        return;
+      }
       // If we previously failed, allow retry on reselect.
     }
 

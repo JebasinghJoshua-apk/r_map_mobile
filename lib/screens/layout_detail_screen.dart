@@ -288,6 +288,11 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
       _meta(fallback, const ['area', 'totalArea', 'areaLabel']),
     ]);
 
+    final priceLabel = _firstNonEmpty([
+      _detail?.price,
+      _meta(fallback, const ['price', 'listingPrice', 'salePrice', 'amount']),
+    ]);
+
     final surveyNumber = _firstNonEmpty([
       _detail?.surveyNumber,
       _meta(fallback, const ['surveyNumber', 'surveyNo', 'survey']),
@@ -497,6 +502,13 @@ class _LayoutDetailScreenState extends State<LayoutDetailScreen> {
                           title: '${_entityLabel.toUpperCase()} OVERVIEW',
                           child: Column(
                             children: [
+                              _KeyValueRow(
+                                label: 'Price',
+                                value: (priceLabel ?? '').trim().isEmpty
+                                    ? 'Price on Request'
+                                    : priceLabel!,
+                              ),
+                              const SizedBox(height: 10),
                               if (!_isFarmLand) ...[
                                 _KeyValueRow(
                                   label: 'Approval No',

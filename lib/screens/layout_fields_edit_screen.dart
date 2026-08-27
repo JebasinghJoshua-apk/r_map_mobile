@@ -36,6 +36,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _areaController = TextEditingController();
+  final TextEditingController _priceController = TextEditingController();
   final TextEditingController _plotsCountController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
   final TextEditingController _additionalDetailsController =
@@ -60,13 +61,18 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
   void initState() {
     super.initState();
     _isFarmLand = widget.isFarmLand;
-    _loadLayout();
+    // Defer until after the first frame: AuthScope.of(context) throws if
+    // called synchronously during initState, before the widget is mounted.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadLayout();
+    });
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _areaController.dispose();
+    _priceController.dispose();
     _plotsCountController.dispose();
     _locationController.dispose();
     _additionalDetailsController.dispose();
@@ -76,11 +82,19 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
   }
 
   Future<void> _loadLayout() async {
-    final session = AuthScope.of(context).session;
-    final token = session?.token;
+    var token = AuthScope.of(context).session?.token;
     if (token == null || token.trim().isEmpty) {
-      AuthDialog.showLogin(context);
-      return;
+      await AuthDialog.showLogin(context);
+      if (!mounted) return;
+      token = AuthScope.of(context).session?.token;
+      if (token == null || token.trim().isEmpty) {
+        setState(() {
+          _isLoading = false;
+        });
+        ToastMessage.show(context, 'Please login to edit this layout.');
+        Navigator.of(context).pop(false);
+        return;
+      }
     }
 
     setState(() {
@@ -101,6 +115,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
         _isFarmLand = detail.isFarmLand;
         _nameController.text = detail.name;
         _areaController.text = detail.area ?? '';
+        _priceController.text = detail.price ?? '';
         _plotsCountController.text = detail.plotsCount?.toString() ?? '';
         _locationController.text = detail.locationDetails ?? '';
         _additionalDetailsController.text =
@@ -527,6 +542,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
         name: name,
         isFarmLand: _isFarmLand,
         area: _areaController.text,
+        price: _priceController.text,
         plotsCount: plotsCount,
         locationDetails: _locationController.text,
         additionalDetails: _additionalDetailsController.text,
@@ -575,6 +591,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
   Widget _buildField({
     required TextEditingController controller,
     required String label,
+    String? hint,
     TextInputType? keyboardType,
     int minLines = 1,
     int maxLines = 1,
@@ -588,6 +605,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
         maxLines: maxLines,
         decoration: InputDecoration(
           labelText: label,
+          hintText: hint,
           border: const OutlineInputBorder(),
         ),
       ),
@@ -620,6 +638,11 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
                     label: '$_entityLabel Name',
                   ),
                   _buildField(
+                    controller: _priceController,
+                    label: 'Price',
+                    hint: 'e.g., Rs 2000 per sqft',
+                  ),
+                  _buildField(
                     controller: _areaController,
                     label: 'Area',
                   ),
@@ -638,14 +661,24 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
                     minLines: 7,
                     maxLines: 9,
                   ),
-                  _buildField(
-                    controller: _contactNameController,
-                    label: 'Contact Name',
-                  ),
-                  _buildField(
-                    controller: _contactNumberController,
-                    label: 'Contact Number',
-                    keyboardType: TextInputType.phone,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _buildField(
+                          controller: _contactNameController,
+                          label: 'Contact Name',
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildField(
+                          controller: _contactNumberController,
+                          label: 'Contact Number',
+                          keyboardType: TextInputType.phone,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   PropertyPhotoSection(

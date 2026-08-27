@@ -185,8 +185,9 @@ class PropertyDetailsPanel extends StatelessWidget {
     final facing = _meta(const <String>['facing', 'direction', 'plotFacing']);
 
     final isLayout = feature.propertyType.trim() == 'Layout';
-    final layoutPlots = isLayout ? _meta(const <String>['plots']) : null;
-    final layoutSummary = layoutPlots != null ? '$layoutPlots Plots' : '';
+    final layoutPrice = isLayout
+        ? (_meta(const <String>['price']) ?? 'Price on Request')
+        : null;
 
     final resolvedOverride = (imageUrls ?? const <String>[])
         .map((v) => v.trim())
@@ -330,8 +331,8 @@ class PropertyDetailsPanel extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
           decoration: BoxDecoration(
-            color: const Color(0xFFDCFCE7),
-            border: Border.all(color: const Color(0xFFBBF7D0)),
+            color: const Color(0xFFDBEAFE),
+            border: Border.all(color: const Color(0xFFBFDBFE)),
             borderRadius: BorderRadius.circular(999),
           ),
           child: Text(
@@ -342,7 +343,7 @@ class PropertyDetailsPanel extends StatelessWidget {
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF15803D),
+              color: Color(0xFF1E40AF),
             ),
           ),
         ),
@@ -468,9 +469,9 @@ class PropertyDetailsPanel extends StatelessWidget {
                 ),
               ),
             ),
-            if (price != null) iconLine(Icons.currency_rupee, price),
+            if (price != null && !isLayout) iconLine(Icons.currency_rupee, price),
             if (location != null) plainLine(location),
-            if (layoutSummary.isNotEmpty) chipLine(layoutSummary),
+            if (layoutPrice != null) chipLine(layoutPrice),
             if (facing != null) infoLine('Facing', facing),
             if (canOpenDetails)
               Padding(

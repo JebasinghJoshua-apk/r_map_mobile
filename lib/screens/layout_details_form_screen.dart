@@ -78,6 +78,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
   // Form fields
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _areaController = TextEditingController();
+  final TextEditingController _priceController = TextEditingController();
   final TextEditingController _surveyNumberController = TextEditingController();
   final TextEditingController _approvalNumberController =
       TextEditingController();
@@ -129,6 +130,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
     _viewportDebounce?.cancel();
     _nameController.dispose();
     _areaController.dispose();
+    _priceController.dispose();
     _surveyNumberController.dispose();
     _approvalNumberController.dispose();
     _locationDetailsController.dispose();
@@ -517,6 +519,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
         boundaryLatLng: boundaryLatLng,
         isFarmLand: widget.isFarmLand,
         area: _areaController.text.trim(),
+        price: _priceController.text.trim(),
         surveyNumber:
             widget.isFarmLand ? null : _surveyNumberController.text.trim(),
         approvalNumber: _approvalNumberController.text.trim(),
@@ -1344,6 +1347,14 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
             ),
             const SizedBox(height: 16),
 
+            // Price
+            _buildTextField(
+              controller: _priceController,
+              label: 'Price',
+              hint: 'e.g., Rs 2000 per sqft',
+            ),
+            const SizedBox(height: 16),
+
             // Area and Plot Count row
             Row(
               children: [
@@ -1395,19 +1406,26 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
             ),
             const SizedBox(height: 16),
 
-            _buildTextField(
-              controller: _contactNameController,
-              label: 'Contact Name',
-              hint: 'e.g., Jebasingh',
-            ),
-            const SizedBox(height: 16),
-
-            // Contact Numbers
-            _buildTextField(
-              controller: _contactNumbersController,
-              label: 'Contact Numbers',
-              hint: 'e.g., 9876543210, 9988776655',
-              keyboardType: TextInputType.phone,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    controller: _contactNameController,
+                    label: 'Contact Name',
+                    hint: 'e.g., Jebasingh',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildTextField(
+                    controller: _contactNumbersController,
+                    label: 'Contact Numbers',
+                    hint: 'e.g., 9876543210',
+                    keyboardType: TextInputType.phone,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
 

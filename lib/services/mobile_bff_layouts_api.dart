@@ -140,6 +140,7 @@ class MobileBffLayoutsApi {
     required List<List<double>> boundaryLatLng,
     bool isFarmLand = false,
     String? area,
+    String? price,
     String? surveyNumber,
     String? approvalNumber,
     String? locationDetails,
@@ -160,6 +161,9 @@ class MobileBffLayoutsApi {
 
     if (area != null && area.trim().isNotEmpty) {
       payload['area'] = area.trim();
+    }
+    if (price != null && price.trim().isNotEmpty) {
+      payload['price'] = price.trim();
     }
     if (surveyNumber != null && surveyNumber.trim().isNotEmpty) {
       payload['surveyNumber'] = surveyNumber.trim();
@@ -239,6 +243,7 @@ class MobileBffLayoutsApi {
     required String name,
     bool? isFarmLand,
     String? area,
+    String? price,
     int? plotsCount,
     String? surveyNumber,
     String? approvalNumber,
@@ -268,6 +273,7 @@ class MobileBffLayoutsApi {
       'name': trimmedName,
       if (isFarmLand != null) 'isFarmLand': isFarmLand,
       if (area != null) 'area': area.trim().isEmpty ? null : area.trim(),
+      if (price != null) 'price': price.trim().isEmpty ? null : price.trim(),
       if (plotsCount != null && plotsCount > 0) 'plotsCount': plotsCount,
       if (surveyNumber != null)
         'surveyNumber': surveyNumber.trim().isEmpty ? null : surveyNumber.trim(),
@@ -417,6 +423,7 @@ class LayoutDetailDto {
     this.contactNumbers,
     this.area,
     this.plotsCount,
+    this.price,
     this.shortCode,
     required this.createdAt,
     required this.isDraft,
@@ -435,6 +442,7 @@ class LayoutDetailDto {
   final String? contactNumbers;
   final String? area;
   final int? plotsCount;
+  final String? price;
 
   /// Short code for generating compact share URLs (e.g., rmap.in/s/ABC123).
   final String? shortCode;
@@ -456,6 +464,7 @@ class LayoutDetailDto {
       contactNumbers: json['contactNumbers'] as String?,
       area: json['area'] as String?,
       plotsCount: _asInt(json['plotsCount']),
+      price: json['price'] as String?,
       shortCode: json['shortCode'] as String?,
       createdAt: DateTime.tryParse((json['createdAt'] as String?) ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
