@@ -4,8 +4,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
   /// Builds metadata for a property built from a thin [PropertyDetail]
   /// fallback (i.e. the entity wasn't already present in the loaded
   /// viewport cache). Prefers the public share-summary endpoint (which
-  /// returns pre-formatted, type-specific price/area labels) and falls back
-  /// to a rough totalArea × pricePerSqFt estimate if that's unavailable.
+  /// returns pre-formatted, type-specific price/area labels).
   Future<Map<String, String?>> _fallbackFeatureMetadata({
     required String propertyType,
     required String featureId,
@@ -13,11 +12,17 @@ extension _HomeMapSelection on _HomeMapScreenState {
     required int? plotsCount,
     required PropertyDetail detail,
   }) async {
-    final summary = await _fetchPropertyShareSummary(propertyType, featureId);    final summaryPrice = (summary?['priceLabel'] as String?)?.trim();
+    final summary = await _fetchPropertyShareSummary(propertyType, featureId);
+    final summaryPrice = (summary?['priceLabel'] as String?)?.trim();
     final summaryArea = (summary?['areaLabel'] as String?)?.trim();
 
     final totalArea = detail.totalArea;
     final pricePerSqFt = detail.pricePerSqFt;
+
+    // Layout price is a freeform, owner-authored label — never synthesize it
+    // from totalArea x pricePerSqFt, which would contradict the value shown
+    // by the map/viewport paths.
+    final isLayout = propertyType.trim() == 'Layout';
 
     return <String, String?>{
       'location': location,
@@ -27,7 +32,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
           : (totalArea != null ? _formatDetailArea(totalArea) : null),
       'price': (summaryPrice != null && summaryPrice.isNotEmpty)
           ? summaryPrice
-          : (totalArea != null && pricePerSqFt != null)
+          : (!isLayout && totalArea != null && pricePerSqFt != null)
               ? _formatDetailPrice(totalArea * pricePerSqFt)
               : null,
     };

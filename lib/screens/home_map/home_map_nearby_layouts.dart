@@ -299,6 +299,31 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
       }
     }
 
+    // The nearby card carries no price, so pull the share summary when the
+    // layout isn't already in the viewport cache — otherwise the panel would
+    // fall back to "Price on Request" for an already-priced layout.
+    Map<String, String?>? fallbackMetadata;
+    if (matchedFeature == null) {
+      String? priceLabel;
+      String? areaLabel;
+      if (id.isNotEmpty) {
+        final summary = await _fetchPropertyShareSummary('Layout', id);
+        priceLabel = (summary?['priceLabel'] as String?)?.trim();
+        areaLabel = (summary?['areaLabel'] as String?)?.trim();
+      }
+
+      fallbackMetadata = <String, String?>{
+        'location': _layoutLocationLabel(item),
+        if (item.plotsCount != null) 'plots': item.plotsCount.toString(),
+        'area': (areaLabel != null && areaLabel.isNotEmpty)
+            ? areaLabel
+            : _layoutAreaLabel(item),
+        if (priceLabel != null && priceLabel.isNotEmpty) 'price': priceLabel,
+        'mobileFocusZoomLevel': item.mobileFocusZoomLevel?.toString(),
+        'focusZoomLevel': item.focusZoomLevel?.toString(),
+      };
+    }
+
     final effectiveFeature = MapPropertyFeature(
       propertyId: matchedFeature?.propertyId ?? id,
       featureId: matchedFeature?.featureId ?? id,
@@ -312,13 +337,7 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
       listingType: matchedFeature?.listingType,
       boundaryGeoJson: boundaryGeoJson,
       centerGeoJson: centerGeoJson,
-      metadata: matchedFeature?.metadata ??
-          <String, String?>{
-            'location': _layoutLocationLabel(item),
-            if (item.plotsCount != null) 'plots': item.plotsCount.toString(),
-            'mobileFocusZoomLevel': item.mobileFocusZoomLevel?.toString(),
-            'focusZoomLevel': item.focusZoomLevel?.toString(),
-          },
+      metadata: matchedFeature?.metadata ?? fallbackMetadata!,
     );
 
     final target = effectiveFeature.centerPoint ?? LatLng(item.latitude, item.longitude);
