@@ -15,11 +15,14 @@ class AuthState extends ChangeNotifier {
   static const _tokenKey = 'auth_token';
   static const _refreshTokenKey = 'refresh_token';
   static const _userKey = 'auth_user';
+  static const _lastLoginPhoneNumberKey = 'last_login_phone_number';
 
   final MobileBffAuthApi _api;
 
   AuthSession? _session;
   AuthSession? get session => _session;
+  String? _lastLoginPhoneNumber;
+  String? get lastLoginPhoneNumber => _lastLoginPhoneNumber;
   Future<bool>? _refreshFuture;
 
   bool get isAuthenticated => _session != null && _session!.token.isNotEmpty;
@@ -29,6 +32,7 @@ class AuthState extends ChangeNotifier {
     final token = prefs.getString(_tokenKey);
     final refreshToken = prefs.getString(_refreshTokenKey);
     final userJson = prefs.getString(_userKey);
+    _lastLoginPhoneNumber = prefs.getString(_lastLoginPhoneNumberKey);
 
     if (token == null ||
         token.isEmpty ||
@@ -46,6 +50,12 @@ class AuthState extends ChangeNotifier {
         refreshToken: refreshToken,
         user: AuthUser.fromJson(userMap),
       );
+      if ((_lastLoginPhoneNumber == null ||
+              _lastLoginPhoneNumber!.trim().isEmpty) &&
+          _session!.user.phoneNumber.isNotEmpty) {
+        _lastLoginPhoneNumber = _session!.user.phoneNumber;
+        await prefs.setString(_lastLoginPhoneNumberKey, _lastLoginPhoneNumber!);
+      }
     } catch (_) {
       _session = null;
     }
@@ -188,6 +198,24 @@ class AuthState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateProfile({required String name}) async {
+    final session = _session;
+    if (session == null) {
+      throw StateError('Cannot update profile without an active session.');
+    }
+
+    final user = await _api.updateProfile(name: name);
+    final updatedSession = AuthSession(
+      token: session.token,
+      refreshToken: session.refreshToken,
+      refreshTokenExpiresAt: session.refreshTokenExpiresAt,
+      user: user,
+    );
+    await _persist(updatedSession);
+    _session = updatedSession;
+    notifyListeners();
+  }
+
   Future<void> _persist(AuthSession session) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, session.token);
@@ -197,6 +225,10 @@ class AuthState extends ChangeNotifier {
       await prefs.remove(_refreshTokenKey);
     }
     await prefs.setString(_userKey, jsonEncode(session.user.toJson()));
+    if (session.user.phoneNumber.isNotEmpty) {
+      _lastLoginPhoneNumber = session.user.phoneNumber;
+      await prefs.setString(_lastLoginPhoneNumberKey, _lastLoginPhoneNumber!);
+    }
   }
 
   Future<bool> _refreshSessionInternal() async {

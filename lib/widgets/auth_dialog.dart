@@ -86,6 +86,7 @@ class _AuthDialogState extends State<AuthDialog> {
   int? _resendCountdown;
   String _verifiedPhone = ''; // Phone number that was verified with OTP
   String _lastOtpCode = ''; // Last OTP code entered
+  bool _didPrefillPhoneNumber = false;
 
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -135,6 +136,19 @@ class _AuthDialogState extends State<AuthDialog> {
   void initState() {
     super.initState();
     _mode = widget._mode;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didPrefillPhoneNumber) return;
+
+    final lastLoginPhoneNumber =
+        AuthScope.of(context).lastLoginPhoneNumber?.trim();
+    if (lastLoginPhoneNumber != null && lastLoginPhoneNumber.isNotEmpty) {
+      _phoneController.text = lastLoginPhoneNumber;
+    }
+    _didPrefillPhoneNumber = true;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;

@@ -17,6 +17,7 @@ import '../services/app_settings_service.dart';
 import '../services/mobile_bff_map_api.dart';
 import '../services/mobile_bff_saved_properties_api.dart';
 import '../state/auth_scope.dart';
+import '../state/auth_state.dart';
 import '../utils/anchored_popover_geometry.dart';
 import '../utils/user_role.dart';
 import 'auth_dialog.dart';
@@ -71,6 +72,7 @@ class SearchOverlay extends StatefulWidget {
 
 enum _ProfileMenuAction {
   login,
+  editProfile,
   myProperties,
   favorites,
   logout,
@@ -953,6 +955,9 @@ class _CompactProfileButtonState extends State<_CompactProfileButton> {
       case _ProfileMenuAction.login:
         AuthDialog.showLogin(context);
         break;
+      case _ProfileMenuAction.editProfile:
+        _showEditProfileDialog(context);
+        break;
       case _ProfileMenuAction.myProperties:
         final overlayState =
             context.findAncestorStateOfType<SearchOverlayState>();
@@ -1150,20 +1155,37 @@ Future<_ProfileMenuAction?> _showProfileMenuPopover({
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           if (session != null) ...[
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 14),
-                              child: SizedBox(
-                                height: 36,
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    'Hi, $displayName',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF334155),
+                            InkWell(
+                              onTap: () => Navigator.of(context)
+                                  .pop(_ProfileMenuAction.editProfile),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Hi, $displayName',
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF334155),
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                    const SizedBox(width: 8),
+                                    const Tooltip(
+                                      message: 'Edit profile',
+                                      child: Icon(
+                                        Icons.edit_outlined,
+                                        size: 18,
+                                        color: Color(0xFF0FAD97),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -1255,6 +1277,134 @@ Future<_ProfileMenuAction?> _showProfileMenuPopover({
       );
     },
   );
+}
+
+Future<void> _showEditProfileDialog(BuildContext profileContext) async {
+  final auth = AuthScope.of(profileContext);
+  final user = auth.session?.user;
+  if (user == null) return;
+
+  await showDialog<void>(
+    context: profileContext,
+    builder: (_) => _EditProfileDialog(
+      auth: auth,
+      profileContext: profileContext,
+      phoneNumber: user.phoneNumber,
+      initialName: '${user.firstName} ${user.lastName}'.trim(),
+    ),
+  );
+}
+
+class _EditProfileDialog extends StatefulWidget {
+  const _EditProfileDialog({
+    required this.auth,
+    required this.profileContext,
+    required this.phoneNumber,
+    required this.initialName,
+  });
+
+  final AuthState auth;
+  final BuildContext profileContext;
+  final String phoneNumber;
+  final String initialName;
+
+  @override
+  State<_EditProfileDialog> createState() => _EditProfileDialogState();
+}
+
+class _EditProfileDialogState extends State<_EditProfileDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  var _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isSaving = true);
+
+    try {
+      await widget.auth.updateProfile(name: _nameController.text.trim());
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      if (widget.profileContext.mounted) {
+        ToastMessage.show(widget.profileContext, 'Profile updated');
+      }
+    } catch (error) {
+      if (widget.profileContext.mounted) {
+        ToastMessage.show(widget.profileContext, error.toString());
+      }
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      title: const Text(
+        'Edit Profile',
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              initialValue: widget.phoneNumber,
+              readOnly: true,
+              enableInteractiveSelection: false,
+              decoration: const InputDecoration(labelText: 'Phone number'),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _nameController,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(labelText: 'Name'),
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? 'Enter your name'
+                  : null,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _isSaving ? null : _save,
+          child: _isSaving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save'),
+        ),
+      ],
+    );
+  }
 }
 
 class _ProfilePopoverArrow extends StatelessWidget {

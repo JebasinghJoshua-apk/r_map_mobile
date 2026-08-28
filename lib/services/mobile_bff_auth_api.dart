@@ -300,6 +300,43 @@ class MobileBffAuthApi {
     );
   }
 
+  Future<AuthUser> updateProfile({required String name}) async {
+    final token = AuthAwareHttpClient.currentAccessToken()?.trim();
+    if (token == null || token.isEmpty) {
+      throw const AuthApiException('Please login again.');
+    }
+
+    final uri = _uri('/mobile/auth/profile');
+    http.Response response;
+    try {
+      response = await _client
+          .put(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'name': name}),
+          )
+          .timeout(_timeout);
+    } on SocketException {
+      throw const AuthApiException(
+        'Cannot connect to the server. Please check your network.',
+      );
+    } on TimeoutException {
+      throw const AuthApiException('Request timed out. Please try again.');
+    }
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return AuthUser.fromJson(json);
+    }
+
+    throw AuthApiException(
+      _tryMessage(response.body) ?? 'Profile update failed (${response.statusCode})',
+    );
+  }
+
   AuthSession _parseSession(Map<String, dynamic> json) {
     final token = (json['token'] as String?) ?? '';
     final refreshToken = json['refreshToken'] as String?;
