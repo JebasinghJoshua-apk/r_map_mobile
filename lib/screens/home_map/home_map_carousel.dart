@@ -325,7 +325,7 @@ extension _HomeMapCarousel on _HomeMapScreenState {
       final n = items.length;
       final previous = items[(index - 1 + n) % n];
       final next = items[(index + 1) % n];
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      runAfterBuild(() {
         if (!mounted) return;
         _ensurePropertyMediaLoaded(feature);
         _ensurePropertyMediaLoaded(previous);

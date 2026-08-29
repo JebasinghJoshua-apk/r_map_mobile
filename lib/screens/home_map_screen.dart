@@ -54,6 +54,7 @@ import '../utils/pending_layout_focus.dart';
 import '../utils/pending_map_focus.dart';
 import '../utils/pending_plot_selection.dart';
 import '../utils/pending_property_selection.dart';
+import '../utils/post_frame_callback.dart';
 
 part 'home_map_screen.helpers.dart';
 part 'home_map/home_map_filters.dart';

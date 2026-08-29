@@ -39,7 +39,12 @@ void markHomeScreenReady() {
 }
 
 class RMapApp extends StatefulWidget {
-  const RMapApp({super.key});
+  const RMapApp({
+    super.key,
+    this.enableRuntimeServices = true,
+  });
+
+  final bool enableRuntimeServices;
 
   @override
   State<RMapApp> createState() => _RMapAppState();
@@ -61,11 +66,13 @@ class _RMapAppState extends State<RMapApp> {
     // If refresh fails, force-logout and prompt re-login.
     AuthAwareHttpClient.onSessionExpired = _onSessionExpired;
 
-    deepLinkService = DeepLinkService(navigatorKey: appNavigatorKey);
-    deepLinkService.initialize();
+    if (widget.enableRuntimeServices) {
+      deepLinkService = DeepLinkService(navigatorKey: appNavigatorKey);
+      deepLinkService.initialize();
 
-    // Handle push notification taps → navigate to property.
-    PushNotificationService.instance.onNotificationTap = _onNotificationTap;
+      // Handle push notification taps → navigate to property.
+      PushNotificationService.instance.onNotificationTap = _onNotificationTap;
+    }
   }
 
   @override
@@ -73,8 +80,10 @@ class _RMapAppState extends State<RMapApp> {
     AuthAwareHttpClient.onRefreshSession = null;
     AuthAwareHttpClient.accessTokenProvider = null;
     AuthAwareHttpClient.onSessionExpired = null;
-    PushNotificationService.instance.onNotificationTap = null;
-    deepLinkService.dispose();
+    if (widget.enableRuntimeServices) {
+      PushNotificationService.instance.onNotificationTap = null;
+      deepLinkService.dispose();
+    }
     _authState.dispose();
     super.dispose();
   }
@@ -130,7 +139,8 @@ class _RMapAppState extends State<RMapApp> {
             navigatorKey: appNavigatorKey,
             navigatorObservers: [
               routeObserver,
-              AnalyticsService.instance.observer,
+              if (widget.enableRuntimeServices)
+                AnalyticsService.instance.observer,
             ],
             home: const SplashScreen(),
           ),
