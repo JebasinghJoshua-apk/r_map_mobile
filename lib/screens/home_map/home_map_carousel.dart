@@ -319,12 +319,18 @@ extension _HomeMapCarousel on _HomeMapScreenState {
     final key = _propertyMediaCacheKey(feature);
     final cached = key == null ? null : _propertyMediaCache[key];
 
-    // Preload neighbors
+    // Preload after the current build because cache-hit synchronization can
+    // update the parent selection state.
     if (index == _activeIndependentHouseIndex && items.length > 1) {
-      _ensurePropertyMediaLoaded(feature);
       final n = items.length;
-      _ensurePropertyMediaLoaded(items[(index - 1 + n) % n]);
-      _ensurePropertyMediaLoaded(items[(index + 1) % n]);
+      final previous = items[(index - 1 + n) % n];
+      final next = items[(index + 1) % n];
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _ensurePropertyMediaLoaded(feature);
+        _ensurePropertyMediaLoaded(previous);
+        _ensurePropertyMediaLoaded(next);
+      });
     }
 
     return PropertyDetailsPanel(
