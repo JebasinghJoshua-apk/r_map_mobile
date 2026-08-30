@@ -41,7 +41,7 @@ class PlaceZoomOverrideService {
       : _client = client ?? http.Client();
 
   static const _cacheKey = 'place_zoom_overrides_v1';
-  static const Duration _timeout = Duration(seconds: 10);
+  static const Duration _timeout = Duration(seconds: 3);
 
   final http.Client _client;
   bool _loadedCache = false;
@@ -98,6 +98,15 @@ class PlaceZoomOverrideService {
     } catch (e) {
       if (kDebugMode) debugPrint('Failed to refresh place zoom overrides: $e');
     }
+  }
+
+  Future<double?> refreshAndFindZoom({
+    required String placeId,
+    required String placeName,
+  }) async {
+    await loadCached();
+    await refresh();
+    return findZoom(placeId: placeId, placeName: placeName);
   }
 
   double? findZoom({required String placeId, required String placeName}) {

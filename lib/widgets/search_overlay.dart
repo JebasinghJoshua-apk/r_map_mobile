@@ -373,8 +373,7 @@ class SearchOverlayState extends State<SearchOverlay> {
 
       final types = details?.result?.types?.whereType<String>().toList() ??
           const <String>[];
-        await _placeZoomOverrideService.loadCached();
-        final zoom = _placeZoomOverrideService.findZoom(
+      final zoom = await _placeZoomOverrideService.refreshAndFindZoom(
           placeId: details?.result?.placeId ?? placeId,
           placeName: label,
           ) ??
