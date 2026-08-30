@@ -16,6 +16,7 @@ import '../services/analytics_service.dart';
 import '../services/app_settings_service.dart';
 import '../services/mobile_bff_map_api.dart';
 import '../services/mobile_bff_saved_properties_api.dart';
+import '../services/place_zoom_override_service.dart';
 import '../state/auth_scope.dart';
 import '../state/auth_state.dart';
 import '../utils/anchored_popover_geometry.dart';
@@ -88,6 +89,8 @@ class SearchOverlayState extends State<SearchOverlay> {
   final FocusNode _focusNode = FocusNode();
   final GlobalKey _searchCardKey = GlobalKey();
   final GlobalKey _filterButtonKey = GlobalKey();
+  final PlaceZoomOverrideService _placeZoomOverrideService =
+      PlaceZoomOverrideService();
 
   Timer? _debounce;
   Timer? _keyboardShowTimer;
@@ -198,6 +201,9 @@ class SearchOverlayState extends State<SearchOverlay> {
   void initState() {
     super.initState();
     _loadRecentPlaces();
+    unawaited(_placeZoomOverrideService.loadCached().then(
+          (_) => _placeZoomOverrideService.refresh(),
+        ));
 
     _focusNode.addListener(_reportOpenStateIfChanged);
 
@@ -367,7 +373,12 @@ class SearchOverlayState extends State<SearchOverlay> {
 
       final types = details?.result?.types?.whereType<String>().toList() ??
           const <String>[];
-      final zoom = _suggestZoomForPlaceTypes(types, label);
+        await _placeZoomOverrideService.loadCached();
+        final zoom = _placeZoomOverrideService.findZoom(
+          placeId: details?.result?.placeId ?? placeId,
+          placeName: label,
+          ) ??
+          _suggestZoomForPlaceTypes(types, label);
 
       widget.onPlaceSelected(latLng, label, zoom);
 
