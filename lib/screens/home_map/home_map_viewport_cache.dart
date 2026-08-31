@@ -959,7 +959,9 @@ extension _HomeMapViewportCache on _HomeMapScreenState {
         final Color amenityFill = typedColors?.fill ?? _amenityFill;
         final double effectiveFillOpacity =
             typedColors != null && amenityOpLevel == null
-                ? _amenityTypedFillOpacity
+            ? amenity.name.trim().toLowerCase() == 'ou'
+              ? _amenityOuFillOpacity
+              : _amenityTypedFillOpacity
                 : amenityFillOpacity;
 
         for (var i = 0; i < polygons.length; i++) {

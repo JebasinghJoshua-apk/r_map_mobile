@@ -114,7 +114,10 @@ extension _HomeMapLabels on _HomeMapScreenState {
         final polygons = GeoJson.tryParsePolygons(amenity.boundaryGeoJson);
         if (polygons.isEmpty) continue;
 
-        final pos = _centroid(polygons.first);
+        final isEbLine = label.trim().toLowerCase() == 'eb line';
+        final placement =
+            isEbLine ? _computeLineLabelPlacement(polygons.first) : null;
+        final pos = placement?.position ?? _centroid(polygons.first);
         if (pos == null) continue;
 
         pendingAmenityLabels.add(_PendingAmenityLabel(
@@ -122,6 +125,7 @@ extension _HomeMapLabels on _HomeMapScreenState {
           label: label,
           position: pos,
           fontSize: amenityFontSize,
+          rotationDegrees: placement?.rotationDegrees,
         ));
         totalLabels++;
       }
@@ -222,6 +226,8 @@ extension _HomeMapLabels on _HomeMapScreenState {
           icon: amenityIcons[i],
           anchor: const Offset(0.5, 0.5),
           zIndex: 105,
+          rotation: a.rotationDegrees ?? 0,
+          flat: a.rotationDegrees != null,
           consumeTapEvents: false,
         ),
       );
@@ -513,10 +519,12 @@ class _PendingAmenityLabel {
     required this.label,
     required this.position,
     required this.fontSize,
+    this.rotationDegrees,
   });
 
   final MapAmenityFeature amenity;
   final String label;
   final LatLng position;
   final double fontSize;
+  final double? rotationDegrees;
 }
