@@ -52,6 +52,8 @@ extension _HomeMapLabels on _HomeMapScreenState {
       for (final plot in response.plots) {
         if (totalLabels >= _maxLabelMarkers) break;
 
+        if (plot.plotNumber.contains('.')) continue;
+
         final label = _simplifyPlotNumberLabel(plot.plotNumber);
         if (label.isEmpty) continue;
 
@@ -75,7 +77,7 @@ extension _HomeMapLabels on _HomeMapScreenState {
         if (totalLabels >= _maxLabelMarkers) break;
 
         final name = road.name.trim();
-        if (name.isEmpty) continue;
+        if (name.isEmpty || name.contains('.')) continue;
 
         _LineLabelPlacement? placement;
 
@@ -107,7 +109,7 @@ extension _HomeMapLabels on _HomeMapScreenState {
         if (totalLabels >= _maxLabelMarkers) break;
 
         final label = _amenityLabelText(amenity);
-        if (label.isEmpty) continue;
+        if (label.isEmpty || label.contains('.')) continue;
 
         final amenityFontSize = _amenityLabelFontSize(amenity, label, zoom);
 
