@@ -137,7 +137,7 @@ const Color _amenityEbFill = Color(0xFF6366F1);   // Indigo 500
 const double _amenityStrokeOpacity = 0.95;
 const double _amenityFillOpacity = 0.30;
 const double _amenityTypedFillOpacity = 0.45;
-const double _amenityOuFillOpacity = 1.0;
+const double _amenityOuFillOpacity = 0.55;
 const int _amenityStrokeWidth = 1;
 
 // Per-amenity-type colors. Keys are lowercase for case-insensitive lookup.
@@ -154,7 +154,7 @@ const Map<String, _AmenityColors> _amenityTypeColors = {
   'eb': _AmenityColors(_amenityEbStroke, _amenityEbFill),
   'eb line': _AmenityColors(_amenityEbStroke, _amenityEbFill),
   'park': _AmenityColors(Color(0xFF15803D), Color(0xFF4ADE80)),
-  'ou': _AmenityColors(Color(0xFF625F4B), Color(0xFF8F8A6C)),
+  'ou': _AmenityColors(Color(0xFF1D4ED8), Color(0xFF3B82F6)),
   'office': _AmenityColors(Color(0xFF0369A1), Color(0xFF38BDF8)),
   'cottage': _AmenityColors(Color(0xFFC2410C), Color(0xFFFB923C)),
   'shuttle court': _AmenityColors(Color(0xFF0F766E), Color(0xFF2DD4BF)),
