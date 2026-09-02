@@ -1397,7 +1397,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                               p.feature,
                               target: p.focusCenter ?? p.center,
                               zoom: p.focusZoom ?? _layoutFocusZoomTarget,
-                              fitToBoundary: false,
                             ),
                           )
                       : () {

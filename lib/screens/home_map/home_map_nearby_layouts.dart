@@ -341,7 +341,9 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
     );
 
     final target = effectiveFeature.centerPoint ?? LatLng(item.latitude, item.longitude);
-    final zoom = _layoutFocusZoomFromMetadata(effectiveFeature.metadata);
+    final zoom =
+      _layoutFocusZoomFromMetadata(effectiveFeature.metadata) ??
+        _layoutFocusZoomTarget;
 
     await _selectLayoutFeatureOnMap(
       effectiveFeature,

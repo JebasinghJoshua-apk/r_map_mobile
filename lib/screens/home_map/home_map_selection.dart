@@ -1180,15 +1180,12 @@ extension _HomeMapSelection on _HomeMapScreenState {
   /// Select a Layout feature as the active property: opens the small bottom
   /// details panel and focuses the camera on its boundary. Shared by "My
   /// Properties", "Nearby Layouts", and the layout marker badge tap.
-  ///
-  /// [fitToBoundary] controls camera focus: when true (default), the camera
-  /// fits the layout's boundary bounds; when false, it moves to [target] at
-  /// the fixed [zoom] level instead (used by the badge marker tap).
+  /// A configured metadata zoom takes precedence; otherwise its boundary fits
+  /// into the visible map area.
   Future<void> _selectLayoutFeatureOnMap(
     MapPropertyFeature feature, {
     required LatLng target,
     required double zoom,
-    bool fitToBoundary = true,
   }) async {
     _closePlotPanel();
     _searchOverlayKey.currentState?.contract();
@@ -1204,10 +1201,12 @@ extension _HomeMapSelection on _HomeMapScreenState {
     unawaited(_refreshMarkerSelectionStyles());
     _ensurePropertyMediaLoaded(feature);
     _clearSelectedPropertyChildOverlays();
+    final configuredZoom = _layoutFocusZoomFromMetadata(feature.metadata);
     await _focusPropertyOnMap(
       target: target,
-      zoom: zoom,
-      boundaryGeoJson: fitToBoundary ? feature.boundaryGeoJson : null,
+      zoom: configuredZoom ?? zoom,
+      boundaryGeoJson:
+          configuredZoom == null ? feature.boundaryGeoJson : null,
     );
   }
 

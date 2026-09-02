@@ -116,9 +116,7 @@ extension _HomeMapLabels on _HomeMapScreenState {
         final polygons = GeoJson.tryParsePolygons(amenity.boundaryGeoJson);
         if (polygons.isEmpty) continue;
 
-        final isEbLine = label.trim().toLowerCase() == 'eb line';
-        final placement =
-            isEbLine ? _computeLineLabelPlacement(polygons.first) : null;
+        final placement = _computeLineLabelPlacement(polygons.first);
         final pos = placement?.position ?? _centroid(polygons.first);
         if (pos == null) continue;
 

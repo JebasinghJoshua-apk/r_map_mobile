@@ -157,7 +157,7 @@ double _priceBadgeFocusZoomTarget(String propertyType) {
 // r-map-ui/src/components/Map/MapViewportLayer/constants.ts
 const double _layoutFocusZoomTarget = 18.5;
 
-double _layoutFocusZoomFromMetadata(Map<String, String?> metadata) {
+double? _layoutFocusZoomFromMetadata(Map<String, String?> metadata) {
   final mobileRaw = metadata['mobileFocusZoomLevel']?.trim();
   if (mobileRaw != null && mobileRaw.isNotEmpty) {
     final parsed = double.tryParse(mobileRaw);
@@ -168,7 +168,7 @@ double _layoutFocusZoomFromMetadata(Map<String, String?> metadata) {
     final parsed = double.tryParse(raw);
     if (parsed != null && parsed.isFinite) return parsed;
   }
-  return _layoutFocusZoomTarget;
+  return null;
 }
 
 _PriceBadgeColors _priceBadgeColorsForPropertyType(String propertyType) {
