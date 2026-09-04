@@ -383,6 +383,17 @@ class SearchOverlayState extends State<SearchOverlay> {
 
       // Track search selection (fire-and-forget, no UI impact).
       AnalyticsService.instance.logMapSearch(query: label);
+      unawaited(_mapApi.trackPlaceSearch(
+        query: _controller.text.trim().isEmpty
+            ? label
+            : _controller.text.trim(),
+        placeName: label,
+        googlePlaceId: details?.result?.placeId ?? placeId,
+        formattedAddress: details?.result?.formattedAddress,
+        latitude: latLng.latitude,
+        longitude: latLng.longitude,
+        placeTypes: types,
+      ));
 
       if (!mounted) return true;
       setState(() {

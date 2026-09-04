@@ -1044,6 +1044,40 @@ class MobileBffMapApi {
           'User search failed (${response.statusCode})',
     );
   }
+
+  /// Records a place search for admin analytics. Fire-and-forget: failures
+  /// are swallowed so tracking never affects the search UX.
+  Future<void> trackPlaceSearch({
+    required String query,
+    required String placeName,
+    String? googlePlaceId,
+    String? formattedAddress,
+    double? latitude,
+    double? longitude,
+    List<String>? placeTypes,
+  }) async {
+    try {
+      final uri = _uri('/search-events');
+      await _client
+          .post(
+            uri,
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'query': query,
+              'placeName': placeName,
+              'googlePlaceId': googlePlaceId,
+              'formattedAddress': formattedAddress,
+              'latitude': latitude,
+              'longitude': longitude,
+              'placeTypes': placeTypes,
+              'source': 'mobile',
+            }),
+          )
+          .timeout(const Duration(seconds: 5));
+    } catch (_) {
+      // Ignore — analytics must never break the search flow.
+    }
+  }
 }
 
 class MapApiException implements Exception {
