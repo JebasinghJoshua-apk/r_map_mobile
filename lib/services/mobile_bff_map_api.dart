@@ -1057,7 +1057,7 @@ class MobileBffMapApi {
     List<String>? placeTypes,
   }) async {
     try {
-      final uri = _uri('/search-events');
+      final uri = _uri('/mobile/search-events');
       await _client
           .post(
             uri,
