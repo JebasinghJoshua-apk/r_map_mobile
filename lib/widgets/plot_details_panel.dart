@@ -448,13 +448,16 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
         ?.trim();
     if (raw == null || raw.isEmpty) return null;
 
+    // Zero/invalid values are kept as 0 (not dropped) so each entry stays
+    // aligned with its polygon side index in _PlotSketchPainter.
     final values = <double>[];
     void pushValue(Object? v) {
-      if (v == null) return;
-      final asNum = v is num ? v.toDouble() : double.tryParse(v.toString());
-      if (asNum != null && asNum.isFinite && asNum > 0) {
-        values.add(asNum);
+      if (v == null) {
+        values.add(0);
+        return;
       }
+      final asNum = v is num ? v.toDouble() : double.tryParse(v.toString());
+      values.add(asNum != null && asNum.isFinite ? asNum : 0);
     }
 
     try {
@@ -763,9 +766,7 @@ class _PlotSketchPainter extends CustomPainter {
     canvas.drawPath(path, fillPaint);
     canvas.drawPath(path, strokePaint);
 
-    final dims = (dimensions ?? const <double>[])
-        .where((v) => v.isFinite && v > 0)
-        .toList(growable: false);
+    final dims = dimensions ?? const <double>[];
     if (dims.isEmpty) return;
 
     String formatFeet(double v) {
@@ -806,9 +807,13 @@ class _PlotSketchPainter extends CustomPainter {
     final labelOffset = 12 * scale;
     final segmentCount = points.length;
     for (var i = 0; i < segmentCount; i += 1) {
+      // Index-aligned with the polygon side (not filtered/wrapped) so a 0
+      // dimension leaves that side blank instead of borrowing another value.
+      final value = i < dims.length ? dims[i] : null;
+      if (value == null || !value.isFinite || value <= 0) continue;
+
       final start = points[i];
       final end = points[(i + 1) % segmentCount];
-      final value = dims[i % dims.length];
 
       final mid = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
       final angle = math.atan2(end.dy - start.dy, end.dx - start.dx);

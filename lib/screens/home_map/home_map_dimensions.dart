@@ -12,13 +12,16 @@ extension _HomeMapDimensions on _HomeMapScreenState {
         ?.trim();
     if (raw == null || raw.isEmpty) return null;
 
+    // Zero/invalid values are kept as 0 (not dropped) so each entry stays
+    // aligned with its polygon edge index — see the `dimValue <= 0` skip below.
     final values = <double>[];
     void pushValue(Object? v) {
-      if (v == null) return;
-      final asNum = v is num ? v.toDouble() : double.tryParse(v.toString());
-      if (asNum != null && asNum.isFinite && asNum > 0) {
-        values.add(asNum);
+      if (v == null) {
+        values.add(0);
+        return;
       }
+      final asNum = v is num ? v.toDouble() : double.tryParse(v.toString());
+      values.add(asNum != null && asNum.isFinite ? asNum : 0);
     }
 
     try {
@@ -84,8 +87,10 @@ extension _HomeMapDimensions on _HomeMapScreenState {
         final a = ring[i];
         final b = ring[i + 1];
 
-        // Cycle through provided dimensions (same as the sketch painter).
-        final dimValue = dims[i % dims.length];
+        // Index-aligned with the polygon edge (not cycled) so a 0 dimension
+        // leaves that edge unlabeled instead of borrowing another value.
+        if (i >= dims.length) continue;
+        final dimValue = dims[i];
         if (dimValue <= 0) continue;
 
         final label = _formatFeetLabel(dimValue);
