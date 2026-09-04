@@ -495,8 +495,8 @@ class _PendingRoadLabel {
   final double fontSize;
 }
 
-/// Strips common prefixes ("plot", "property", "site") and extracts the
-/// numeric/alpha-numeric core.  Matches the web logic in
+/// Strips common prefixes ("plot", "property", "site") and formats
+/// comma-separated plot numbers on separate lines. Matches the web logic in
 /// `r-map-ui/.../tooltipContent.ts → simplifyPlotNumberLabel`.
 String _simplifyPlotNumberLabel(String? value) {
   if (value == null) return '';
@@ -506,10 +506,11 @@ String _simplifyPlotNumberLabel(String? value) {
     RegExp(r'^(plot|property|site)\s*(no\.?|#)?\s*', caseSensitive: false),
     '',
   );
-  final numericMatch =
-      RegExp(r'[0-9]+[A-Za-z0-9/-]*').firstMatch(withoutPrefix);
-  if (numericMatch != null) return numericMatch.group(0)!;
-  return withoutPrefix;
+  return withoutPrefix
+      .split(',')
+      .map((part) => part.trim())
+      .where((part) => part.isNotEmpty)
+      .join('\n');
 }
 
 /// Helper class for pending amenity label data.
