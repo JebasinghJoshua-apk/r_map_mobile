@@ -313,9 +313,8 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _hasSelectedPlace = true;
     });
 
-    // Store the selected place position for back-button re-focus.
-    _lastSelectedPlacePosition = CameraPosition(target: target, zoom: zoom);
-    _userPannedFromPlace = false;
+    // Snapshot the pre-search camera so Back can undo to it.
+    await _captureCameraBeforePropertyFocus();
 
     // Save selected place for push-notification "near you" radius.
     _saveLastSearchedPlace(target.latitude, target.longitude);
@@ -356,9 +355,8 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _hasSelectedPlace = true;
     });
 
-    // Store the selected place position for back-button re-focus.
-    _lastSelectedPlacePosition = CameraPosition(target: target, zoom: zoom);
-    _userPannedFromPlace = false;
+    // Snapshot the pre-search camera so Back can undo to it.
+    await _captureCameraBeforePropertyFocus();
 
     // Save selected place for push-notification "near you" radius.
     _saveLastSearchedPlace(target.latitude, target.longitude);
@@ -796,14 +794,11 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _dismissNearbyCoachmark();
     }
 
-    // Track that the user has panned away from the last selected place.
-    if (_hasSelectedPlace && _lastSelectedPlacePosition != null) {
-      _userPannedFromPlace = true;
+    // A manual pan/zoom invalidates the most recent pending back-restore —
+    // the user has already deliberately moved on from that auto-focused view.
+    if (_cameraBackStack.isNotEmpty) {
+      _userMovedCameraSinceLastFocus = true;
     }
-
-    if (_selectedProperty == null) return;
-    if (_cameraBeforePropertyFocus == null) return;
-    _userMovedCameraSincePropertyFocus = true;
   }
 
   Future<void> _captureCameraBeforePropertyFocus() async {
@@ -817,13 +812,28 @@ extension _HomeMapSelection on _HomeMapScreenState {
       zoom = base.zoom;
     }
 
-    _cameraBeforePropertyFocus = CameraPosition(
+    final snapshot = CameraPosition(
       target: base.target,
       zoom: zoom,
       bearing: base.bearing,
       tilt: base.tilt,
     );
-    _userMovedCameraSincePropertyFocus = false;
+    _cameraBackStack.add(snapshot);
+    if (_cameraBackStack.length > _HomeMapScreenState._maxCameraBackStackDepth) {
+      _cameraBackStack.removeAt(0);
+    }
+    _userMovedCameraSinceLastFocus = false;
+  }
+
+  /// Pops one level of camera history for a Back tap. Returns null (consuming
+  /// the entry without restoring) when the user has already manually moved
+  /// the camera since it was pushed — restoring would undo their own pan.
+  CameraPosition? _popCameraBackStack() {
+    if (_cameraBackStack.isEmpty) return null;
+    final popped = _cameraBackStack.removeLast();
+    final shouldRestore = !_userMovedCameraSinceLastFocus;
+    _userMovedCameraSinceLastFocus = false;
+    return shouldRestore ? popped : null;
   }
 
   Future<void> _animateCamera(CameraUpdate update) async {
@@ -874,8 +884,12 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _focusedPlotIdFromDeepLink = null;
     });
 
-    // Center the plot after selection so users immediately see what's selected.
-    unawaited(_focusPlotOnMap(plot));
+    // Snapshot the pre-focus camera so Back can undo to it, then center the
+    // plot on the map so users immediately see what's selected.
+    unawaited(_captureCameraBeforePropertyFocus().then((_) {
+      if (!mounted) return;
+      unawaited(_focusPlotOnMap(plot));
+    }));
   }
 
   void _closePlotPanel() {
@@ -883,6 +897,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
     if (_selectedPlot == null) return;
     // Cancel any in-flight focus animation/clamp for the previous selection.
     _plotFocusSeq++;
+    final restoreCameraPosition = _popCameraBackStack();
     _safeSetState(() {
       _selectedPlot = null;
       _selectedPlotHighlightPolygons = const <Polygon>{};
@@ -891,16 +906,24 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _dimensionStartZoom = null;
       _pendingDimensionFitPlotId = null;
     });
+
+    if (restoreCameraPosition != null && _mapController != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _mapController == null) return;
+        unawaited(
+          _moveCamera(
+            CameraUpdate.newCameraPosition(restoreCameraPosition),
+          ),
+        );
+      });
+    }
   }
 
   void _closePropertyPanel() {
     if (!mounted) return;
     if (_selectedProperty == null) return;
 
-    final shouldRestoreCamera = _cameraBeforePropertyFocus != null &&
-        !_userMovedCameraSincePropertyFocus;
-    final restoreCameraPosition =
-        shouldRestoreCamera ? _cameraBeforePropertyFocus : null;
+    final restoreCameraPosition = _popCameraBackStack();
 
     _safeSetState(() {
       _selectedProperty = null;
@@ -917,10 +940,6 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _selectedPropertyChildPlotLabelMarkers = const <Marker>{};
       _selectedPropertyChildRoadLabelMarkers = const <Marker>{};
       _selectedPropertyChildAmenityLabelMarkers = const <Marker>{};
-
-      // Reset restore tracking.
-      _cameraBeforePropertyFocus = null;
-      _userMovedCameraSincePropertyFocus = false;
     });
 
     // Cancel any in-flight media fetch.
@@ -1201,6 +1220,8 @@ extension _HomeMapSelection on _HomeMapScreenState {
     unawaited(_refreshMarkerSelectionStyles());
     _ensurePropertyMediaLoaded(feature);
     _clearSelectedPropertyChildOverlays();
+    // Snapshot the pre-focus camera so Back can undo to it.
+    await _captureCameraBeforePropertyFocus();
     final configuredZoom = _layoutFocusZoomFromMetadata(feature.metadata);
     await _focusPropertyOnMap(
       target: target,
@@ -1547,24 +1568,30 @@ extension _HomeMapSelection on _HomeMapScreenState {
   /// 2. If user panned away from the selected place → re-focus to it.
   /// 3. Otherwise → show exit confirmation dialog.
   void _handleBackPress() {
-    // 1. Close any open bottom panel first.
-    if (_selectedPlot != null || _selectedProperty != null) {
-      _closeAnyPanel();
+    // 1. Close one panel at a time, deepest first, restoring the camera
+    // position captured just before that panel's auto-focus.
+    if (_selectedPlot != null) {
+      _closePlotPanel();
+      return;
+    }
+    if (_selectedProperty != null) {
+      _closePropertyPanel();
       return;
     }
 
-    // 2. If user has panned/zoomed away, re-focus to the last selected place.
-    if (_userPannedFromPlace && _lastSelectedPlacePosition != null) {
-      _userPannedFromPlace = false;
+    // 2. No panel open — undo one more level of camera history, if any
+    // (e.g. a manual drag/zoom, or the search that brought you here).
+    final restoreCameraPosition = _popCameraBackStack();
+    if (restoreCameraPosition != null) {
       unawaited(
         _animateCamera(
-          CameraUpdate.newCameraPosition(_lastSelectedPlacePosition!),
+          CameraUpdate.newCameraPosition(restoreCameraPosition),
         ),
       );
       return;
     }
 
-    // 3. Show exit confirmation.
+    // 3. Nothing left to undo — show exit confirmation.
     _showExitConfirmationDialog();
   }
 

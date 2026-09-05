@@ -121,12 +121,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     setState(fn);
   }
 
-  // Camera restore behavior for property selection:
-  // If a property tap zooms the map + opens the bottom panel, and the user does
-  // not manually move/zoom the map afterwards, closing the panel restores the
-  // previous camera position.
-  CameraPosition? _cameraBeforePropertyFocus;
-  bool _userMovedCameraSincePropertyFocus = false;
+  // Camera back-history: every auto-focus (search, layout marker, plot,
+  // property) pushes the camera position it's jumping *from* onto this stack.
+  // Back pops one level at a time, closing one panel per tap, so users can
+  // undo drill-downs step by step instead of jumping straight to the search
+  // origin. Capped so it can't grow unbounded across a long session.
+  final List<CameraPosition> _cameraBackStack = <CameraPosition>[];
+  static const int _maxCameraBackStackDepth = 5;
+  bool _userMovedCameraSinceLastFocus = false;
   bool _isProgrammaticCameraMove = false;
 
   final _HomeMapIconFactory _iconFactory = _HomeMapIconFactory();
@@ -160,13 +162,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
   /// When false, a blurred overlay blocks map pan/zoom until the user selects a place.
   bool _hasSelectedPlace = false;
-
-  /// Camera position when the user last selected a place from search/shortlist.
-  /// Used to re-focus on back press if the user has panned away.
-  CameraPosition? _lastSelectedPlacePosition;
-
-  /// True when the user has manually panned/zoomed away from the last selected place.
-  bool _userPannedFromPlace = false;
 
   final LinkedHashMap<String, _ViewportRenderCacheEntry> _viewportCache =
       LinkedHashMap<String, _ViewportRenderCacheEntry>();
