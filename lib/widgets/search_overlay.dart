@@ -393,6 +393,7 @@ class SearchOverlayState extends State<SearchOverlay> {
         latitude: latLng.latitude,
         longitude: latLng.longitude,
         placeTypes: types,
+        bearerToken: AuthScope.of(context).session?.token,
       ));
 
       if (!mounted) return true;

@@ -1055,13 +1055,21 @@ class MobileBffMapApi {
     double? latitude,
     double? longitude,
     List<String>? placeTypes,
+    String? bearerToken,
   }) async {
     try {
       final uri = _uri('/mobile/search-events');
+      final headers = <String, String>{'Content-Type': 'application/json'};
+      if (bearerToken != null && bearerToken.trim().isNotEmpty) {
+        final token = bearerToken.toLowerCase().startsWith('bearer ')
+            ? bearerToken.substring('bearer '.length)
+            : bearerToken;
+        headers['Authorization'] = 'Bearer $token';
+      }
       await _client
           .post(
             uri,
-            headers: const {'Content-Type': 'application/json'},
+            headers: headers,
             body: jsonEncode({
               'query': query,
               'placeName': placeName,
