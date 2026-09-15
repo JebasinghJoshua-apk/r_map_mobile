@@ -44,6 +44,14 @@ class PushNotificationService {
       return;
     }
 
+    if (Platform.isIOS) {
+      await _messaging.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    }
+
     // Listen for token refreshes.
     _tokenRefreshSub = _messaging.onTokenRefresh.listen((newToken) {
       debugPrint('[Push] FCM token refreshed');
@@ -70,13 +78,15 @@ class PushNotificationService {
 
     try {
       if (Platform.isIOS) {
-        final apnsToken = await _messaging.getAPNSToken();
+        final apnsToken = await _waitForApnsToken();
         if (apnsToken == null) {
           debugPrint(
-            '[Push] APNS token not available yet; skipping FCM token fetch.',
+            '[Push] APNS token not available; check iOS signing and Push Notifications capability.',
           );
           return;
         }
+
+        debugPrint('[Push] APNS token available');
       }
 
       _fcmToken = await _messaging.getToken();
@@ -164,6 +174,17 @@ class PushNotificationService {
   }
 
   // ── Private helpers ───────────────────────────────────────────────
+
+  Future<String?> _waitForApnsToken() async {
+    for (var attempt = 0; attempt < 10; attempt++) {
+      final token = await _messaging.getAPNSToken();
+      if (token != null && token.isNotEmpty) {
+        return token;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
+    return null;
+  }
 
   void _handleForegroundMessage(RemoteMessage message) {
     debugPrint(
