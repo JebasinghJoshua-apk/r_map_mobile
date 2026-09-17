@@ -34,7 +34,7 @@ class PushNotificationService {
     // Request permission (Android 13+ requires runtime permission).
     final settings = await _messaging.requestPermission(
       alert: true,
-      badge: true,
+      badge: false,
       sound: true,
     );
     debugPrint('[Push] permission: ${settings.authorizationStatus}');
@@ -47,7 +47,7 @@ class PushNotificationService {
     if (Platform.isIOS) {
       await _messaging.setForegroundNotificationPresentationOptions(
         alert: true,
-        badge: true,
+        badge: false,
         sound: true,
       );
     }
