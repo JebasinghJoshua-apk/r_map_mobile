@@ -1223,8 +1223,11 @@ extension _HomeMapSelection on _HomeMapScreenState {
     // Snapshot the pre-focus camera so Back can undo to it.
     await _captureCameraBeforePropertyFocus();
     final configuredZoom = _layoutFocusZoomFromMetadata(feature.metadata);
+    final focusTarget = configuredZoom != null
+        ? feature.centerPoint ?? target
+        : target;
     await _focusPropertyOnMap(
-      target: target,
+      target: focusTarget,
       zoom: configuredZoom ?? zoom,
       boundaryGeoJson:
           configuredZoom == null ? feature.boundaryGeoJson : null,
