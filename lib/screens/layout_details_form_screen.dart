@@ -77,6 +77,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
 
   // Form fields
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _clusterAliasController = TextEditingController();
   final TextEditingController _areaController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _surveyNumberController = TextEditingController();
@@ -129,6 +130,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
     _searchFocusNode.dispose();
     _viewportDebounce?.cancel();
     _nameController.dispose();
+    _clusterAliasController.dispose();
     _areaController.dispose();
     _priceController.dispose();
     _surveyNumberController.dispose();
@@ -516,6 +518,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
 
       final response = await _layoutsApi.createLayoutDraft(
         name: name,
+        clusterAlias: _clusterAliasController.text,
         boundaryLatLng: boundaryLatLng,
         isFarmLand: widget.isFarmLand,
         area: _areaController.text.trim(),
@@ -1346,6 +1349,14 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
               textCapitalization: TextCapitalization.words,
             ),
             const SizedBox(height: 16),
+            _buildTextField(
+              controller: _clusterAliasController,
+              label: 'Cluster Alias (optional)',
+              hint: 'e.g. Mango',
+              maxLength: 200,
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 16),
 
             // Price
             _buildTextField(
@@ -1487,6 +1498,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
     required String label,
     required String hint,
     int maxLines = 1,
+    int? maxLength,
     TextInputType? keyboardType,
     TextCapitalization textCapitalization = TextCapitalization.sentences,
   }) {
@@ -1505,6 +1517,7 @@ class _LayoutDetailsFormScreenState extends State<LayoutDetailsFormScreen> {
         TextField(
           controller: controller,
           maxLines: maxLines,
+          maxLength: maxLength,
           keyboardType: keyboardType,
           textCapitalization: textCapitalization,
           decoration: InputDecoration(

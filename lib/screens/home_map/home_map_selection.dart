@@ -1196,6 +1196,50 @@ extension _HomeMapSelection on _HomeMapScreenState {
     );
   }
 
+  Future<void> _focusLayoutClusterOnMap(
+    _PendingPropertyMarker cluster,
+  ) async {
+    final controller = _mapController;
+    if (controller == null) return;
+
+    final points = <LatLng>[];
+    for (final feature in cluster.clusterFeatures) {
+      for (final polygon in GeoJson.tryParsePolygons(feature.boundaryGeoJson)) {
+        points.addAll(polygon);
+      }
+    }
+
+    if (points.length < 3) {
+      await _focusPropertyOnMap(
+        target: cluster.center,
+        zoom: math.min(
+          math.max(_lastCameraPosition.zoom + 1, _layoutClusterMaxZoom + 0.5),
+          _layoutBadgeMaxZoom,
+        ),
+      );
+      return;
+    }
+
+    final bounds = _boundsFromPoints(points);
+    final center = _centerOfBounds(bounds);
+    try {
+      await _animateCamera(CameraUpdate.newLatLngBounds(bounds, 64));
+      final fittedZoom = await controller.getZoomLevel();
+      if (fittedZoom > _layoutBadgeMaxZoom) {
+        await _animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(target: center, zoom: _layoutBadgeMaxZoom),
+          ),
+        );
+      }
+    } catch (_) {
+      await _focusPropertyOnMap(
+        target: center,
+        zoom: math.min(_lastCameraPosition.zoom, _layoutBadgeMaxZoom),
+      );
+    }
+  }
+
   /// Select a Layout feature as the active property: opens the small bottom
   /// details panel and focuses the camera on its boundary. Shared by "My
   /// Properties", "Nearby Layouts", and the layout marker badge tap.

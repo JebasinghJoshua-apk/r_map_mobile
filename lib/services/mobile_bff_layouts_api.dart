@@ -137,6 +137,7 @@ class MobileBffLayoutsApi {
   /// which can be used to generate a QR code.
   Future<LayoutDraftResponse> createLayoutDraft({
     required String name,
+    String? clusterAlias,
     required List<List<double>> boundaryLatLng,
     bool isFarmLand = false,
     String? area,
@@ -158,6 +159,10 @@ class MobileBffLayoutsApi {
       'layoutBoundaryLatLng': boundaryLatLng,
       'isFarmLand': isFarmLand,
     };
+
+    if (clusterAlias != null && clusterAlias.trim().isNotEmpty) {
+      payload['clusterAlias'] = clusterAlias.trim();
+    }
 
     if (area != null && area.trim().isNotEmpty) {
       payload['area'] = area.trim();
@@ -241,6 +246,7 @@ class MobileBffLayoutsApi {
   Future<void> updateLayout({
     required String layoutId,
     required String name,
+    String? clusterAlias,
     bool? isFarmLand,
     String? area,
     String? price,
@@ -271,6 +277,7 @@ class MobileBffLayoutsApi {
 
     final payload = <String, dynamic>{
       'name': trimmedName,
+      if (clusterAlias != null) 'clusterAlias': clusterAlias.trim(),
       if (isFarmLand != null) 'isFarmLand': isFarmLand,
       if (area != null) 'area': area.trim().isEmpty ? null : area.trim(),
       if (price != null) 'price': price.trim().isEmpty ? null : price.trim(),
@@ -349,6 +356,7 @@ class LayoutDraftResponse {
     this.additionalDetails,
     this.contactNumbers,
     this.description,
+    this.clusterAlias,
     this.plotsCount,
     required this.isDraft,
     required this.createdAt,
@@ -365,6 +373,7 @@ class LayoutDraftResponse {
   final String? additionalDetails;
   final String? contactNumbers;
   final String? description;
+  final String? clusterAlias;
   final int? plotsCount;
   final bool isDraft;
   final DateTime createdAt;
@@ -384,6 +393,7 @@ class LayoutDraftResponse {
       additionalDetails: json['additionalDetails'] as String?,
       contactNumbers: json['contactNumbers'] as String?,
       description: json['description'] as String?,
+      clusterAlias: json['clusterAlias'] as String?,
       plotsCount: _asIntGlobal(json['plotsCount']),
       isDraft: (json['isDraft'] as bool?) ?? true,
       createdAt: DateTime.tryParse((json['createdAt'] as String?) ?? '') ??
@@ -414,6 +424,7 @@ class LayoutDetailDto {
     required this.id,
     required this.name,
     required this.isFarmLand,
+    this.clusterAlias,
     this.description,
     this.surveyNumber,
     this.approvalNumber,
@@ -433,6 +444,7 @@ class LayoutDetailDto {
   final String id;
   final String name;
   final bool isFarmLand;
+  final String? clusterAlias;
   final String? description;
   final String? surveyNumber;
   final String? approvalNumber;
@@ -455,6 +467,7 @@ class LayoutDetailDto {
       id: (json['id'] as String?) ?? '',
       name: (json['name'] as String?) ?? '',
       isFarmLand: (json['isFarmLand'] as bool?) ?? false,
+      clusterAlias: json['clusterAlias'] as String?,
       description: json['description'] as String?,
       surveyNumber: json['surveyNumber'] as String?,
       approvalNumber: json['approvalNumber'] as String?,

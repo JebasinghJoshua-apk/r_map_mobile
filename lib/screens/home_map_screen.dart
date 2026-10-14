@@ -1377,15 +1377,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
           zIndex: zIndex,
           onTap: p.isLayout
               ? (p.iconType == _PropertyIconType.layoutCluster
-                  ? () => _focusPropertyOnMap(
-                        target: p.center,
-                        // Jump straight past the clustering threshold so the
-                        // cluster splits into individual badges in one tap,
-                        // instead of incrementally zooming.
-                        zoom: math
-                            .max(zoom + 1, _layoutClusterMaxZoom + 0.5)
-                            .clamp(zoom + 1, _layoutBadgeMaxZoom + 0.5),
-                      )
+                  ? () => unawaited(_focusLayoutClusterOnMap(p))
                   : p.shouldShowLayoutBadge
                       ? () => unawaited(
                             _selectLayoutFeatureOnMap(
@@ -1452,6 +1444,21 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     return stripped.isEmpty ? name.trim() : stripped;
   }
 
+  static String _layoutClusterKey(_PendingPropertyMarker marker) {
+    final alias = marker.feature.metadata['clusterAlias']?.trim();
+    if (alias != null && alias.isNotEmpty) {
+      return 'alias:${alias.toLowerCase()}';
+    }
+    return 'name:${_layoutBaseName(marker.title)}';
+  }
+
+  static String _layoutClusterLabel(_PendingPropertyMarker marker) {
+    final alias = marker.feature.metadata['clusterAlias']?.trim();
+    return alias != null && alias.isNotEmpty
+        ? alias
+        : _layoutBaseName(marker.title);
+  }
+
   /// Groups nearby layout badge markers into clusters using a grid-based
   /// spatial hash. Within each grid cell, layouts that share the same base
   /// name (ignoring trailing Roman numeral / numeric suffixes) are merged
@@ -1471,7 +1478,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       final cellX = (m.center.longitude / cellSize).floor();
       final cellY = (m.center.latitude / cellSize).floor();
       final cellKey = '$cellX,$cellY';
-      final baseName = _layoutBaseName(m.title);
+      final baseName = _layoutClusterKey(m);
 
       cells.putIfAbsent(cellKey, () => <String, List<int>>{});
       cells[cellKey]!.putIfAbsent(baseName, () => <int>[]);
@@ -1489,7 +1496,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         final rep = markers[indices.first];
         rep.clusterCount = indices.length;
         rep.iconType = _PropertyIconType.layoutCluster;
-        rep.clusterTitle = '${entry.key}(${indices.length})';
+        rep.clusterTitle =
+          '${_layoutClusterLabel(rep)} (${indices.length})';
+        rep.clusterFeatures = indices
+            .map((index) => markers[index].feature)
+            .toList(growable: false);
 
         // Mark the rest for removal.
         for (var j = 1; j < indices.length; j++) {
@@ -2165,4 +2176,5 @@ class _PendingPropertyMarker {
   _PropertyIconType iconType;
   int clusterCount;
   String? clusterTitle;
+  List<MapPropertyFeature> clusterFeatures = const <MapPropertyFeature>[];
 }

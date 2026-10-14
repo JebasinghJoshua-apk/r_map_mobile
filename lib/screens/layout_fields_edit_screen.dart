@@ -35,6 +35,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
   final ImagePicker _imagePicker = ImagePicker();
 
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _clusterAliasController = TextEditingController();
   final TextEditingController _areaController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _plotsCountController = TextEditingController();
@@ -71,6 +72,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _clusterAliasController.dispose();
     _areaController.dispose();
     _priceController.dispose();
     _plotsCountController.dispose();
@@ -114,6 +116,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
       setState(() {
         _isFarmLand = detail.isFarmLand;
         _nameController.text = detail.name;
+        _clusterAliasController.text = detail.clusterAlias ?? '';
         _areaController.text = detail.area ?? '';
         _priceController.text = detail.price ?? '';
         _plotsCountController.text = detail.plotsCount?.toString() ?? '';
@@ -540,6 +543,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
       await _layoutsApi.updateLayout(
         layoutId: widget.layoutId,
         name: name,
+        clusterAlias: _clusterAliasController.text,
         isFarmLand: _isFarmLand,
         area: _areaController.text,
         price: _priceController.text,
@@ -595,6 +599,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
     TextInputType? keyboardType,
     int minLines = 1,
     int maxLines = 1,
+    int? maxLength,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -603,6 +608,7 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
         keyboardType: keyboardType,
         minLines: minLines,
         maxLines: maxLines,
+        maxLength: maxLength,
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
@@ -636,6 +642,12 @@ class _LayoutFieldsEditScreenState extends State<LayoutFieldsEditScreen> {
                   _buildField(
                     controller: _nameController,
                     label: '$_entityLabel Name',
+                  ),
+                  _buildField(
+                    controller: _clusterAliasController,
+                    label: 'Cluster Alias (optional)',
+                    hint: 'e.g. Mango',
+                    maxLength: 200,
                   ),
                   _buildField(
                     controller: _priceController,
