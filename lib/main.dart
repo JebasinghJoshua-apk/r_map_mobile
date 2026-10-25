@@ -40,9 +40,6 @@ Future<void> main() async {
   await FirebaseCrashlytics.instance
       .setCrashlyticsCollectionEnabled(!kDebugMode);
 
-  // Initialize push notifications (requests permission, gets FCM token).
-  await PushNotificationService.instance.initialize();
-
   // Forward Flutter framework errors to Crashlytics.
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
@@ -89,5 +86,17 @@ Future<void> main() async {
 
   WidgetsBinding.instance.addPostFrameCallback((_) {
     unawaited(startupTrace?.stop());
+    unawaited(_initializePushNotifications());
   });
+}
+
+Future<void> _initializePushNotifications() async {
+  try {
+    await PushNotificationService.instance
+        .initialize()
+        .timeout(const Duration(seconds: 20));
+  } catch (error, stackTrace) {
+    debugPrint('[Push] Initialization did not complete: $error');
+    debugPrintStack(stackTrace: stackTrace);
+  }
 }
