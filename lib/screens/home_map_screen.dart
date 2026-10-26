@@ -144,6 +144,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   bool _userSelectedMapType = false;
   final ValueNotifier<double> _zoomNotifier =
       ValueNotifier(_initialCameraPosition.zoom);
+  bool _showAdminMobileMapZoomLevel = false;
+  final AppSettingsService _mapSettingsService = AppSettingsService();
+
+  Future<void> _refreshMapDisplaySettings() async {
+    final enabled = await _mapSettingsService.getShowAdminMobileMapZoomLevel();
+    if (!mounted) return;
+    setState(() => _showAdminMobileMapZoomLevel = enabled);
+  }
 
   bool _isViewportLoading = false;
   Timer? _viewportLoadingTimer;
@@ -412,6 +420,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     _mapApi = MobileBffMapApi();
     _plotsApi = MobileBffPlotsApi();
     _savedPropertiesApi = MobileBffSavedPropertiesApi();
+    unawaited(_refreshMapDisplaySettings());
     _initConnectivity();
     _loadLightMapStyle();
     if (googlePlacesApiKey != 'YOUR_GOOGLE_PLACES_API_KEY') {
@@ -476,6 +485,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
   @override
   void didPopNext() {
+    unawaited(_refreshMapDisplaySettings());
     // Returning from a pushed screen (e.g. PropertyDetailScreen). Flutter may
     // restore focus to the last-focused text field, which reopens the keyboard.
     // Force-hide it for map UX.
@@ -1684,6 +1694,28 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
               scrollGesturesEnabled: _hasSelectedPlace,
               zoomGesturesEnabled: _hasSelectedPlace,
             ),
+            if (_showAdminMobileMapZoomLevel &&
+                AuthScope.of(context).session?.user.roleValue == UserRole.admin)
+              Positioned(
+                left: 16,
+                bottom: MediaQuery.of(context).padding.bottom + 100,
+                child: IgnorePointer(
+                  child: Material(
+                    elevation: 2,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      child: ValueListenableBuilder<double>(
+                        valueListenable: _zoomNotifier,
+                        builder: (context, zoom, child) => Text(
+                          'Zoom: ${zoom.toStringAsFixed(1)}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             // Blurred overlay until a place is selected (matches web style).
             if (!_hasSelectedPlace)
               Positioned.fill(

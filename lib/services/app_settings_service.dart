@@ -38,6 +38,22 @@ class AppSettingsService {
 
   static const Duration _timeout = Duration(seconds: 10);
 
+  Future<bool> getShowAdminMobileMapZoomLevel() async {
+    try {
+      final base = ApiConstants.mobileBffBaseUrl.replaceFirst(RegExp(r'/$'), '');
+      final response = await _client
+          .get(Uri.parse('$base/mobile/app-settings/map-display'))
+          .timeout(_timeout);
+      if (response.statusCode == 200) {
+        final settings = jsonDecode(response.body) as Map<String, dynamic>;
+        return settings['showAdminMobileMapZoomLevel'] == true;
+      }
+    } catch (error) {
+      debugPrint('Failed to fetch map display settings: $error');
+    }
+    return false;
+  }
+
   /// Cached settings so we don't fetch on every profile menu open.
   AppSettings? _cached;
 
