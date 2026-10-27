@@ -26,6 +26,7 @@ import '../services/mobile_bff_plots_api.dart';
 import '../services/performance_logger.dart';
 import '../state/auth_scope.dart';
 import '../utils/geojson.dart';
+import '../utils/layout_badge_title.dart';
 import '../utils/user_role.dart';
 import '../widgets/api_key_missing_banner.dart';
 import '../widgets/auth_dialog.dart';
@@ -817,7 +818,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     final userRole =
         AuthScope.of(context).session?.user.roleValue ?? UserRole.user;
     final isAdmin = userRole == UserRole.admin;
-    final options = isAdmin ? [...baseOptions, 'Layout', 'Farm Land'] : baseOptions;
+    final options =
+        isAdmin ? [...baseOptions, 'Layout', 'Farm Land'] : baseOptions;
 
     // Fetch contact phone from backend (cached, no delay on subsequent calls).
     final appSettings = await AppSettingsService().getSettings();
@@ -1019,8 +1021,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
           bearerToken: bearerToken,
           popOnNext: false,
           onNext: (points) async {
-            await Navigator.of(context, rootNavigator: true)
-                .push<String>(
+            await Navigator.of(context, rootNavigator: true).push<String>(
               MaterialPageRoute(
                 builder: (_) => PropertyDetailsFormScreen(
                   boundaryPoints: points,
@@ -1312,7 +1313,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       switch (p.iconType) {
         case _PropertyIconType.layoutBadge:
           return await _iconFactory.getLayoutBadgeIcon(
-            title: p.title.isEmpty ? 'Layout' : p.title,
+            title: layoutBadgeTitleForZoom(
+              p.title,
+              zoom,
+              clusterAlias: p.feature.metadata['clusterAlias'],
+            ),
             zoom: zoom,
             pixelRatio: pixelRatio,
             isFarmLand: isFarmLand,
@@ -1322,7 +1327,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
             count: p.clusterCount,
             zoom: zoom,
             pixelRatio: pixelRatio,
-            titleOverride: p.clusterTitle,
+            titleOverride: layoutClusterTitleForZoom(
+              p.clusterTitle ?? '${p.clusterCount} Layouts',
+              zoom,
+            ),
             isFarmLand: isFarmLand,
           );
         case _PropertyIconType.layoutDot:
@@ -1475,7 +1483,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   /// into a single badge like "Thirumal Nagar(3)". Remaining layouts that
   /// don't share a name are merged with the generic count label.
   void _clusterLayoutBadges(List<_PendingPropertyMarker> markers, double zoom) {
-    if (zoom > _layoutClusterMaxZoom) return; // mid-zoom: show individual badges
+    if (zoom > _layoutClusterMaxZoom)
+      return; // mid-zoom: show individual badges
 
     final cellSize = _layoutClusterCellSize(zoom);
     // Map from grid-cell key → sub-map of baseName → list of marker indices.
@@ -1506,8 +1515,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         final rep = markers[indices.first];
         rep.clusterCount = indices.length;
         rep.iconType = _PropertyIconType.layoutCluster;
-        rep.clusterTitle =
-          '${_layoutClusterLabel(rep)} (${indices.length})';
+        rep.clusterTitle = '${_layoutClusterLabel(rep)} (${indices.length})';
         rep.clusterFeatures = indices
             .map((index) => markers[index].feature)
             .toList(growable: false);
@@ -1598,13 +1606,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         _layoutPolygons.isEmpty &&
         _propertyPolygons.isEmpty &&
         _plotPolygons.isEmpty &&
-      _selectedPropertyChildPlotPolygons.isEmpty &&
+        _selectedPropertyChildPlotPolygons.isEmpty &&
         _amenityPolygons.isEmpty &&
-      _selectedPropertyChildAmenityPolygons.isEmpty &&
+        _selectedPropertyChildAmenityPolygons.isEmpty &&
         _roadPolygons.isEmpty &&
-      _selectedPropertyChildRoadPolygons.isEmpty &&
-      _roadPolylines.isEmpty &&
-      _selectedPropertyChildRoadPolylines.isEmpty;
+        _selectedPropertyChildRoadPolygons.isEmpty &&
+        _roadPolylines.isEmpty &&
+        _selectedPropertyChildRoadPolylines.isEmpty;
 
     final showEmptyState = isRouteCurrent &&
         !isBottomPanelOpen &&
@@ -1704,7 +1712,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                     elevation: 2,
                     borderRadius: BorderRadius.circular(4),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       child: ValueListenableBuilder<double>(
                         valueListenable: _zoomNotifier,
                         builder: (context, zoom, child) => Text(
@@ -2055,13 +2064,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                                 false) &&
                             (selectedPlot.layoutId == null ||
                                 selectedPlot.layoutId!.trim().isEmpty);
-                    final isFarmLand =
-                      (selectedPlot.metadata['isFarmLand'] ??
-                          selectedPlot.metadata['is_farm_land'] ??
-                          selectedPlot.metadata['farmLand'])
-                        ?.trim()
-                        .toLowerCase() ==
-                      'true';
+                    final isFarmLand = (selectedPlot.metadata['isFarmLand'] ??
+                                selectedPlot.metadata['is_farm_land'] ??
+                                selectedPlot.metadata['farmLand'])
+                            ?.trim()
+                            .toLowerCase() ==
+                        'true';
                     return PlotDetailsPanel(
                       plot: selectedPlot,
                       isSold: _isSoldPlot(selectedPlot),
@@ -2070,10 +2078,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                       onClose: _closePlotPanel,
                       contactNumbers:
                           _layoutContactNumbersForPlot(selectedPlot),
-                      detailsLabel:
-                          isIndividualPlot
-                            ? 'Property Details →'
-                            : isFarmLand
+                      detailsLabel: isIndividualPlot
+                          ? 'Property Details →'
+                          : isFarmLand
                               ? 'Farmland Details →'
                               : null,
                       onLayoutDetails: () {

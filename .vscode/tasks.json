@@ -9,6 +9,18 @@
 				"tool/generate_splash_branding.py"
 			],
 			"isBackground": false
+		},
+		{
+			"label": "Run Flutter on connected Android phone",
+			"type": "shell",
+			"command": "flutter",
+			"args": [
+				"run",
+				"-d",
+				"ZA222XM2QT"
+			],
+			"isBackground": true,
+			"problemMatcher": []
 		}
 	]
 }

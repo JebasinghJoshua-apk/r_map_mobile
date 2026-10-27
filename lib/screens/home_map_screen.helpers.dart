@@ -92,7 +92,6 @@ const Color _farmLandBadgeBackground = Color(0xFF166534);
 const Color _farmLandBadgeStroke = Color(0xFFDCFCE7);
 const Color _farmLandBadgeTitle = Color(0xFFF7FEE7);
 
-
 const Color _badgeShadowColor = Color(0x590F172A);
 
 int _layoutMarkerSizeForZoom(double zoom) {
@@ -466,7 +465,8 @@ class _HomeMapIconFactory {
     final outerStrokePaint = ui.Paint()
       ..style = ui.PaintingStyle.stroke
       ..strokeWidth = 2.0
-      ..color = isFarmLand ? _farmLandMarkerOuterStroke : _layoutMarkerOuterStroke;
+      ..color =
+          isFarmLand ? _farmLandMarkerOuterStroke : _layoutMarkerOuterStroke;
 
     final innerFillPaint = ui.Paint()
       ..style = ui.PaintingStyle.fill
@@ -474,7 +474,8 @@ class _HomeMapIconFactory {
     final innerStrokePaint = ui.Paint()
       ..style = ui.PaintingStyle.stroke
       ..strokeWidth = 2.0
-      ..color = isFarmLand ? _farmLandMarkerInnerStroke : _layoutMarkerInnerStroke;
+      ..color =
+          isFarmLand ? _farmLandMarkerInnerStroke : _layoutMarkerInnerStroke;
 
     canvas.drawCircle(ui.Offset(center, center), outerRadius, outerFillPaint);
     canvas.drawCircle(ui.Offset(center, center), outerRadius, outerStrokePaint);
@@ -491,7 +492,9 @@ class _HomeMapIconFactory {
         ),
       )
         ..pushStyle(ui.TextStyle(
-          color: isFarmLand ? _farmLandMarkerInnerStroke : _layoutMarkerInnerStroke,
+          color: isFarmLand
+              ? _farmLandMarkerInnerStroke
+              : _layoutMarkerInnerStroke,
           fontSize: fontSize,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.5,
@@ -661,7 +664,7 @@ class _HomeMapIconFactory {
   }) async {
     final clampedZoom = zoom.clamp(12.0, 20.0);
 
-    const titleFont = 11.0;
+    final titleFont = layoutBadgeTitleFontSizeForZoom(clampedZoom);
     const paddingX = 8.0;
     const paddingY = 6.0;
     const radius = 7.0;
@@ -695,8 +698,7 @@ class _HomeMapIconFactory {
       ),
     );
 
-    // Wider text at higher zoom so full name is revealed as user zooms in.
-    final maxTextWidth = clampedZoom >= 16.0 ? 220.0 : 110.0;
+    final maxTextWidth = clampedZoom > 15.8 ? double.infinity : 48.0;
     titlePainter.layout(maxWidth: maxTextWidth);
 
     final contentWidth = titlePainter.width;
@@ -738,8 +740,10 @@ class _HomeMapIconFactory {
     canvas.drawPath(bubble, fillPaint);
     canvas.drawPath(bubble, strokePaint);
 
-    titlePainter.paint(canvas,
-        ui.Offset(paddingX + (contentWidth - titlePainter.width) / 2, paddingY));
+    titlePainter.paint(
+        canvas,
+        ui.Offset(
+            paddingX + (contentWidth - titlePainter.width) / 2, paddingY));
 
     final picture = recorder.endRecording();
     final image = await picture.toImage(
@@ -849,8 +853,10 @@ class _HomeMapIconFactory {
     canvas.drawPath(bubble, fillPaint);
     canvas.drawPath(bubble, strokePaint);
 
-    titlePainter.paint(canvas,
-        ui.Offset(paddingX + (contentWidth - titlePainter.width) / 2, paddingY));
+    titlePainter.paint(
+        canvas,
+        ui.Offset(
+            paddingX + (contentWidth - titlePainter.width) / 2, paddingY));
 
     final picture = recorder.endRecording();
     final image = await picture.toImage(
