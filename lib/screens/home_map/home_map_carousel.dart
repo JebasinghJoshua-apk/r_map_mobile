@@ -235,11 +235,19 @@ extension _HomeMapCarousel on _HomeMapScreenState {
   /// Also accounts for high display-size settings which reduce logical pixels,
   /// triggering the narrow/vertical card layout that needs more height.
   double _propertyCarouselHeight(BuildContext context) {
-    final h = MediaQuery.of(context).size.height;
     final textScale = MediaQuery.textScalerOf(context).scale(1.0);
     final scaleFactor = textScale.clamp(1.0, 1.6);
-    return (h * 0.30 * scaleFactor).clamp(210.0, 380.0);
+    final cardWidth = math.min(
+      _propertyCarouselViewportWidth(context) - 10.0,
+      440.0,
+    );
+    final imageWidth = math.max(0.0, (cardWidth - 42.0) / 2);
+    final expectedCardHeight = imageWidth / 1.25 + 28.0;
+    return (expectedCardHeight * scaleFactor).clamp(150.0, 380.0);
   }
+
+  double _propertyCarouselViewportWidth(BuildContext context) =>
+      math.min(MediaQuery.sizeOf(context).width * 0.92, 450.0);
 
   /// Build the carousel panel widget.
   Widget _buildIndependentHouseCarouselPanel() {
@@ -261,6 +269,7 @@ extension _HomeMapCarousel on _HomeMapScreenState {
       key: ValueKey<int>(_carouselVersion),
       itemCount: items.length,
       initialPage: _activeIndependentHouseIndex,
+      width: _propertyCarouselViewportWidth(context),
       height: _propertyCarouselHeight(context),
       onPageChanged: _handleCarouselPageChanged,
       itemBuilder: _buildCarouselItem,
@@ -434,6 +443,7 @@ class _StableCarouselPageView extends StatefulWidget {
     required this.initialPage,
     required this.itemBuilder,
     required this.onPageChanged,
+    required this.width,
     required this.height,
   });
 
@@ -441,6 +451,7 @@ class _StableCarouselPageView extends StatefulWidget {
   final int initialPage;
   final Widget Function(BuildContext, int) itemBuilder;
   final void Function(int) onPageChanged;
+  final double width;
   final double height;
 
   @override
@@ -463,7 +474,7 @@ class _StableCarouselPageViewState extends State<_StableCarouselPageView> {
     super.initState();
     _controller = PageController(
       initialPage: _virtualInitialPage,
-      viewportFraction: 0.92,
+      viewportFraction: 1,
     );
   }
 
@@ -477,7 +488,7 @@ class _StableCarouselPageViewState extends State<_StableCarouselPageView> {
       _controller.dispose();
       _controller = PageController(
         initialPage: _virtualInitialPage,
-        viewportFraction: 0.92,
+        viewportFraction: 1,
       );
     }
   }
@@ -503,6 +514,7 @@ class _StableCarouselPageViewState extends State<_StableCarouselPageView> {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
+      width: widget.width,
       height: widget.height,
       child: PageView.builder(
         controller: _controller,

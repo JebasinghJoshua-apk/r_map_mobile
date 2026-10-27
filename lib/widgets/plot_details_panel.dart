@@ -173,6 +173,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
         padding: widget.outerPadding,
         child: Align(
           alignment: Alignment.bottomCenter,
+          heightFactor: 1,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 440),
             child: DecoratedBox(

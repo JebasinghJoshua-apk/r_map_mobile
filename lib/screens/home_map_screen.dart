@@ -5,6 +5,8 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -1643,6 +1645,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
           children: [
             GoogleMap(
               initialCameraPosition: _initialCameraPosition,
+              gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                Factory<OneSequenceGestureRecognizer>(
+                  () => _PinchOnlyScaleGestureRecognizer(),
+                ),
+              },
               onMapCreated: _onMapCreated,
               onTap: (_) => _closeAnyPanel(),
               onCameraMoveStarted: _onCameraMoveStarted,
@@ -2185,6 +2192,16 @@ enum _PropertyIconType {
   layoutDot,
   priceBadge,
   defaultMarker,
+}
+
+class _PinchOnlyScaleGestureRecognizer extends ScaleGestureRecognizer {
+  @override
+  void resolve(GestureDisposition disposition) {
+    if (disposition == GestureDisposition.accepted && pointerCount < 2) {
+      return;
+    }
+    super.resolve(disposition);
+  }
 }
 
 /// Helper class for pending property marker data.

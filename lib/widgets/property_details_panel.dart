@@ -534,6 +534,7 @@ class PropertyDetailsPanel extends StatelessWidget {
           padding: outerPadding,
           child: Align(
             alignment: Alignment.bottomCenter,
+            heightFactor: 1,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
               child: DecoratedBox(
