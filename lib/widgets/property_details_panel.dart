@@ -490,7 +490,16 @@ class PropertyDetailsPanel extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  child: const Text('View details →'),
+                  child: isLayout
+                      ? const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(child: Text('View layout details')),
+                            SizedBox(width: 4),
+                            Icon(Icons.arrow_forward_rounded, size: 16),
+                          ],
+                        )
+                      : const Text('View details →'),
                 ),
               ),
           ],

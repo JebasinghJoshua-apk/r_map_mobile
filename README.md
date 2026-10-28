@@ -2,6 +2,19 @@
 
 A new Flutter project.
 
+## Layout map interaction
+
+- Tapping a layout dot or badge opens its bottom preview panel on the map.
+- Round layout dots are hidden while a property or plot bottom panel is open.
+  Badges, clusters, and other marker types remain unchanged.
+- Closing the layout panel restores dots without resetting the current camera.
+- **View details** opens the full layout screen. Returning to the map preserves
+  the selected layout and its panel.
+- Shared layout links (short links and direct property/share links) open the
+  selected layout on the map with its bottom panel, on both cold and warm starts.
+  Layouts without a usable map location open details with an explanatory message.
+  Other property and plot share destinations are unchanged.
+
 ## Mobile BFF (local dev)
 
 The Flutter app calls the Mobile BFF (default: `http://10.0.2.2:5150`).

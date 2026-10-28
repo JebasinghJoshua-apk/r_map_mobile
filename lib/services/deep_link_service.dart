@@ -9,7 +9,9 @@ import '../constants/api_constants.dart';
 import '../models/map_viewport_models.dart';
 import '../screens/property_detail_screen.dart';
 import '../screens/layout_detail_screen.dart';
+import '../utils/geojson.dart';
 import '../utils/pending_plot_selection.dart';
+import '../utils/pending_property_selection.dart';
 
 /// Parsed deep-link destination.
 class _DeepLinkTarget {
@@ -36,15 +38,17 @@ class _DeepLinkTarget {
 }
 
 /// Handles incoming deep links for `/property/...` and `/share/...` URLs and
-/// navigates to the appropriate detail screen.
+/// opens layouts on the map and other properties in their detail screens.
 ///
 /// Uses a [MethodChannel] to receive deep link intents from Android native code.
 /// Cold-start links are fetched via [getInitialLink], warm-start links arrive
 /// via the stream.
 class DeepLinkService {
-  DeepLinkService({required this.navigatorKey});
+  DeepLinkService({required this.navigatorKey, http.Client? client})
+      : _client = client ?? http.Client();
 
   final GlobalKey<NavigatorState> navigatorKey;
+  final http.Client _client;
 
   /// Pending deep-link URI that arrived before the navigator was ready
   /// (e.g. during the splash screen).
@@ -104,6 +108,7 @@ class DeepLinkService {
 
   void dispose() {
     _channel.setMethodCallHandler(null);
+    _client.close();
   }
 
   // ───────────────────────────────────────────────────────────────────
@@ -214,6 +219,7 @@ class DeepLinkService {
       _showLoadingOverlay(nav.context);
       try {
         final resolved = await _resolveShortCode(target.shortCode!);
+        if (!nav.mounted) return;
         if (nav.canPop()) nav.pop();
 
         if (resolved == null) {
@@ -222,23 +228,26 @@ class DeepLinkService {
         }
 
         // Navigate to the resolved property
-        final isLayout = resolved.propertyType.toLowerCase() == 'layout';
+        final resolvedType = resolved.propertyType.toLowerCase();
+        final isLayout = resolvedType == 'layout' || resolvedType == 'layouts';
 
         if (isLayout) {
-          nav.push(
-            MaterialPageRoute(
-              builder: (_) => LayoutDetailScreen(
-                layoutId: resolved.featureId,
-                fromDeepLink: true,
-              ),
-            ),
-          );
+          _showLoadingOverlay(nav.context);
+          final summary = await _fetchShareSummary('Layout', resolved.featureId);
+          if (!nav.mounted) return;
+          if (nav.canPop()) nav.pop();
+          if (summary == null) {
+            _showError(nav.context, 'Layout not found');
+            return;
+          }
+          _openLayoutOnMap(nav, resolved.featureId, summary);
         } else {
           // Fetch property summary and navigate to PropertyDetailScreen
           final summary = await _fetchShareSummary(
             resolved.propertyType,
             resolved.featureId,
           );
+          if (!nav.mounted) return;
 
           if (summary == null) {
             _showError(nav.context, 'Property not found');
@@ -278,6 +287,7 @@ class DeepLinkService {
         }
         return;
       } catch (e) {
+        if (!nav.mounted) return;
         if (nav.canPop()) nav.pop();
         _showError(nav.context, 'Failed to load property');
         return;
@@ -296,11 +306,14 @@ class DeepLinkService {
     _showLoadingOverlay(nav.context);
 
     try {
+      final type = target.propertyType.toLowerCase();
+      final isLayout = type == 'layout' || type == 'layouts';
       // Fetch light-weight share summary from the public API.
       final summary = await _fetchShareSummary(
-        target.propertyType,
+        isLayout ? 'Layout' : target.propertyType,
         target.featureId,
       );
+      if (!nav.mounted) return;
 
       // Dismiss loading overlay.
       if (nav.canPop()) nav.pop();
@@ -310,21 +323,8 @@ class DeepLinkService {
         return;
       }
 
-      // Determine if this is a layout or a regular property.
-      final isLayout = target.propertyType.toLowerCase() == 'layout' ||
-          target.propertyType.toLowerCase() == 'layouts';
-
       if (isLayout) {
-        // LayoutDetailScreen takes a layoutId (which is the featureId for
-        // layouts).
-        nav.push(
-          MaterialPageRoute(
-            builder: (_) => LayoutDetailScreen(
-              layoutId: target.featureId,
-              fromDeepLink: true,
-            ),
-          ),
-        );
+        _openLayoutOnMap(nav, target.featureId, summary);
       } else {
         // Build center GeoJSON from coordinates if available.
         String? centerGeoJson;
@@ -358,11 +358,63 @@ class DeepLinkService {
         );
       }
     } catch (e) {
+      if (!nav.mounted) return;
       // Dismiss loading overlay on error.
       if (nav.canPop()) nav.pop();
       debugPrint('[DeepLink] error: $e');
       _showError(nav.context, 'Could not open property');
     }
+  }
+
+  void _openLayoutOnMap(
+    NavigatorState nav,
+    String layoutId,
+    Map<String, dynamic> summary,
+  ) {
+    final lat = (summary['centerLatitude'] as num?)?.toDouble();
+    final lng = (summary['centerLongitude'] as num?)?.toDouble();
+    final boundary = summary['boundaryGeoJson'] as String?;
+    final hasCenter = lat != null &&
+        lng != null &&
+        lat.isFinite &&
+        lng.isFinite &&
+        lat.abs() <= 90 &&
+        lng.abs() <= 180;
+    final hasBoundary =
+        GeoJson.tryParsePolygons(boundary).any((points) => points.length >= 3);
+
+    if (!hasCenter && !hasBoundary) {
+      debugPrint('[DeepLink] layout $layoutId has no usable map location');
+      _showError(nav.context, 'Map location unavailable. Opening layout details.');
+      nav.push(
+        MaterialPageRoute<void>(
+          builder: (_) => LayoutDetailScreen(layoutId: layoutId),
+        ),
+      );
+      return;
+    }
+
+    PendingPropertySelection.set(
+      MapPropertyFeature(
+        propertyId: summary['propertyId'] as String? ?? '',
+        featureId: layoutId,
+        propertyType: 'Layout',
+        name: summary['title'] as String? ?? 'Layout',
+        isOwnedByCurrentUser: false,
+        listingType: summary['listingLabel'] as String?,
+        boundaryGeoJson: boundary,
+        centerGeoJson:
+            hasCenter ? '{"type":"Point","coordinates":[$lng,$lat]}' : null,
+        metadata: {
+          ..._buildMetadataFromSummary(summary),
+          if (summary['mobileFocusZoomLevel'] is num)
+            'mobileFocusZoomLevel': '${summary['mobileFocusZoomLevel']}',
+          if (summary['focusZoomLevel'] is num)
+            'focusZoomLevel': '${summary['focusZoomLevel']}',
+        },
+      ),
+    );
+    nav.popUntil((route) => route.isFirst);
   }
 
   /// Navigate to home map and focus on a specific plot.
@@ -399,7 +451,7 @@ class DeepLinkService {
 
     try {
       final response =
-          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+          await _client.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -425,7 +477,7 @@ class DeepLinkService {
 
     try {
       final response =
-          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+          await _client.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;

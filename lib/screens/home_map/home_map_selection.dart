@@ -642,6 +642,10 @@ extension _HomeMapSelection on _HomeMapScreenState {
 
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
+    if (PendingPropertySelection.hasPending) {
+      _consumePendingPropertySelection();
+      return;
+    }
     // Check if IP location was fetched before controller was ready
     _tryMoveToIpLocation();
   }
@@ -649,7 +653,10 @@ extension _HomeMapSelection on _HomeMapScreenState {
   void _tryMoveToIpLocation() {
     final pending = _pendingIpLocation;
     final controller = _mapController;
-    if (pending != null && controller != null && !_hasMovedToIpLocation) {
+    if (pending != null &&
+        controller != null &&
+        !_hasMovedToIpLocation &&
+        !_hasSelectedPlace) {
       _hasMovedToIpLocation = true;
       _pendingIpLocation = null;
       controller.animateCamera(
@@ -923,6 +930,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
     if (!mounted) return;
     if (_selectedProperty == null) return;
 
+    final wasLayout = _selectedProperty!.propertyType.trim() == 'Layout';
     final restoreCameraPosition = _popCameraBackStack();
 
     _safeSetState(() {
@@ -951,7 +959,8 @@ extension _HomeMapSelection on _HomeMapScreenState {
     // Update marker badge colors back to default.
     unawaited(_refreshMarkerSelectionStyles());
 
-    if (restoreCameraPosition != null && _mapController != null) {
+    // Dismissing a layout preview keeps the map where the user is browsing.
+    if (!wasLayout && restoreCameraPosition != null && _mapController != null) {
       // Defer until after rebuild so the map is ready to animate.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || _mapController == null) return;
@@ -1242,7 +1251,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
 
   /// Select a Layout feature as the active property: opens the small bottom
   /// details panel and focuses the camera on its boundary. Shared by "My
-  /// Properties", "Nearby Layouts", and the layout marker badge tap.
+  /// Properties", "Nearby Layouts", and layout badge or dot taps.
   /// A configured metadata zoom takes precedence; otherwise its boundary fits
   /// into the visible map area.
   Future<void> _selectLayoutFeatureOnMap(
@@ -1368,6 +1377,30 @@ extension _HomeMapSelection on _HomeMapScreenState {
     _safeSetState(() {
       _hasSelectedPlace = true;
     });
+
+    if (feature.propertyType.trim() == 'Layout') {
+      var center = feature.centerPoint;
+      if (center == null) {
+        final points = GeoJson.tryParsePolygons(feature.boundaryGeoJson)
+            .expand((polygon) => polygon)
+            .toList();
+        if (points.length >= 3) {
+          center = _centerOfBounds(_boundsFromPoints(points));
+        }
+      }
+      if (center == null) {
+        ToastMessage.show(context, 'Layout map location not available');
+        return;
+      }
+      await _selectLayoutFeatureOnMap(
+        feature,
+        target: center,
+        zoom: _layoutFocusZoomTarget,
+      );
+      if (!mounted) return;
+      unawaited(_fetchViewport());
+      return;
+    }
 
     _closePlotPanel();
 
@@ -1615,8 +1648,8 @@ extension _HomeMapSelection on _HomeMapScreenState {
   /// 2. If user panned away from the selected place → re-focus to it.
   /// 3. Otherwise → show exit confirmation dialog.
   void _handleBackPress() {
-    // 1. Close one panel at a time, deepest first, restoring the camera
-    // position captured just before that panel's auto-focus.
+    // 1. Close one panel at a time, deepest first. Layout previews keep the
+    // current camera; other panels restore their pre-focus position.
     if (_selectedPlot != null) {
       _closePlotPanel();
       return;

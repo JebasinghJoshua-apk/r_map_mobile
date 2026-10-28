@@ -433,6 +433,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     _fetchIpLocation();
     // Initialise feature coachmarks (filter + nearby) pulse state.
     _initFeatureCoachmarks();
+    PendingPropertySelection.changes.addListener(_onPendingPropertySelection);
     // Signal that the navigator is ready for deep-link navigation.
     deepLinkService.markHomeReady();
     // Signal that the home screen is ready for push-notification navigation.
@@ -455,10 +456,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   /// Called after init to handle cold-start deep links.
   void _checkPendingDeepLinkSelections() {
     // Handle property selection from deep link.
-    final pendingSelection = PendingPropertySelection.take();
-    if (pendingSelection != null) {
-      unawaited(_selectPropertyFromDeepLink(pendingSelection));
-    }
+    _consumePendingPropertySelection();
 
     // Handle plot focus from deep link.
     final pendingPlotFocus = PendingPlotSelection.take();
@@ -467,9 +465,29 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     }
   }
 
+  void _onPendingPropertySelection() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !(ModalRoute.of(context)?.isCurrent ?? false)) return;
+      _consumePendingPropertySelection();
+    });
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  void _consumePendingPropertySelection() {
+    if (_mapController == null) return;
+    final selection = PendingPropertySelection.take();
+    if (selection != null) {
+      unawaited(_selectPropertyFromDeepLink(selection));
+    }
+  }
+
   Future<void> _fetchIpLocation() async {
     final result = await IpGeolocationService.getLocation();
-    if (result == null || !mounted || _hasMovedToIpLocation) return;
+    if (result == null ||
+        !mounted ||
+        _hasMovedToIpLocation ||
+        _hasSelectedPlace ||
+        PendingPropertySelection.hasPending) return;
 
     final ipLatLng = LatLng(result.latitude, result.longitude);
 
@@ -503,10 +521,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     }
 
     // Handle property selection from deep link.
-    final pendingSelection = PendingPropertySelection.take();
-    if (pendingSelection != null) {
-      unawaited(_selectPropertyFromDeepLink(pendingSelection));
-    }
+    _consumePendingPropertySelection();
 
     // Handle plot focus from deep link.
     final pendingPlotFocus = PendingPlotSelection.take();
@@ -1071,6 +1086,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
 
   @override
   void dispose() {
+    PendingPropertySelection.changes.removeListener(_onPendingPropertySelection);
     routeObserver.unsubscribe(this);
     _routeSubscription = null;
     _mapController?.dispose();
@@ -1301,7 +1317,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         priceBadgeLabel: priceBadgeLabel,
         focusCenter: focusCenter,
         focusZoom: focusZoom,
-        shouldShowLayoutBadge: shouldShowLayoutBadge,
         iconType: iconType,
       ));
     }
@@ -1390,7 +1405,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       nextMarkers.add(
         Marker(
           markerId: MarkerId(
-              'property:${p.feature.propertyType}:${p.feature.featureId}'),
+            p.iconType == _PropertyIconType.layoutDot
+                ? 'layout-dot:${p.feature.featureId}'
+                : 'property:${p.feature.propertyType}:${p.feature.featureId}',
+          ),
           position: p.center,
           icon: icon,
           anchor: anchor,
@@ -1398,37 +1416,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
           onTap: p.isLayout
               ? (p.iconType == _PropertyIconType.layoutCluster
                   ? () => unawaited(_focusLayoutClusterOnMap(p))
-                  : p.shouldShowLayoutBadge
-                      ? () => unawaited(
-                            _selectLayoutFeatureOnMap(
-                              p.feature,
-                              target: p.focusCenter ?? p.center,
-                              zoom: p.focusZoom ?? _layoutFocusZoomTarget,
-                            ),
-                          )
-                      : () {
-                          final layoutId = p.feature.featureId.trim();
-                          if (layoutId.isEmpty) {
-                            ToastMessage.show(
-                              context,
-                              'Layout details not available',
-                            );
-                            return;
-                          }
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (!mounted) return;
-                            _dismissKeyboard();
-                            _closeAnyPanel();
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => LayoutDetailScreen(
-                                  layoutId: layoutId,
-                                  fallbackFeature: p.feature,
-                                ),
-                              ),
-                            );
-                          });
-                        })
+                  : () => unawaited(
+                        _selectLayoutFeatureOnMap(
+                          p.feature,
+                          target: p.focusCenter ?? p.center,
+                          zoom: p.focusZoom ?? _layoutFocusZoomTarget,
+                        ),
+                      ))
               // IndependentHouse, Land, CommercialSpace, ApartmentFlat - all use carousel
               : () => unawaited(
                     _handleCarouselPropertyTapped(
@@ -1624,7 +1618,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
         !_isEmptyStateDismissed &&
         _triggeredByPlaceSearch;
     final markers = <Marker>{
-      ..._viewportMarkers,
+      // Filter at display time so cached dots return immediately on panel close.
+      ..._viewportMarkers.where(
+        (marker) =>
+            !isBottomPanelOpen ||
+            !marker.markerId.value.startsWith('layout-dot:'),
+      ),
       ..._plotLabelMarkers,
       ..._roadLabelMarkers,
       ..._amenityLabelMarkers,
@@ -2215,7 +2214,6 @@ class _PendingPropertyMarker {
     required this.priceBadgeLabel,
     required this.focusCenter,
     required this.focusZoom,
-    required this.shouldShowLayoutBadge,
     required this.iconType,
     this.clusterCount = 1,
   });
@@ -2228,7 +2226,6 @@ class _PendingPropertyMarker {
   final String? priceBadgeLabel;
   final LatLng? focusCenter;
   final double? focusZoom;
-  final bool shouldShowLayoutBadge;
   _PropertyIconType iconType;
   int clusterCount;
   String? clusterTitle;
