@@ -1226,16 +1226,25 @@ extension _HomeMapSelection on _HomeMapScreenState {
 
     final points = <LatLng>[];
     for (final feature in cluster.clusterFeatures) {
+      final markerPosition =
+          GeoJson.tryParsePoint(feature.metadata['layoutMarkerPointGeoJson']) ??
+              feature.centerPoint;
+      if (markerPosition != null) points.add(markerPosition);
       for (final polygon in GeoJson.tryParsePolygons(feature.boundaryGeoJson)) {
         points.addAll(polygon);
       }
     }
 
-    if (points.length < 3) {
+    if (points.isEmpty || points.every((point) => point == points.first)) {
       await _focusPropertyOnMap(
         target: cluster.center,
         zoom: math.min(
-          math.max(_lastCameraPosition.zoom + 1, _layoutClusterMaxZoom + 0.5),
+          math.max(
+            _lastCameraPosition.zoom + 1,
+            _lastCameraPosition.zoom <= layoutProximityClusterMaxZoom
+                ? layoutProximityClusterMaxZoom + 0.5
+                : layoutNamedClusterMaxZoom + 0.5,
+          ),
           _layoutBadgeMaxZoom,
         ),
       );
@@ -1254,7 +1263,8 @@ extension _HomeMapSelection on _HomeMapScreenState {
           ),
         );
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('[LayoutCluster] Failed to fit cluster bounds: $error');
       await _focusPropertyOnMap(
         target: center,
         zoom: math.min(_lastCameraPosition.zoom, _layoutBadgeMaxZoom),

@@ -474,7 +474,7 @@ class _StableCarouselPageViewState extends State<_StableCarouselPageView> {
     super.initState();
     _controller = PageController(
       initialPage: _virtualInitialPage,
-      viewportFraction: 1,
+      viewportFraction: 0.92,
     );
   }
 
@@ -488,7 +488,7 @@ class _StableCarouselPageViewState extends State<_StableCarouselPageView> {
       _controller.dispose();
       _controller = PageController(
         initialPage: _virtualInitialPage,
-        viewportFraction: 1,
+        viewportFraction: 0.92,
       );
     }
   }

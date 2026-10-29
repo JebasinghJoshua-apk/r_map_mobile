@@ -48,20 +48,6 @@ const int _badgeIconCacheMaxEntries = 2500;
 // Source of truth: r-map-ui/src/components/Map/utils/markerIcons.ts
 const double _layoutBadgeMaxZoom = 17.5;
 
-// Below this zoom, nearby same-name layouts are clustered into a single
-// badge like "யோகா நகர்(2)". Between this and [_layoutBadgeMaxZoom],
-// each layout gets its own individual badge (intermediate level).
-const double _layoutClusterMaxZoom = 15.0;
-
-// Grid cell size (in degrees) used for layout badge clustering at each zoom.
-// Smaller cell = less aggressive clustering.
-double _layoutClusterCellSize(double zoom) {
-  if (zoom <= 13) return 0.012;
-  if (zoom <= 14) return 0.006;
-  if (zoom <= 15) return 0.003;
-  return 0.0015;
-}
-
 const Color _priceBadgeDefaultBackground = Color(0xFF0F766E);
 const Color _priceBadgeDefaultStroke = Color(0xFFFFFFFF);
 const Color _priceBadgeDefaultText = Color(0xFFF8FAFC);
@@ -810,13 +796,29 @@ class _HomeMapIconFactory {
       ),
     );
 
-    final maxTextWidth = clampedZoom >= 16.0 ? 220.0 : 110.0;
-    titlePainter.layout(maxWidth: maxTextWidth);
+    final namedCluster = RegExp(r'^(.*)\s+(\(\d+\))$').firstMatch(title);
+    TextPainter? fittedNamePainter;
+    TextPainter? countPainter;
+    if (namedCluster != null) {
+      final style = titlePainter.text!.style;
+      fittedNamePainter = layoutClusterNamePainter(
+        namedCluster.group(1)!,
+        style,
+        maxWidth: clampedZoom <= 15.8 ? 48.0 : double.infinity,
+      );
+      countPainter = TextPainter(
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+        text: TextSpan(text: ' ${namedCluster.group(2)}', style: style),
+      )..layout();
+    }
+    titlePainter.layout();
+    final namePainter = fittedNamePainter ?? titlePainter;
 
-    final contentWidth = titlePainter.width;
+    final contentWidth = namePainter.width + (countPainter?.width ?? 0);
     final bubbleWidth = contentWidth + paddingX * 2;
 
-    final contentHeight = titlePainter.height;
+    final contentHeight = namePainter.height;
     final bubbleHeight = contentHeight + paddingY * 2;
 
     const pointerHeight = 7.0;
@@ -853,10 +855,14 @@ class _HomeMapIconFactory {
     canvas.drawPath(bubble, fillPaint);
     canvas.drawPath(bubble, strokePaint);
 
-    titlePainter.paint(
-        canvas,
-        ui.Offset(
-            paddingX + (contentWidth - titlePainter.width) / 2, paddingY));
+    namePainter.paint(canvas, const ui.Offset(paddingX, paddingY));
+    countPainter?.paint(
+      canvas,
+      ui.Offset(paddingX + namePainter.width, paddingY),
+    );
+    fittedNamePainter?.dispose();
+    countPainter?.dispose();
+    titlePainter.dispose();
 
     final picture = recorder.endRecording();
     final image = await picture.toImage(

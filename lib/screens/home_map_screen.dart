@@ -30,6 +30,7 @@ import '../state/auth_scope.dart';
 import '../utils/geojson.dart';
 import '../utils/layout_map_focus.dart';
 import '../utils/layout_badge_title.dart';
+import '../utils/layout_marker_clusters.dart';
 import '../utils/user_role.dart';
 import '../widgets/api_key_missing_banner.dart';
 import '../widgets/auth_dialog.dart';
@@ -1241,7 +1242,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     final selected = _selectedProperty;
 
     for (final feature in response.properties) {
-      final center = feature.centerPoint;
+      final center = feature.propertyType.trim() == 'Layout'
+          ? GeoJson.tryParsePoint(feature.metadata['layoutMarkerPointGeoJson']) ??
+              feature.centerPoint
+          : feature.centerPoint;
       if (center == null) continue;
 
       final isSelected = selected != null &&
@@ -1440,96 +1444,31 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     return Set<Marker>.unmodifiable(nextMarkers);
   }
 
-  /// Strips trailing Roman numeral or numeric suffixes to extract a base name.
-  /// e.g. "Thirumal Nagar I" → "Thirumal Nagar",
-  ///      "Thirumal Nagar III" → "Thirumal Nagar",
-  ///      "Sai Garden 2" → "Sai Garden".
-  static String _layoutBaseName(String name) {
-    // Remove trailing Roman numerals (I, II, III, IV, V, VI, VII, VIII, IX, X, etc.)
-    // or plain digits, optionally preceded by a dash or dot.
-    final stripped = name
-        .replaceFirst(
-          RegExp(
-            r'[\s\-\.]+(?:X{0,3}(?:IX|IV|V?I{0,3})|\d+)\s*$',
-            caseSensitive: false,
-          ),
-          '',
-        )
-        .trim();
-    return stripped.isEmpty ? name.trim() : stripped;
-  }
-
-  static String _layoutClusterKey(_PendingPropertyMarker marker) {
-    final alias = marker.feature.metadata['clusterAlias']?.trim();
-    if (alias != null && alias.isNotEmpty) {
-      return 'alias:${alias.toLowerCase()}';
-    }
-    return 'name:${_layoutBaseName(marker.title)}';
-  }
-
-  static String _layoutClusterLabel(_PendingPropertyMarker marker) {
-    final alias = marker.feature.metadata['clusterAlias']?.trim();
-    return alias != null && alias.isNotEmpty
-        ? alias
-        : _layoutBaseName(marker.title);
-  }
-
-  /// Groups nearby layout badge markers into clusters using a grid-based
-  /// spatial hash. Within each grid cell, layouts that share the same base
-  /// name (ignoring trailing Roman numeral / numeric suffixes) are merged
-  /// into a single badge like "Thirumal Nagar(3)". Remaining layouts that
-  /// don't share a name are merged with the generic count label.
   void _clusterLayoutBadges(List<_PendingPropertyMarker> markers, double zoom) {
-    if (zoom > _layoutClusterMaxZoom)
-      return; // mid-zoom: show individual badges
-
-    final cellSize = _layoutClusterCellSize(zoom);
-    // Map from grid-cell key → sub-map of baseName → list of marker indices.
-    final cells = <String, Map<String, List<int>>>{};
-
-    for (var i = 0; i < markers.length; i++) {
-      final m = markers[i];
-      if (m.iconType != _PropertyIconType.layoutBadge) continue;
-
-      final cellX = (m.center.longitude / cellSize).floor();
-      final cellY = (m.center.latitude / cellSize).floor();
-      final cellKey = '$cellX,$cellY';
-      final baseName = _layoutClusterKey(m);
-
-      cells.putIfAbsent(cellKey, () => <String, List<int>>{});
-      cells[cellKey]!.putIfAbsent(baseName, () => <int>[]);
-      cells[cellKey]![baseName]!.add(i);
+    final layouts = markers
+        .where((marker) => marker.iconType == _PropertyIconType.layoutBadge)
+        .toList(growable: false);
+    final clusters = clusterLayoutMarkers(
+      layouts.map((marker) => LayoutClusterItem(
+        position: marker.center,
+        name: marker.title,
+        alias: marker.feature.metadata['clusterAlias'],
+      )).toList(growable: false),
+      zoom,
+    );
+    final absorbed = <_PendingPropertyMarker>{};
+    for (final cluster in clusters) {
+      final members = cluster.indices.map((index) => layouts[index]).toList();
+      final representative = members.first;
+      representative.center = cluster.position;
+      representative.clusterCount = members.length;
+      representative.iconType = _PropertyIconType.layoutCluster;
+      representative.clusterTitle = cluster.title;
+      representative.clusterFeatures =
+          members.map((marker) => marker.feature).toList(growable: false);
+      absorbed.addAll(members.skip(1));
     }
-
-    final toRemove = <int>{};
-
-    for (final cell in cells.values) {
-      for (final entry in cell.entries) {
-        final indices = entry.value;
-        if (indices.length <= 1) continue;
-
-        // Use the first marker as the representative.
-        final rep = markers[indices.first];
-        rep.clusterCount = indices.length;
-        rep.iconType = _PropertyIconType.layoutCluster;
-        rep.clusterTitle = '${_layoutClusterLabel(rep)} (${indices.length})';
-        rep.clusterFeatures = indices
-            .map((index) => markers[index].feature)
-            .toList(growable: false);
-
-        // Mark the rest for removal.
-        for (var j = 1; j < indices.length; j++) {
-          toRemove.add(indices[j]);
-        }
-      }
-    }
-
-    if (toRemove.isEmpty) return;
-    // Remove absorbed markers in reverse to preserve indices.
-    final sorted = toRemove.toList()..sort((a, b) => b.compareTo(a));
-    for (final idx in sorted) {
-      markers.removeAt(idx);
-    }
+    markers.removeWhere(absorbed.contains);
   }
 
   LatLngBounds _expandBounds(LatLngBounds bounds, double multiplier) {
@@ -2220,7 +2159,7 @@ class _PendingPropertyMarker {
   });
 
   final MapPropertyFeature feature;
-  final LatLng center;
+  LatLng center;
   final String title;
   final bool isLayout;
   final bool isSelected;

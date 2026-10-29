@@ -35,7 +35,7 @@ class PlotDetailsPanel extends StatefulWidget {
   final VoidCallback? onLayoutDetails;
   final Future<void> Function(String)? onUpdateStatus;
 
-  /// Label for the details link. Defaults to 'Layout Details →'.
+  /// Label for the details link. Defaults to 'View Layout Details →'.
   final String? detailsLabel;
 
   @override
@@ -298,7 +298,7 @@ class _PlotDetailsPanelState extends State<PlotDetailsPanel> with RouteAware {
                                                     ),
                                                     child: Text(
                                                       widget.detailsLabel ??
-                                                          'Layout Details →',
+                                                          'View Layout Details →',
                                                       maxLines: 1,
                                                       overflow:
                                                           TextOverflow.ellipsis,

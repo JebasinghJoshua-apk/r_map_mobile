@@ -1,3 +1,30 @@
+import 'package:flutter/painting.dart';
+
+TextPainter layoutClusterNamePainter(
+  String name,
+  TextStyle? style, {
+  required double maxWidth,
+}) {
+  final painter = TextPainter(
+    textDirection: TextDirection.ltr,
+    maxLines: 1,
+    text: TextSpan(text: name.trim(), style: style),
+  )..layout();
+  if (painter.width <= maxWidth) return painter;
+
+  final characters = name.trim().replaceFirst(RegExp(r'…$'), '').runes.toList();
+  // Fit the actual string, not an ellipsized box that may retain unused width.
+  do {
+    if (characters.isNotEmpty) characters.removeLast();
+    painter.text = TextSpan(
+      text: '${String.fromCharCodes(characters).trimRight()}…',
+      style: style,
+    );
+    painter.layout();
+  } while (painter.width > maxWidth && characters.isNotEmpty);
+  return painter;
+}
+
 String layoutBadgeTitleForZoom(
   String name,
   double zoom, {
@@ -37,6 +64,7 @@ String layoutBadgeTitleForZoom(
 double layoutBadgeTitleFontSizeForZoom(double zoom) => zoom >= 17.0 ? 13 : 11;
 
 String layoutClusterTitleForZoom(String title, double zoom) {
+  if (RegExp(r'^\d+ Layouts$').hasMatch(title.trim())) return title.trim();
   final match = RegExp(r'^(.*)\s+\((\d+)\)$').firstMatch(title.trim());
   if (match == null) return layoutBadgeTitleForZoom(title, zoom);
   if (zoom > 15.8) return title;

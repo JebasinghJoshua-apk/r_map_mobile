@@ -4,6 +4,20 @@ A new Flutter project.
 
 ## Layout map interaction
 
+- Layout markers use web-style 72-pixel spatial grid clustering through zoom 12.
+  Mixed names display a total such as **5 Layouts**; a shared base name or alias
+  displays **Orange (2)**. From zoom 12 to 15 only nearby same-name/alias layouts
+  remain grouped; above zoom 15 layouts are individual. Counts represent layouts,
+  not intermediate groups. Cluster positions use public marker positions, not
+  Map Focus. Tapping a cluster fits its members without opening a property panel.
+- Named cluster labels shorten at lower zoom while retaining their count
+  (for example, **Thirumalai… (2)**). Generic labels such as **5 Layouts** stay intact.
+  The name uses the same 48-logical-pixel limit as individual badges through
+  zoom 15.8, including long first words; the count is drawn outside that limit.
+  Counts follow the measured shortened text with a single space, avoiding
+  inconsistent gaps after ellipsized names.
+- Non-layout property carousels show the edges of neighboring cards when
+  multiple properties are available, indicating that the panel can be swiped.
 - Nearby Layouts allows only one popup operation at a time, including loading,
   so overlapping automatic opens and manual taps cannot stack duplicate sheets.
 - Tapping a layout dot or badge opens its bottom preview panel on the map.
