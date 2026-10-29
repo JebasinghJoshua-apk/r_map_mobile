@@ -114,26 +114,29 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
     bool showWhenEmpty = false,
     bool isManualOpen = false,
   }) async {
-    // If the panel is already open and this is an automatic (non-manual) call,
-    // skip to avoid duplicating the bottom sheet.
-    if (_isNearbyLayoutsDialogOpen && !isManualOpen) return;
+    if (!mounted || _isNearbyLayoutsDialogOpen) return;
 
-    if (_isNearbyLayoutsDialogOpen) {
-      final nav = Navigator.of(context, rootNavigator: true);
-      if (nav.canPop()) {
-        nav.pop();
-        await Future<void>.delayed(Duration.zero);
-        if (!mounted) return;
-      }
+    // Reserve the popup before loading so automatic and manual opens cannot race.
+    _isNearbyLayoutsDialogOpen = true;
+    try {
+      await _showNearbyLayoutsPopup(
+        anchor: anchor,
+        showWhenEmpty: showWhenEmpty || isManualOpen,
+      );
+    } finally {
+      _isNearbyLayoutsDialogOpen = false;
     }
+  }
 
+  Future<void> _showNearbyLayoutsPopup({
+    required LatLng anchor,
+    required bool showWhenEmpty,
+  }) async {
     _dismissKeyboard();
     _closeAnyPanel();
 
     const baseRadiusKm = _nearbyLayoutsAutoRadiusKm;
     const limit = 15;
-    final effectiveShowWhenEmpty = showWhenEmpty || isManualOpen;
-
     await _loadNearbyLayouts(anchor, limit: limit, radiusKm: baseRadiusKm);
     if (!mounted) return;
 
@@ -144,7 +147,7 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
     }
 
     final initialItems = _nearbyLayouts ?? const <NearbyPropertyCard>[];
-    if (initialItems.isEmpty && !effectiveShowWhenEmpty) {
+    if (initialItems.isEmpty && !showWhenEmpty) {
       _activatePendingCoachmarks();
       return;
     }
@@ -155,88 +158,83 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
     var modalLoading = false;
     var activeRequestId = 0;
 
-    try {
-      _isNearbyLayoutsDialogOpen = true;
-      closeReason = await showModalBottomSheet<_NearbyLayoutsDialogCloseReason>(
-        context: context,
-        isScrollControlled: true,
-        isDismissible: true,
-        enableDrag: true,
-        backgroundColor: Colors.transparent,
-        builder: (sheetContext) {
-          return StatefulBuilder(
-            builder: (context, setModalState) {
-              Future<void> refetchForQuery(String query) async {
-                final requestId = ++activeRequestId;
+    closeReason = await showModalBottomSheet<_NearbyLayoutsDialogCloseReason>(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            Future<void> refetchForQuery(String query) async {
+              final requestId = ++activeRequestId;
 
+              setModalState(() {
+                modalLoading = true;
+                modalError = null;
+              });
+
+              final token = AuthScope.of(context).session?.token;
+              final trimmed = query.trim();
+              final radius = trimmed.isEmpty ? baseRadiusKm : null;
+              final effectiveQuery = trimmed.isEmpty ? null : trimmed;
+
+              try {
+                final results = await _mapApi.getNearbyLayouts(
+                  anchor: anchor,
+                  limit: limit,
+                  radiusKm: radius,
+                  query: effectiveQuery,
+                  bearerToken: token,
+                );
+                if (!mounted) return;
+                if (requestId != activeRequestId) return;
                 setModalState(() {
-                  modalLoading = true;
-                  modalError = null;
+                  modalItems = results;
                 });
-
-                final token = AuthScope.of(context).session?.token;
-                final trimmed = query.trim();
-                final radius = trimmed.isEmpty ? baseRadiusKm : null;
-                final effectiveQuery = trimmed.isEmpty ? null : trimmed;
-
-                try {
-                  final results = await _mapApi.getNearbyLayouts(
-                    anchor: anchor,
-                    limit: limit,
-                    radiusKm: radius,
-                    query: effectiveQuery,
-                    bearerToken: token,
-                  );
-                  if (!mounted) return;
-                  if (requestId != activeRequestId) return;
-                  setModalState(() {
-                    modalItems = results;
-                  });
-                } on MapApiException catch (ex) {
-                  if (!mounted) return;
-                  if (requestId != activeRequestId) return;
-                  setModalState(() {
-                    modalError = ex.message;
-                    modalItems = const <NearbyPropertyCard>[];
-                  });
-                } catch (_) {
-                  if (!mounted) return;
-                  if (requestId != activeRequestId) return;
-                  setModalState(() {
-                    modalError = 'Failed to load nearby layouts.';
-                    modalItems = const <NearbyPropertyCard>[];
-                  });
-                } finally {
-                  if (!mounted) return;
-                  if (requestId != activeRequestId) return;
-                  setModalState(() {
-                    modalLoading = false;
-                  });
-                }
+              } on MapApiException catch (ex) {
+                if (!mounted) return;
+                if (requestId != activeRequestId) return;
+                setModalState(() {
+                  modalError = ex.message;
+                  modalItems = const <NearbyPropertyCard>[];
+                });
+              } catch (_) {
+                if (!mounted) return;
+                if (requestId != activeRequestId) return;
+                setModalState(() {
+                  modalError = 'Failed to load nearby layouts.';
+                  modalItems = const <NearbyPropertyCard>[];
+                });
+              } finally {
+                if (!mounted) return;
+                if (requestId != activeRequestId) return;
+                setModalState(() {
+                  modalLoading = false;
+                });
               }
+            }
 
-              return _NearbyLayoutsSheet(
-                items: modalItems,
-                error: modalError,
-                isLoading: modalLoading,
-                anchor: anchor,
-                onQueryChanged: refetchForQuery,
-                onCloseManual: () =>
-                    Navigator.of(context, rootNavigator: true).pop(
-                  _NearbyLayoutsDialogCloseReason.manual,
-                ),
-                onFocus: (item) async {
-                  Navigator.of(sheetContext, rootNavigator: true).pop();
-                  _onNearbyLayoutFocused(item, anchor);
-                },
-              );
-            },
-          );
-        },
-      );
-    } finally {
-      _isNearbyLayoutsDialogOpen = false;
-    }
+            return _NearbyLayoutsSheet(
+              items: modalItems,
+              error: modalError,
+              isLoading: modalLoading,
+              anchor: anchor,
+              onQueryChanged: refetchForQuery,
+              onCloseManual: () =>
+                  Navigator.of(context, rootNavigator: true).pop(
+                _NearbyLayoutsDialogCloseReason.manual,
+              ),
+              onFocus: (item) async {
+                Navigator.of(sheetContext, rootNavigator: true).pop();
+                _onNearbyLayoutFocused(item, anchor);
+              },
+            );
+          },
+        );
+      },
+    );
 
     if (closeReason == _NearbyLayoutsDialogCloseReason.manual) {
       _triggerNearbyLayoutsReopenHint();

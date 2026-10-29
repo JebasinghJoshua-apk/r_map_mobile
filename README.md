@@ -4,6 +4,8 @@ A new Flutter project.
 
 ## Layout map interaction
 
+- Nearby Layouts allows only one popup operation at a time, including loading,
+  so overlapping automatic opens and manual taps cannot stack duplicate sheets.
 - Tapping a layout dot or badge opens its bottom preview panel on the map.
 - Round layout dots are hidden while a property or plot bottom panel is open.
   Badges, clusters, and other marker types remain unchanged.
