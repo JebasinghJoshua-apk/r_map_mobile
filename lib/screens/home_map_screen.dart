@@ -124,12 +124,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
     setState(fn);
   }
 
-  // Camera back-history: every auto-focus (search, layout marker, plot,
-  // property) pushes the camera position it's jumping *from* onto this stack.
-  // Back pops one level at a time, closing one panel per tap, so users can
-  // undo drill-downs step by step instead of jumping straight to the search
-  // origin. Capped so it can't grow unbounded across a long session.
+  // Camera back-history for panel focus operations. Search locations are
+  // tracked separately so Back returns to the latest search before offering
+  // to exit, rather than restoring the camera from before the search.
   final List<CameraPosition> _cameraBackStack = <CameraPosition>[];
+  CameraPosition? _searchCameraPosition;
+  bool _shouldRestoreSearchCameraOnBack = false;
   static const int _maxCameraBackStackDepth = 5;
   bool _userMovedCameraSinceLastFocus = false;
   bool _isProgrammaticCameraMove = false;

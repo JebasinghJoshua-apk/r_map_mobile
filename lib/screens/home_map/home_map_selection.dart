@@ -313,8 +313,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _hasSelectedPlace = true;
     });
 
-    // Snapshot the pre-search camera so Back can undo to it.
-    await _captureCameraBeforePropertyFocus();
+    _rememberSearchCameraPosition(target, zoom);
 
     // Save selected place for push-notification "near you" radius.
     _saveLastSearchedPlace(target.latitude, target.longitude);
@@ -355,8 +354,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _hasSelectedPlace = true;
     });
 
-    // Snapshot the pre-search camera so Back can undo to it.
-    await _captureCameraBeforePropertyFocus();
+    _rememberSearchCameraPosition(target, zoom);
 
     // Save selected place for push-notification "near you" radius.
     _saveLastSearchedPlace(target.latitude, target.longitude);
@@ -376,6 +374,13 @@ extension _HomeMapSelection on _HomeMapScreenState {
     );
 
     if (!mounted) return;
+  }
+
+  void _rememberSearchCameraPosition(LatLng target, double zoom) {
+    _cameraBackStack.clear();
+    _userMovedCameraSinceLastFocus = false;
+    _searchCameraPosition = CameraPosition(target: target, zoom: zoom);
+    _shouldRestoreSearchCameraOnBack = true;
   }
 
   Future<void> _onMyPropertySelected(MyPropertyListItem item) async {
@@ -830,6 +835,9 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _cameraBackStack.removeAt(0);
     }
     _userMovedCameraSinceLastFocus = false;
+    if (_searchCameraPosition != null) {
+      _shouldRestoreSearchCameraOnBack = true;
+    }
   }
 
   /// Pops one level of camera history for a Back tap. Returns null (consuming
@@ -1645,8 +1653,9 @@ extension _HomeMapSelection on _HomeMapScreenState {
   ///
   /// Priority order:
   /// 1. If a bottom card (plot/property) is open → close it.
-  /// 2. If user panned away from the selected place → re-focus to it.
-  /// 3. Otherwise → show exit confirmation dialog.
+  /// 2. Re-focus the most recently searched place, if any.
+  /// 3. Undo remaining camera history.
+  /// 4. Otherwise → show exit confirmation dialog.
   void _handleBackPress() {
     // 1. Close one panel at a time, deepest first. Layout previews keep the
     // current camera; other panels restore their pre-focus position.
@@ -1659,8 +1668,20 @@ extension _HomeMapSelection on _HomeMapScreenState {
       return;
     }
 
-    // 2. No panel open — undo one more level of camera history, if any
-    // (e.g. a manual drag/zoom, or the search that brought you here).
+    final searchCameraPosition = _searchCameraPosition;
+    if (_shouldRestoreSearchCameraOnBack && searchCameraPosition != null) {
+      _shouldRestoreSearchCameraOnBack = false;
+      _cameraBackStack.clear();
+      _userMovedCameraSinceLastFocus = false;
+      unawaited(
+        _animateCamera(
+          CameraUpdate.newCameraPosition(searchCameraPosition),
+        ),
+      );
+      return;
+    }
+
+    // 3. No panel or searched place left — undo remaining camera history.
     final restoreCameraPosition = _popCameraBackStack();
     if (restoreCameraPosition != null) {
       unawaited(
@@ -1671,7 +1692,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
       return;
     }
 
-    // 3. Nothing left to undo — show exit confirmation.
+    // 4. Nothing left to undo — show exit confirmation.
     _showExitConfirmationDialog();
   }
 
