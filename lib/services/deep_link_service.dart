@@ -10,6 +10,7 @@ import '../models/map_viewport_models.dart';
 import '../screens/property_detail_screen.dart';
 import '../screens/layout_detail_screen.dart';
 import '../utils/geojson.dart';
+import '../utils/layout_map_focus.dart';
 import '../utils/pending_plot_selection.dart';
 import '../utils/pending_property_selection.dart';
 
@@ -383,7 +384,10 @@ class DeepLinkService {
     final hasBoundary =
         GeoJson.tryParsePolygons(boundary).any((points) => points.length >= 3);
 
-    if (!hasCenter && !hasBoundary) {
+    final focusPoint = parseLayoutMapFocusPoint(
+      summary['mapFocusPoint'] as String?,
+    );
+    if (!hasCenter && !hasBoundary && focusPoint == null) {
       debugPrint('[DeepLink] layout $layoutId has no usable map location');
       _showError(nav.context, 'Map location unavailable. Opening layout details.');
       nav.push(
@@ -407,6 +411,7 @@ class DeepLinkService {
             hasCenter ? '{"type":"Point","coordinates":[$lng,$lat]}' : null,
         metadata: {
           ..._buildMetadataFromSummary(summary),
+          'mapFocusPoint': summary['mapFocusPoint'] as String?,
           if (summary['mobileFocusZoomLevel'] is num)
             'mobileFocusZoomLevel': '${summary['mobileFocusZoomLevel']}',
           if (summary['focusZoomLevel'] is num)

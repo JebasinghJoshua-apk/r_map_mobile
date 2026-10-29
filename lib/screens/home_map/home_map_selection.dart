@@ -25,6 +25,11 @@ extension _HomeMapSelection on _HomeMapScreenState {
     final isLayout = propertyType.trim() == 'Layout';
 
     return <String, String?>{
+      if (isLayout) ...{
+        'mapFocusPoint': summary?['mapFocusPoint'] as String?,
+        'mobileFocusZoomLevel': summary?['mobileFocusZoomLevel']?.toString(),
+        'focusZoomLevel': summary?['focusZoomLevel']?.toString(),
+      },
       'location': location,
       if (plotsCount != null) 'plots': plotsCount.toString(),
       'area': (summaryArea != null && summaryArea.isNotEmpty)
@@ -1260,8 +1265,8 @@ extension _HomeMapSelection on _HomeMapScreenState {
   /// Select a Layout feature as the active property: opens the small bottom
   /// details panel and focuses the camera on its boundary. Shared by "My
   /// Properties", "Nearby Layouts", and layout badge or dot taps.
-  /// A configured metadata zoom takes precedence; otherwise its boundary fits
-  /// into the visible map area.
+  /// An explicit map focus point takes precedence without moving the marker.
+  /// Without a focus point or configured zoom, fit the boundary as before.
   Future<void> _selectLayoutFeatureOnMap(
     MapPropertyFeature feature, {
     required LatLng target,
@@ -1284,14 +1289,16 @@ extension _HomeMapSelection on _HomeMapScreenState {
     // Snapshot the pre-focus camera so Back can undo to it.
     await _captureCameraBeforePropertyFocus();
     final configuredZoom = _layoutFocusZoomFromMetadata(feature.metadata);
-    final focusTarget = configuredZoom != null
-        ? feature.centerPoint ?? target
-        : target;
+    final focus = LayoutMapFocus.resolve(
+      feature,
+      fallbackTarget: target,
+      fallbackZoom: zoom,
+      configuredZoom: configuredZoom,
+    );
     await _focusPropertyOnMap(
-      target: focusTarget,
-      zoom: configuredZoom ?? zoom,
-      boundaryGeoJson:
-          configuredZoom == null ? feature.boundaryGeoJson : null,
+      target: focus.target,
+      zoom: focus.zoom,
+      boundaryGeoJson: focus.boundaryGeoJson,
     );
   }
 
@@ -1387,7 +1394,10 @@ extension _HomeMapSelection on _HomeMapScreenState {
     });
 
     if (feature.propertyType.trim() == 'Layout') {
-      var center = feature.centerPoint;
+      var center = parseLayoutMapFocusPoint(
+            feature.metadata['mapFocusPoint'],
+          ) ??
+          feature.centerPoint;
       if (center == null) {
         final points = GeoJson.tryParsePolygons(feature.boundaryGeoJson)
             .expand((polygon) => polygon)
@@ -1606,9 +1616,14 @@ extension _HomeMapSelection on _HomeMapScreenState {
     }
 
     // Focus camera on the layout center.
-    final lat = summary['centerLatitude'] as double?;
-    final lng = summary['centerLongitude'] as double?;
-    if (lat != null && lng != null) {
+    final lat = (summary['centerLatitude'] as num?)?.toDouble();
+    final lng = (summary['centerLongitude'] as num?)?.toDouble();
+    final focusPoint = parseLayoutMapFocusPoint(
+      summary['mapFocusPoint'] as String?,
+    );
+    final target = focusPoint ??
+        (lat != null && lng != null ? LatLng(lat, lng) : null);
+    if (target != null) {
       // Use the same zoom-level resolution as layout badge marker tap:
       // mobileFocusZoomLevel → focusZoomLevel → default 18.5
       final mobileZoom = (summary['mobileFocusZoomLevel'] as num?)?.toDouble();
@@ -1616,7 +1631,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
       final zoom = mobileZoom ?? webZoom ?? _layoutFocusZoomTarget;
 
       await _focusPropertyOnMap(
-        target: LatLng(lat, lng),
+        target: target,
         zoom: zoom,
       );
     }

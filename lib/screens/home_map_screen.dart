@@ -28,6 +28,7 @@ import '../services/mobile_bff_plots_api.dart';
 import '../services/performance_logger.dart';
 import '../state/auth_scope.dart';
 import '../utils/geojson.dart';
+import '../utils/layout_map_focus.dart';
 import '../utils/layout_badge_title.dart';
 import '../utils/user_role.dart';
 import '../widgets/api_key_missing_banner.dart';

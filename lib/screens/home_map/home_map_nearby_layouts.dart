@@ -306,13 +306,15 @@ extension _HomeMapNearbyLayouts on _HomeMapScreenState {
     if (matchedFeature == null) {
       String? priceLabel;
       String? areaLabel;
+      Map<String, dynamic>? summary;
       if (id.isNotEmpty) {
-        final summary = await _fetchPropertyShareSummary('Layout', id);
+        summary = await _fetchPropertyShareSummary('Layout', id);
         priceLabel = (summary?['priceLabel'] as String?)?.trim();
         areaLabel = (summary?['areaLabel'] as String?)?.trim();
       }
 
       fallbackMetadata = <String, String?>{
+        'mapFocusPoint': summary?['mapFocusPoint'] as String?,
         'location': _layoutLocationLabel(item),
         if (item.plotsCount != null) 'plots': item.plotsCount.toString(),
         'area': (areaLabel != null && areaLabel.isNotEmpty)

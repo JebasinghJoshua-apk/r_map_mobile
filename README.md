@@ -8,6 +8,15 @@ A new Flutter project.
 - Round layout dots are hidden while a property or plot bottom panel is open.
   Badges, clusters, and other marker types remain unchanged.
 - Closing the layout panel restores dots without resetting the current camera.
+- Layout selection uses the separately configured **Map Focus** position for
+  the camera, without moving the public dot/badge or displaying a focus marker.
+  Zoom preference remains mobile focus zoom, web focus zoom, then the existing
+  default. A focus point prevents boundary fitting from overriding its position.
+  Without a focus point, existing marker/centre and boundary-fit behavior remains.
+- Map Focus is used for marker taps, nearby layouts, saved/my properties, and
+  shared layout links. Deploy the API version exposing `mapFocusPoint`
+  in viewport metadata and layout share summaries, with the layout map-focus
+  database migrations applied. Older API responses retain existing behavior.
 - **View details** opens the full layout screen. Returning to the map preserves
   the selected layout and its panel.
 - Shared layout links (short links and direct property/share links) open the
