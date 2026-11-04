@@ -9,6 +9,7 @@ import '../../screens/layout_fields_edit_screen.dart';
 import '../../screens/layout_details_form_screen.dart';
 import '../../screens/property_details_form_screen.dart';
 import '../../screens/property_polygon_editor_screen.dart';
+import '../../services/mobile_bff_layouts_api.dart';
 import '../../services/mobile_bff_map_api.dart';
 import '../../utils/geojson.dart';
 import '../../utils/user_role.dart';
@@ -46,6 +47,12 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
   bool _isLoading = true;
   String? _error;
   final Set<String> _deletingIds = <String>{};
+  final Set<String> _expandedLayoutIds = <String>{};
+  final Set<String> _loadingLayoutCounts = <String>{};
+  final Map<String, LayoutPlotCountsDto> _layoutCounts =
+      <String, LayoutPlotCountsDto>{};
+  final Map<String, String> _layoutCountErrors = <String, String>{};
+  final MobileBffLayoutsApi _layoutsApi = MobileBffLayoutsApi();
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
@@ -75,6 +82,128 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
   String _formatDate(DateTime dt) {
     final d = dt.toLocal();
     return '${d.day}/${d.month}/${d.year}';
+  }
+
+  Future<void> _toggleLayoutExpansion(MyPropertyListItem item) async {
+    final id = item.id.trim();
+    if (id.isEmpty) return;
+
+    if (_expandedLayoutIds.contains(id)) {
+      setState(() => _expandedLayoutIds.remove(id));
+      return;
+    }
+
+    setState(() => _expandedLayoutIds.add(id));
+    if (!_layoutCounts.containsKey(id) && !_loadingLayoutCounts.contains(id)) {
+      await _loadLayoutCounts(item);
+    }
+  }
+
+  Future<void> _loadLayoutCounts(MyPropertyListItem item) async {
+    final id = item.id.trim();
+    setState(() {
+      _loadingLayoutCounts.add(id);
+      _layoutCountErrors.remove(id);
+    });
+
+    try {
+      final counts = await _layoutsApi.getLayoutPlotCounts(
+        layoutId: id,
+      );
+      if (!mounted) return;
+      setState(() => _layoutCounts[id] = counts);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _layoutCountErrors[id] = error is LayoutsApiException
+            ? error.message
+            : 'Failed to load plot counts.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _loadingLayoutCounts.remove(id));
+      }
+    }
+  }
+
+  Widget _plotCountChip(String label, int count, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        '$label $count',
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  Widget _layoutCountsPanel(MyPropertyListItem item) {
+    final id = item.id.trim();
+    final counts = _layoutCounts[id];
+    if (_loadingLayoutCounts.contains(id)) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 12),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: SizedBox(
+            height: 18,
+            width: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    final error = _layoutCountErrors[id];
+    if (error != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                error,
+                style: const TextStyle(
+                  color: Color(0xFFB91C1C),
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => unawaited(_loadLayoutCounts(item)),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (counts == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          _plotCountChip('Total', counts.total, const Color(0xFF334155)),
+          _plotCountChip(
+            'Available',
+            counts.available,
+            const Color(0xFF0F766E),
+          ),
+          _plotCountChip('Sold', counts.sold, const Color(0xFFB91C1C)),
+          _plotCountChip('Booked', counts.booked, const Color(0xFFB45309)),
+        ],
+      ),
+    );
   }
 
   Future<void> _load() async {
@@ -753,6 +882,11 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                               normalizedCompact == 'plot' && plotsCount > 1;
                           final isLayoutProperty =
                               normalizedType.contains('layout') || item.isFarmLand;
+                          final isLayoutType =
+                              normalizedType.contains('layout') &&
+                                  !item.isFarmLand;
+                          final isLayoutExpanded =
+                              _expandedLayoutIds.contains(item.id.trim());
                           final isEditableProperty = !item.isAssignedOnly &&
                               const <String>{
                                 'plot',
@@ -885,144 +1019,267 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                                     horizontal: 12,
                                     vertical: 12,
                                   ),
-                                  child: Row(
+                                  child: Column(
                                     crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                        CrossAxisAlignment.stretch,
                                     children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
-                                                Expanded(
-                                                  child: isNew
-                                                      ? Text.rich(
-                                                          TextSpan(
-                                                            children: [
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: isNew
+                                                          ? Text.rich(
                                                               TextSpan(
-                                                                text: name,
-                                                              ),
-                                                              WidgetSpan(
-                                                                alignment:
-                                                                    PlaceholderAlignment
-                                                                        .middle,
-                                                                child: Padding(
-                                                                  padding:
-                                                                      const EdgeInsets
-                                                                          .only(
-                                                                    left: 8,
+                                                                children: [
+                                                                  TextSpan(
+                                                                    text: name,
                                                                   ),
-                                                                  child:
-                                                                      DecoratedBox(
-                                                                    decoration:
-                                                                        BoxDecoration(
-                                                                      color: const Color(
-                                                                          0xFFECFDF5),
-                                                                      borderRadius:
-                                                                          BorderRadius.circular(
-                                                                              6),
-                                                                      border:
-                                                                          Border
-                                                                              .all(
-                                                                        color: const Color(
-                                                                            0xFF34D399),
-                                                                      ),
-                                                                    ),
+                                                                  WidgetSpan(
+                                                                    alignment:
+                                                                        PlaceholderAlignment
+                                                                            .middle,
                                                                     child:
-                                                                        const Padding(
+                                                                        Padding(
                                                                       padding:
-                                                                          EdgeInsets
-                                                                              .symmetric(
-                                                                        horizontal:
-                                                                            8,
-                                                                        vertical:
-                                                                            2,
+                                                                          const EdgeInsets
+                                                                              .only(
+                                                                        left: 8,
                                                                       ),
                                                                       child:
-                                                                          Text(
-                                                                        'NEW',
-                                                                        style:
-                                                                            TextStyle(
+                                                                          DecoratedBox(
+                                                                        decoration:
+                                                                            BoxDecoration(
                                                                           color:
-                                                                              Color(0xFF059669),
-                                                                          fontSize:
-                                                                              10,
-                                                                          fontWeight:
-                                                                              FontWeight.w800,
+                                                                              const Color(0xFFECFDF5),
+                                                                          borderRadius:
+                                                                              BorderRadius.circular(6),
+                                                                          border:
+                                                                              Border.all(
+                                                                            color:
+                                                                                const Color(0xFF34D399),
+                                                                          ),
+                                                                        ),
+                                                                        child:
+                                                                            const Padding(
+                                                                          padding:
+                                                                              EdgeInsets.symmetric(
+                                                                            horizontal:
+                                                                                8,
+                                                                            vertical:
+                                                                                2,
+                                                                          ),
+                                                                          child:
+                                                                              Text(
+                                                                            'NEW',
+                                                                            style:
+                                                                                TextStyle(
+                                                                              color: Color(0xFF059669),
+                                                                              fontSize: 10,
+                                                                              fontWeight: FontWeight.w800,
+                                                                            ),
+                                                                          ),
                                                                         ),
                                                                       ),
                                                                     ),
                                                                   ),
-                                                                ),
+                                                                ],
                                                               ),
-                                                            ],
-                                                          ),
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                          style:
-                                                              const TextStyle(
-                                                            fontSize: 15,
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                            color: Color(
-                                                                0xFF0F766E),
-                                                          ),
-                                                        )
-                                                      : Text(
-                                                          name,
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                          style:
-                                                              const TextStyle(
-                                                            fontSize: 15,
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                            color: Color(
-                                                                0xFF0F766E),
-                                                          ),
-                                                        ),
+                                                              maxLines: 1,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                              style:
+                                                                  const TextStyle(
+                                                                fontSize: 15,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700,
+                                                                color: Color(
+                                                                    0xFF0F766E),
+                                                              ),
+                                                            )
+                                                          : Text(
+                                                              name,
+                                                              maxLines: 1,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                              style:
+                                                                  const TextStyle(
+                                                                fontSize: 15,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700,
+                                                                color: Color(
+                                                                    0xFF0F766E),
+                                                              ),
+                                                            ),
+                                                    ),
+                                                  ],
                                                 ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.location_on_outlined,
-                                                  size: 16,
-                                                  color: locationMissing
-                                                      ? const Color(0xFFDC2626)
-                                                      : const Color(0xFF64748B),
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Expanded(
-                                                  child: Text(
-                                                    locationMissing
-                                                        ? 'Location not added'
-                                                        : locationLabel,
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: TextStyle(
-                                                      fontSize: 13,
-                                                      fontWeight:
-                                                          FontWeight.w600,
+                                                const SizedBox(height: 8),
+                                                Row(
+                                                  children: [
+                                                    Icon(
+                                                      Icons
+                                                          .location_on_outlined,
+                                                      size: 16,
                                                       color: locationMissing
                                                           ? const Color(
                                                               0xFFDC2626)
                                                           : const Color(
-                                                              0xFF475569),
+                                                              0xFF64748B),
                                                     ),
-                                                  ),
+                                                    const SizedBox(width: 6),
+                                                    Expanded(
+                                                      child: Text(
+                                                        locationMissing
+                                                            ? 'Location not added'
+                                                            : locationLabel,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        style: TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: locationMissing
+                                                              ? const Color(
+                                                                  0xFFDC2626)
+                                                              : const Color(
+                                                                  0xFF475569),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ],
                                             ),
-                                            const SizedBox(height: 10),
-                                            Wrap(
+                                          ),
+                                          const SizedBox(width: 8),
+                                          if (!item.isAssignedOnly ||
+                                              isLayoutProperty)
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                // QR code icon for Layout-type properties (admin only)
+                                                if (isLayoutProperty &&
+                                                    widget.userRole ==
+                                                        UserRole.admin)
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                      right: 6,
+                                                    ),
+                                                    child: _actionIcon(
+                                                      icon: Icons.qr_code_2,
+                                                      tooltip:
+                                                          'Generate QR Code',
+                                                      onTap: () {
+                                                        final base =
+                                                            ApiConstants
+                                                                .webBaseUrl
+                                                                .replaceAll(
+                                                          RegExp(r'/$'),
+                                                          '',
+                                                        );
+                                                        // Use short URL if available for cleaner QR codes
+                                                        final shareUrl = item
+                                                                        .shortCode !=
+                                                                    null &&
+                                                                item.shortCode!
+                                                                    .isNotEmpty
+                                                            ? '$base/s/${item.shortCode}'
+                                                            : '$base/property/Layout/${item.id}';
+                                                        showModalBottomSheet<
+                                                            void>(
+                                                          context: context,
+                                                          isScrollControlled:
+                                                              true,
+                                                          backgroundColor:
+                                                              Colors
+                                                                  .transparent,
+                                                          builder: (_) =>
+                                                              LayoutQrCodeSheet(
+                                                            layoutId: item.id,
+                                                            layoutName: item
+                                                                    .name
+                                                                    .isNotEmpty
+                                                                ? item.name
+                                                                : 'Layout',
+                                                            shareUrl: shareUrl,
+                                                          ),
+                                                        );
+                                                      },
+                                                      iconColor: const Color(
+                                                          0xFF0FAD97),
+                                                      borderColor: const Color(
+                                                          0xFFD1FAE5),
+                                                    ),
+                                                  ),
+                                                _actionIcon(
+                                                  icon: Icons.edit_outlined,
+                                                  tooltip: isLayoutProperty ||
+                                                      isEditableProperty
+                                                    ? 'Edit'
+                                                      : (hasMultiplePlots
+                                                          ? 'Edit disabled'
+                                                          : 'Edit (web only)'),
+                                                  onTap: isLayoutProperty ||
+                                                          isEditableProperty
+                                                      ? () => unawaited(edit())
+                                                      : () => ToastMessage
+                                                              .showAbove(
+                                                            context,
+                                                            hasMultiplePlots
+                                                                ? 'Only single-plot properties can be edited on mobile.'
+                                                                : 'Layout editable only in web screen.',
+                                                          ),
+                                                   enabled: isLayoutProperty ||
+                                                      isEditableProperty,
+                                                ),
+                                                if (!item.isAssignedOnly) ...[
+                                                  const SizedBox(width: 6),
+                                                  _actionIcon(
+                                                    icon: Icons.delete_outline,
+                                                    tooltip:
+                                                        deleteDisabledReason,
+                                                    onTap: canDeleteProperty
+                                                        ? () => unawaited(
+                                                            deleteProperty())
+                                                        : (isDeleting
+                                                            ? null
+                                                            : () => ToastMessage
+                                                                    .showAbove(
+                                                                  context,
+                                                                  hasMultiplePlots
+                                                                      ? 'Only single-plot properties can be deleted on mobile.'
+                                                                      : 'Layout deletions are available on the web screen.',
+                                                                )),
+                                                    enabled: canDeleteProperty,
+                                                    iconColor:
+                                                        const Color(0xFFDC2626),
+                                                    borderColor:
+                                                        const Color(0xFFFEE2E2),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Wrap(
                                               spacing: 14,
                                               runSpacing: 8,
                                               children: [
@@ -1035,116 +1292,47 @@ class _MyPropertiesDialogState extends State<MyPropertiesDialog> {
                                                   dateLabel,
                                                 ),
                                                 _approvalStatusChip(
-                                                    item.approvalStatus),
+                                                  item.approvalStatus,
+                                                ),
                                                 if (item.isAssignedOnly &&
                                                     !isLayoutProperty)
                                                   _assignedBadge(),
                                               ],
                                             ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      if (!item.isAssignedOnly ||
-                                          isLayoutProperty)
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            // QR code icon for Layout-type properties (admin only)
-                                            if (isLayoutProperty &&
-                                                widget.userRole ==
-                                                    UserRole.admin)
-                                              Padding(
-                                                padding: const EdgeInsets.only(
-                                                  right: 6,
-                                                ),
-                                                child: _actionIcon(
-                                                  icon: Icons.qr_code_2,
-                                                  tooltip: 'Generate QR Code',
-                                                  onTap: () {
-                                                    final base = ApiConstants
-                                                        .webBaseUrl
-                                                        .replaceAll(
-                                                      RegExp(r'/$'),
-                                                      '',
-                                                    );
-                                                    // Use short URL if available for cleaner QR codes
-                                                    final shareUrl = item
-                                                                    .shortCode !=
-                                                                null &&
-                                                            item.shortCode!
-                                                                .isNotEmpty
-                                                        ? '$base/s/${item.shortCode}'
-                                                        : '$base/property/Layout/${item.id}';
-                                                    showModalBottomSheet<void>(
-                                                      context: context,
-                                                      isScrollControlled: true,
-                                                      backgroundColor:
-                                                          Colors.transparent,
-                                                      builder: (_) =>
-                                                          LayoutQrCodeSheet(
-                                                        layoutId: item.id,
-                                                        layoutName:
-                                                            item.name.isNotEmpty
-                                                                ? item.name
-                                                                : 'Layout',
-                                                        shareUrl: shareUrl,
-                                                      ),
-                                                    );
-                                                  },
-                                                  iconColor:
-                                                      const Color(0xFF0FAD97),
-                                                  borderColor:
-                                                      const Color(0xFFD1FAE5),
-                                                ),
+                                          ),
+                                          if (isLayoutType)
+                                            IconButton(
+                                              tooltip: isLayoutExpanded
+                                                  ? 'Hide plot counts'
+                                                  : 'Show plot counts',
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              constraints:
+                                                  const BoxConstraints.tightFor(
+                                                width: 30,
+                                                height: 18,
                                               ),
-                                            _actionIcon(
-                                              icon: Icons.edit_outlined,
-                                              tooltip: isLayoutProperty ||
-                                                  isEditableProperty
-                                                ? 'Edit'
-                                                  : (hasMultiplePlots
-                                                      ? 'Edit disabled'
-                                                      : 'Edit (web only)'),
-                                              onTap: isLayoutProperty ||
-                                                  isEditableProperty
-                                                  ? () => unawaited(edit())
-                                                  : () =>
-                                                      ToastMessage.showAbove(
-                                                        context,
-                                                        hasMultiplePlots
-                                                            ? 'Only single-plot properties can be edited on mobile.'
-                                                            : 'Layout editable only in web screen.',
-                                                      ),
-                                                enabled: isLayoutProperty ||
-                                                  isEditableProperty,
+                                              style: IconButton.styleFrom(
+                                                tapTargetSize:
+                                                    MaterialTapTargetSize
+                                                        .shrinkWrap,
+                                              ),
+                                              padding: EdgeInsets.zero,
+                                              onPressed: () => unawaited(
+                                                _toggleLayoutExpansion(item),
+                                              ),
+                                              icon: Icon(
+                                                isLayoutExpanded
+                                                    ? Icons.keyboard_arrow_up
+                                                    : Icons.keyboard_arrow_down,
+                                                color: const Color(0xFF64748B),
+                                                size: 18,
+                                              ),
                                             ),
-                                            if (!item.isAssignedOnly) ...[
-                                              const SizedBox(width: 6),
-                                              _actionIcon(
-                                                icon: Icons.delete_outline,
-                                                tooltip: deleteDisabledReason,
-                                                onTap: canDeleteProperty
-                                                    ? () => unawaited(
-                                                        deleteProperty())
-                                                    : (isDeleting
-                                                        ? null
-                                                        : () => ToastMessage
-                                                                .showAbove(
-                                                              context,
-                                                              hasMultiplePlots
-                                                                  ? 'Only single-plot properties can be deleted on mobile.'
-                                                                  : 'Layout deletions are available on the web screen.',
-                                                            )),
-                                                enabled: canDeleteProperty,
-                                                iconColor:
-                                                    const Color(0xFFDC2626),
-                                                borderColor:
-                                                    const Color(0xFFFEE2E2),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
+                                        ],
+                                      ),
+                                      if (isLayoutType && isLayoutExpanded)
+                                        _layoutCountsPanel(item),
                                     ],
                                   ),
                                 ),

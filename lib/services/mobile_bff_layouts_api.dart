@@ -109,6 +109,53 @@ class MobileBffLayoutsApi {
     );
   }
 
+  Future<LayoutPlotCountsDto> getLayoutPlotCounts({
+    required String layoutId,
+  }) async {
+    final trimmedId = layoutId.trim();
+    if (trimmedId.isEmpty) {
+      throw const LayoutsApiException('Invalid layout id');
+    }
+
+    final uri = _uri('/mobile/layouts/$trimmedId/plot-counts');
+    http.Response response;
+    try {
+      response = await _client.get(uri).timeout(_timeout);
+    } on SocketException {
+      _logNetworkHelp(uri);
+      throw const LayoutsApiException(
+        'Cannot connect to the server. Please check your network and try again.',
+      );
+    } on HttpException {
+      _logNetworkHelp(uri);
+      throw const LayoutsApiException('Network error. Please try again.');
+    } on TimeoutException {
+      throw const LayoutsApiException('Request timed out. Please try again.');
+    } on FormatException {
+      throw const LayoutsApiException('Unexpected response from server');
+    }
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map) {
+        throw const LayoutsApiException('Unexpected response from server');
+      }
+      return LayoutPlotCountsDto.fromJson(decoded.cast<String, dynamic>());
+    }
+
+    if (response.statusCode == 404) {
+      throw const LayoutsApiException('Layout not found');
+    }
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      throw const LayoutsApiException('Not authorized to view plot counts');
+    }
+
+    throw LayoutsApiException(
+      _tryMessage(response.body) ??
+          'Plot counts fetch failed (${response.statusCode})',
+    );
+  }
+
   String? _tryMessage(String body) {
     try {
       final decoded = jsonDecode(body);
@@ -273,7 +320,7 @@ class MobileBffLayoutsApi {
     final uri = _uri('/mobile/layouts/$trimmedId');
 
     final normalizedAdditionalDetails =
-      additionalDetailsForStorage(additionalDetails);
+        additionalDetailsForStorage(additionalDetails);
 
     final payload = <String, dynamic>{
       'name': trimmedName,
@@ -283,7 +330,8 @@ class MobileBffLayoutsApi {
       if (price != null) 'price': price.trim().isEmpty ? null : price.trim(),
       if (plotsCount != null && plotsCount > 0) 'plotsCount': plotsCount,
       if (surveyNumber != null)
-        'surveyNumber': surveyNumber.trim().isEmpty ? null : surveyNumber.trim(),
+        'surveyNumber':
+            surveyNumber.trim().isEmpty ? null : surveyNumber.trim(),
       if (approvalNumber != null)
         'approvalNumber':
             approvalNumber.trim().isEmpty ? null : approvalNumber.trim(),
@@ -485,6 +533,29 @@ class LayoutDetailDto {
       images: _asList(json['images'])
           .map((e) => LayoutImageDto.fromJson(e))
           .toList(growable: false),
+    );
+  }
+}
+
+class LayoutPlotCountsDto {
+  const LayoutPlotCountsDto({
+    required this.total,
+    required this.available,
+    required this.sold,
+    required this.booked,
+  });
+
+  final int total;
+  final int available;
+  final int sold;
+  final int booked;
+
+  static LayoutPlotCountsDto fromJson(Map<String, dynamic> json) {
+    return LayoutPlotCountsDto(
+      total: _asInt(json['total']) ?? 0,
+      available: _asInt(json['available']) ?? 0,
+      sold: _asInt(json['sold']) ?? 0,
+      booked: _asInt(json['booked']) ?? 0,
     );
   }
 }
