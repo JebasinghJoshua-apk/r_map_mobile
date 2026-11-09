@@ -1771,7 +1771,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                 ],
               ),
             ),
-            if (isIOS && _showSearchBackButton)
+            if (_showSearchBackButton &&
+                (isIOS ||
+                    Theme.of(context).platform == TargetPlatform.android))
               Positioned(
                 top: MediaQuery.of(context).viewPadding.top + 56,
                 left: 16,
