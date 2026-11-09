@@ -40,6 +40,11 @@ A new Flutter project.
 - Round layout dots are hidden while a property or plot bottom panel is open.
   Badges, clusters, and other marker types remain unchanged.
 - Closing the layout panel restores dots without resetting the current camera.
+- On Android and iOS, Back from a layout returns to the latest searched place's
+  saved camera position and zoom in one tap, closing the layout panel if open.
+  Back from a selected plot still returns to the layout first. The panel's close
+  button and tapping the map continue to dismiss the panel without leaving the
+  layout view.
 - Layout selection uses the separately configured **Map Focus** position for
   the camera, without moving the public dot/badge or displaying a focus marker.
   Zoom preference remains mobile focus zoom, web focus zoom, then the existing

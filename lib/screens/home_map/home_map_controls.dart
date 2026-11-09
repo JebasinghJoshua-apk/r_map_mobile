@@ -96,7 +96,13 @@ extension _HomeMapControls on _HomeMapScreenState {
 
   Widget _searchBackButton() {
     return _mapControlButton(
-      icon: Icons.arrow_back,
+      icon: Icons.arrow_back_rounded,
+      iconWidget: const Center(
+        child: CustomPaint(
+          size: Size(20, 20),
+          painter: _BackArrowPainter(),
+        ),
+      ),
       tooltip: 'Back',
       onPressed: _handleBackPress,
       radius: 6,
@@ -167,6 +173,8 @@ extension _HomeMapControls on _HomeMapScreenState {
     Color? iconColor,
     Color? glowColor,
     double radius = 8.0,
+    double iconSize = 18.0,
+    Widget? iconWidget,
   }) {
     const size = 36.0;
     final bgColor = backgroundColor ?? Colors.white;
@@ -212,9 +220,9 @@ extension _HomeMapControls on _HomeMapScreenState {
                             ),
                           ),
                         )
-                      : Icon(
+                      : iconWidget ?? Icon(
                           icon,
-                          size: 18,
+                          size: iconSize,
                           color: fgColor,
                         ),
                 ),
@@ -241,4 +249,29 @@ extension _HomeMapControls on _HomeMapScreenState {
       ),
     );
   }
+
+}
+
+class _BackArrowPainter extends CustomPainter {
+  const _BackArrowPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF0D9488)
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+    final path = Path()
+      ..moveTo(size.width * 0.5, size.height * 0.2)
+      ..lineTo(size.width * 0.2, size.height * 0.5)
+      ..lineTo(size.width * 0.5, size.height * 0.8)
+      ..moveTo(size.width * 0.2, size.height * 0.5)
+      ..lineTo(size.width * 0.85, size.height * 0.5);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _BackArrowPainter oldDelegate) => false;
 }

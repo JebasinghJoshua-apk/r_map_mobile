@@ -1726,24 +1726,27 @@ extension _HomeMapSelection on _HomeMapScreenState {
   /// Handles the Android system/nav bar back button press.
   ///
   /// Priority order:
-  /// 1. If a bottom card (plot/property) is open → close it.
-  /// 2. Re-focus the most recently searched place, if any.
+  /// 1. Close a plot or non-layout property panel first.
+  /// 2. Close any layout panel and re-focus the latest searched place together.
   /// 3. Undo remaining camera history.
   /// 4. Otherwise → show exit confirmation dialog.
   void _handleBackPress() {
-    // 1. Close one panel at a time, deepest first. Layout previews keep the
-    // current camera; other panels restore their pre-focus position.
+    // Plot Back still returns to the layout before returning to the search.
     if (_selectedPlot != null) {
       _closePlotPanel();
       return;
     }
-    if (_selectedProperty != null) {
+    final searchCameraPosition = _searchCameraPosition;
+    final canRestoreSearch =
+        _shouldRestoreSearchCameraOnBack && searchCameraPosition != null;
+    final isLayout = _selectedProperty?.propertyType.trim() == 'Layout';
+    if (_selectedProperty != null && (!isLayout || !canRestoreSearch)) {
       _closePropertyPanel();
       return;
     }
 
-    final searchCameraPosition = _searchCameraPosition;
     if (_shouldRestoreSearchCameraOnBack && searchCameraPosition != null) {
+      _closePropertyPanel(restoreCamera: false);
       _shouldRestoreSearchCameraOnBack = false;
       _cameraBackStack.clear();
       _userMovedCameraSinceLastFocus = false;
