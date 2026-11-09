@@ -169,7 +169,10 @@ class _AppBootstrapperState extends State<_AppBootstrapper> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          _startupError.toString(),
+                          kReleaseMode
+                              ? 'Please try again. If the problem continues, '
+                                  'close and reopen the app.'
+                              : _startupError.toString(),
                           textAlign: TextAlign.center,
                           style: const TextStyle(color: Color(0xFF92A5A8)),
                         ),

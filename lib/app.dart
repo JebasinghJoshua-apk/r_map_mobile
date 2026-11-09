@@ -170,7 +170,7 @@ class _RMapAppState extends State<RMapApp> {
 
   /// Navigate to the property detail screen when a push notification is tapped.
   void _onNotificationTap(Map<String, dynamic> data) {
-    debugPrint('[Push] _onNotificationTap called with data: $data');
+    debugPrint('[Push] Processing notification tap');
     final propertyId = data['propertyId'] as String?;
     final propertyType = data['propertyType'] as String?;
     if (propertyId == null || propertyId.isEmpty) {
@@ -182,7 +182,7 @@ class _RMapAppState extends State<RMapApp> {
       return;
     }
 
-    debugPrint('[Push] Navigating to $propertyType / $propertyId');
+    debugPrint('[Push] Navigating to notification destination');
     unawaited(_navigateToPropertyFromNotification(propertyId, propertyType));
   }
 
@@ -205,12 +205,6 @@ class _RMapAppState extends State<RMapApp> {
       return;
     }
 
-    debugPrint('[Push] Navigator ready, route stack:');
-    nav.popUntil((route) {
-      debugPrint('[Push]   route: ${route.settings.name ?? route.runtimeType}');
-      return true; // don't pop, just log
-    });
-
     // Capture context before async gap.
     final navContext = nav.context;
 
@@ -220,10 +214,9 @@ class _RMapAppState extends State<RMapApp> {
     debugPrint('[Push] Loading overlay shown');
 
     try {
-      debugPrint('[Push] Fetching share summary: $propertyType / $propertyId');
+      debugPrint('[Push] Fetching share summary');
       final summary = await _fetchShareSummary(propertyType, propertyId);
-      debugPrint(
-          '[Push] Share summary result: ${summary != null ? "OK (keys: ${summary.keys.join(", ")})" : "NULL (404 or error)"}');
+      debugPrint('[Push] Share summary available: ${summary != null}');
 
       // Dismiss loading overlay.
       if (nav.canPop()) {
@@ -240,9 +233,6 @@ class _RMapAppState extends State<RMapApp> {
       final featureId = summary['featureId'] as String? ?? propertyId;
       final name = summary['title'] as String? ?? 'Property';
       final resolvedType = summary['propertyType'] as String? ?? propertyType;
-
-      debugPrint(
-          '[Push] Resolved: featureId=$featureId, name=$name, type=$resolvedType');
 
       // Build center GeoJSON from coordinates if available.
       String? centerGeoJson;
@@ -278,8 +268,7 @@ class _RMapAppState extends State<RMapApp> {
         metadata: _buildMetadataFromSummary(summary),
       );
 
-      debugPrint(
-          '[Push] Pushing PropertyDetailScreen (featureId=$featureId, type=$resolvedType)');
+      debugPrint('[Push] Pushing PropertyDetailScreen');
       nav.push(
         MaterialPageRoute(
           builder: (_) => PropertyDetailScreen(
@@ -304,8 +293,7 @@ class _RMapAppState extends State<RMapApp> {
     String propertyId,
     String propertyType,
   ) {
-    debugPrint(
-        '[Push] _navigateWithMinimalFeature: $propertyType / $propertyId');
+    debugPrint('[Push] Navigating with minimal property information');
     final feature = MapPropertyFeature(
       propertyId: propertyId,
       featureId: propertyId,
@@ -336,8 +324,6 @@ class _RMapAppState extends State<RMapApp> {
     final url = '$baseUrl/api/share/property/'
         '${Uri.encodeComponent(propertyType)}/$featureId';
 
-    debugPrint('[Push] _fetchShareSummary URL: $url');
-
     try {
       final response =
           await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
@@ -345,11 +331,9 @@ class _RMapAppState extends State<RMapApp> {
       debugPrint('[Push] Share summary HTTP ${response.statusCode}');
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
-        debugPrint('[Push] Share summary body keys: ${body.keys.join(", ")}');
         return body;
       } else {
-        debugPrint(
-            '[Push] Share summary non-200 body: ${response.body.length > 200 ? response.body.substring(0, 200) : response.body}');
+        debugPrint('[Push] Share summary request failed');
       }
     } catch (e) {
       debugPrint('[Push] Share summary fetch error: $e');

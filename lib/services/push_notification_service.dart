@@ -90,7 +90,9 @@ class PushNotificationService {
       }
 
       _fcmToken = await _messaging.getToken();
-      debugPrint('[Push] FCM token: ${_fcmToken?.substring(0, 20)}...');
+      if (kDebugMode) {
+        debugPrint('[Push] FCM token fetched: ${_fcmToken != null}');
+      }
     } catch (e) {
       debugPrint('[Push] Unable to fetch FCM token: $e');
     }
@@ -128,7 +130,7 @@ class PushNotificationService {
         debugPrint('[Push] Device registered successfully');
       } else {
         debugPrint(
-            '[Push] Device registration failed: ${response.statusCode} ${response.body}');
+            '[Push] Device registration failed: HTTP ${response.statusCode}');
       }
     } catch (e) {
       debugPrint('[Push] Device registration error: $e');
@@ -187,8 +189,9 @@ class PushNotificationService {
   }
 
   void _handleForegroundMessage(RemoteMessage message) {
-    debugPrint(
-        '[Push] Foreground message: ${message.notification?.title ?? message.messageId}');
+    if (kDebugMode) {
+      debugPrint('[Push] Foreground message received');
+    }
     // The notification is automatically shown in the system tray on Android
     // when the "notification" key is present. No need to create a local
     // notification manually.
@@ -200,12 +203,15 @@ class PushNotificationService {
 
   void _handleNotificationTap(RemoteMessage message) {
     final msgId = message.messageId ?? '${message.data}';
-    debugPrint(
-        '[Push] _handleNotificationTap called: msgId=$msgId, data=${message.data}');
+    if (kDebugMode) {
+      debugPrint('[Push] Notification tapped');
+    }
 
     // Deduplicate: prevent processing the same message twice.
     if (_lastTappedMessageId != null && _lastTappedMessageId == msgId) {
-      debugPrint('[Push] Duplicate tap ignored (msgId=$msgId)');
+      if (kDebugMode) {
+        debugPrint('[Push] Duplicate tap ignored');
+      }
       return;
     }
     _lastTappedMessageId = msgId;
