@@ -386,6 +386,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
     _userMovedCameraSinceLastFocus = false;
     _searchCameraPosition = CameraPosition(target: target, zoom: zoom);
     _shouldRestoreSearchCameraOnBack = true;
+    _showSearchBackButton = false;
   }
 
   Future<void> _onMyPropertySelected(MyPropertyListItem item) async {
@@ -842,6 +843,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
     _userMovedCameraSinceLastFocus = false;
     if (_searchCameraPosition != null) {
       _shouldRestoreSearchCameraOnBack = true;
+      _safeSetState(() => _showSearchBackButton = true);
     }
   }
 
@@ -912,12 +914,15 @@ extension _HomeMapSelection on _HomeMapScreenState {
     }));
   }
 
-  void _closePlotPanel() {
+  void _closePlotPanel({bool restoreCamera = true}) {
     if (!mounted) return;
     if (_selectedPlot == null) return;
     // Cancel any in-flight focus animation/clamp for the previous selection.
     _plotFocusSeq++;
-    final restoreCameraPosition = _popCameraBackStack();
+    final restoreCameraPosition = restoreCamera ? _popCameraBackStack() : null;
+    if (restoreCameraPosition != null) {
+      _hideSearchBackButtonIfRestoringSearchCamera(restoreCameraPosition);
+    }
     _safeSetState(() {
       _selectedPlot = null;
       _selectedPlotHighlightPolygons = const <Polygon>{};
@@ -931,20 +936,44 @@ extension _HomeMapSelection on _HomeMapScreenState {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || _mapController == null) return;
         unawaited(
-          _moveCamera(
-            CameraUpdate.newCameraPosition(restoreCameraPosition),
-          ),
+          _restorePlotCamera(restoreCameraPosition),
         );
       });
     }
   }
 
-  void _closePropertyPanel() {
+  Future<void> _restorePlotCamera(CameraPosition position) async {
+    final isIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+    if (isIOS) {
+      _viewportDebounceTimer?.cancel();
+      // Discard renders started at the selected plot's larger zoom.
+      _viewportRequestSeq++;
+      _lastCameraPosition = position;
+      _effectiveZoom = position.zoom;
+      _zoomNotifier.value = position.zoom;
+    }
+
+    await _moveCamera(CameraUpdate.newCameraPosition(position));
+    if (!isIOS || !mounted || _mapController == null) return;
+
+    // iOS moveCamera can reach idle before delivering its final camera update.
+    _lastCameraPosition = position;
+    _effectiveZoom = position.zoom;
+    _zoomNotifier.value = position.zoom;
+    _viewportRequestSeq++;
+    _lastViewportSignature = null;
+    _onCameraIdle();
+  }
+
+  void _closePropertyPanel({bool restoreCamera = true}) {
     if (!mounted) return;
     if (_selectedProperty == null) return;
 
     final wasLayout = _selectedProperty!.propertyType.trim() == 'Layout';
-    final restoreCameraPosition = _popCameraBackStack();
+    final restoreCameraPosition = restoreCamera ? _popCameraBackStack() : null;
+    if (!wasLayout && restoreCameraPosition != null) {
+      _hideSearchBackButtonIfRestoringSearchCamera(restoreCameraPosition);
+    }
 
     _safeSetState(() {
       _selectedProperty = null;
@@ -983,6 +1012,26 @@ extension _HomeMapSelection on _HomeMapScreenState {
           ),
         );
       });
+    }
+  }
+
+  void _hideSearchBackButtonIfRestoringSearchCamera(
+    CameraPosition? cameraPosition,
+  ) {
+    final searchCameraPosition = _searchCameraPosition;
+    if (cameraPosition == null || searchCameraPosition == null) return;
+
+    final isSearchCamera =
+        (cameraPosition.target.latitude - searchCameraPosition.target.latitude)
+                    .abs() <
+                0.00001 &&
+            (cameraPosition.target.longitude -
+                        searchCameraPosition.target.longitude)
+                    .abs() <
+                0.00001 &&
+            (cameraPosition.zoom - searchCameraPosition.zoom).abs() < 0.1;
+    if (isSearchCamera) {
+      _safeSetState(() => _showSearchBackButton = false);
     }
   }
 
@@ -1698,6 +1747,7 @@ extension _HomeMapSelection on _HomeMapScreenState {
       _shouldRestoreSearchCameraOnBack = false;
       _cameraBackStack.clear();
       _userMovedCameraSinceLastFocus = false;
+      _safeSetState(() => _showSearchBackButton = false);
       unawaited(
         _animateCamera(
           CameraUpdate.newCameraPosition(searchCameraPosition),

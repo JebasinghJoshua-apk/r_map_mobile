@@ -94,6 +94,18 @@ extension _HomeMapControls on _HomeMapScreenState {
     );
   }
 
+  Widget _searchBackButton() {
+    return _mapControlButton(
+      icon: Icons.arrow_back,
+      tooltip: 'Back',
+      onPressed: _handleBackPress,
+      radius: 6,
+      backgroundColor: Colors.white,
+      iconColor: const Color(0xFF0D9488),
+      glowColor: const Color(0xFF14B8A6),
+    );
+  }
+
   Future<void> _goToMyLocation() async {
     if (_isLocating) return;
     _updateState(() => _isLocating = true);
@@ -154,8 +166,8 @@ extension _HomeMapControls on _HomeMapScreenState {
     Color? backgroundColor,
     Color? iconColor,
     Color? glowColor,
+    double radius = 8.0,
   }) {
-    const radius = 8.0;
     const size = 36.0;
     final bgColor = backgroundColor ?? Colors.white;
     final fgColor = iconColor ?? const Color(0xFF1F2937);

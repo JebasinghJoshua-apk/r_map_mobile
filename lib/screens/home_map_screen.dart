@@ -132,6 +132,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
   final List<CameraPosition> _cameraBackStack = <CameraPosition>[];
   CameraPosition? _searchCameraPosition;
   bool _shouldRestoreSearchCameraOnBack = false;
+  bool _showSearchBackButton = false;
   static const int _maxCameraBackStackDepth = 5;
   bool _userMovedCameraSinceLastFocus = false;
   bool _isProgrammaticCameraMove = false;
@@ -1770,6 +1771,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
                 ],
               ),
             ),
+            if (isIOS && _showSearchBackButton)
+              Positioned(
+                top: MediaQuery.of(context).viewPadding.top + 56,
+                left: 16,
+                child: _searchBackButton(),
+              ),
             // Filter coachmark overlay (below the search bar, right-aligned to filter icon).
             if (_showFilterCoachmark)
               Positioned(

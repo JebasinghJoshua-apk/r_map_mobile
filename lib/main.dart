@@ -14,80 +14,178 @@ import 'services/push_notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  runApp(const _AppBootstrapper());
+}
 
-  // Lock orientation to portrait only.
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+class _AppBootstrapper extends StatefulWidget {
+  const _AppBootstrapper();
 
-  // Initialize Firebase.
-  if (kIsWeb ||
-      (defaultTargetPlatform != TargetPlatform.android &&
-          defaultTargetPlatform != TargetPlatform.iOS)) {
-    await Firebase.initializeApp();
-  } else {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+  @override
+  State<_AppBootstrapper> createState() => _AppBootstrapperState();
+}
+
+class _AppBootstrapperState extends State<_AppBootstrapper> {
+  bool _isReady = false;
+  Object? _startupError;
+  FirebasePerfTraceHandle? _startupTrace;
+  bool _postFrameWorkScheduled = false;
+  Future<void>? _initialization;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_initialize());
   }
 
-  final startupTrace = await FirebasePerfService.startTrace(
-    'app_startup_init_to_first_frame',
-  );
+  Future<void> _initialize() async {
+    setState(() {
+      _isReady = false;
+      _startupError = null;
+    });
 
-  // Crashlytics: collect reports only in profile/release builds.
-  await FirebaseCrashlytics.instance
-      .setCrashlyticsCollectionEnabled(!kDebugMode);
-
-  // Forward Flutter framework errors to Crashlytics.
-  FlutterError.onError = (FlutterErrorDetails details) {
-    FlutterError.presentError(details);
-    FirebaseCrashlytics.instance.recordFlutterFatalError(details);
-  };
-
-  // Forward uncaught async/platform errors to Crashlytics.
-  PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
-    FirebaseCrashlytics.instance.recordError(
-      error,
-      stack,
-      fatal: true,
-    );
-    return true;
-  };
-
-  // Initialize performance logger (debug mode only).
-  if (kDebugMode) {
-    await PerformanceLogger.instance.init();
+    try {
+      final initialization = _initialization ??= _initializeApp();
+      await initialization.timeout(const Duration(seconds: 30));
+      if (!mounted) return;
+      setState(() {
+        _isReady = true;
+      });
+    } catch (error, stackTrace) {
+      if (error is! TimeoutException) {
+        _initialization = null;
+      }
+      debugPrint('[Startup] Initialization failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (!mounted) return;
+      setState(() {
+        _startupError = error;
+      });
+    }
   }
 
-  // Avoid drawing content behind Android system navigation buttons.
-  // Some OEMs (notably Samsung) can render a transparent nav bar in edge-to-edge,
-  // making the back/home buttons hard to see over maps.
-  await SystemChrome.setEnabledSystemUIMode(
-    SystemUiMode.manual,
-    overlays: SystemUiOverlay.values,
-  );
+  Future<void> _initializeApp() async {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
 
-  final platformBrightness =
-      WidgetsBinding.instance.platformDispatcher.platformBrightness;
-  final isDarkMode = platformBrightness == Brightness.dark;
+    if (Firebase.apps.isEmpty) {
+      if (kIsWeb ||
+          (defaultTargetPlatform != TargetPlatform.android &&
+              defaultTargetPlatform != TargetPlatform.iOS)) {
+        await Firebase.initializeApp();
+      } else {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+      }
+    }
 
-  SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
-    statusBarBrightness: isDarkMode ? Brightness.dark : Brightness.light,
-    systemNavigationBarColor: isDarkMode ? Colors.black : Colors.white,
-    systemNavigationBarDividerColor: isDarkMode ? Colors.black : Colors.white,
-    systemNavigationBarIconBrightness:
-        isDarkMode ? Brightness.light : Brightness.dark,
-  ));
-  runApp(const RMapApp());
+    _startupTrace = await FirebasePerfService.startTrace(
+      'app_startup_init_to_first_frame',
+    );
 
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    unawaited(startupTrace?.stop());
-    unawaited(_initializePushNotifications());
-  });
+    await FirebaseCrashlytics.instance
+        .setCrashlyticsCollectionEnabled(!kDebugMode);
+
+    FlutterError.onError = (FlutterErrorDetails details) {
+      FlutterError.presentError(details);
+      FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+    };
+
+    PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+      FirebaseCrashlytics.instance.recordError(
+        error,
+        stack,
+        fatal: true,
+      );
+      return true;
+    };
+
+    if (kDebugMode) {
+      await PerformanceLogger.instance.init();
+    }
+
+    await SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
+
+    final platformBrightness =
+        WidgetsBinding.instance.platformDispatcher.platformBrightness;
+    final isDarkMode = platformBrightness == Brightness.dark;
+
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+      statusBarBrightness: isDarkMode ? Brightness.dark : Brightness.light,
+      systemNavigationBarColor: isDarkMode ? Colors.black : Colors.white,
+      systemNavigationBarDividerColor: isDarkMode ? Colors.black : Colors.white,
+      systemNavigationBarIconBrightness:
+          isDarkMode ? Brightness.light : Brightness.dark,
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isReady) {
+      if (!_postFrameWorkScheduled) {
+        _postFrameWorkScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          unawaited(_startupTrace?.stop());
+          unawaited(_initializePushNotifications());
+        });
+      }
+      return const RMapApp();
+    }
+
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Center(
+            child: _startupError == null
+                ? const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(color: Color(0xFF0FAD97)),
+                      SizedBox(height: 20),
+                      Text(
+                        'Starting R Map…',
+                        style: TextStyle(color: Color(0xFF92A5A8)),
+                      ),
+                    ],
+                  )
+                : Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'R Map could not finish starting.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white, fontSize: 18),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _startupError.toString(),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Color(0xFF92A5A8)),
+                        ),
+                        const SizedBox(height: 20),
+                        FilledButton(
+                          onPressed: _initialize,
+                          child: const Text('Try again'),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 Future<void> _initializePushNotifications() async {
