@@ -2,6 +2,22 @@
 
 A new Flutter project.
 
+## App update prompts
+
+- Android retains its existing Google Play immediate/flexible update flow.
+- On iOS, the home screen starts an optional App Store check after its first
+  frame, without blocking map loading. Checks (including offline/failed attempts)
+  are limited to once every 24 hours and have a five-second network timeout.
+- The installed app's bundle ID and version are read from package metadata.
+  Apple's lookup API is queried in the India storefront by default; override
+  with `--dart-define=APP_STORE_COUNTRY=us` for a different storefront.
+- A newer published version offers **Update** (opens the App Store) or **Later**.
+  Later, tapping outside, or dismissing the dialog remembers that version across
+  restarts so it will not be offered again; a newer release can prompt again.
+- The prompt is skipped if the home route is covered or the app is backgrounded.
+  A subsequent home-screen check after the daily limit may offer it again.
+  This does not force an update and does not check TestFlight builds.
+
 ## Layout map interaction
 
 - Layout markers use web-style 72-pixel spatial grid clustering through zoom 12.

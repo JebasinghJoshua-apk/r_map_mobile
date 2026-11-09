@@ -23,6 +23,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/app_settings_service.dart';
 import '../services/firebase_perf_service.dart';
 import '../services/in_app_update_service.dart';
+import '../services/ios_app_update_service.dart';
 import '../services/mobile_bff_map_api.dart';
 import '../services/mobile_bff_plots_api.dart';
 import '../services/performance_logger.dart';
@@ -451,6 +452,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> with RouteAware {
       Future.delayed(const Duration(milliseconds: 600), () {
         if (!mounted) return;
         _checkPendingDeepLinkSelections();
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+          unawaited(IosAppUpdateService.instance.checkAndPrompt(context));
+        }
       });
     });
   }
